@@ -34,6 +34,7 @@ file can be written and then rendered manually.
 - point lights, backgrounds, transparent output
 - direct POV-Ray SDL and INI generation
 - an `extra_primitives=` scene hook for later unit cells, arrows, isosurfaces, etc.
+- optional per-vertex normals for smooth externally generated triangle meshes
 - notebook-friendly, explicitly staged API
 
 Coordination styles, dashed H-bonds, labels, polyhedra, persistent disk caching,
@@ -306,8 +307,11 @@ scene = make_scene(
 )
 ```
 
-`TriangleMeshPrimitive` is already part of the generic primitive model so a
-later charge-density or convex-hull module can insert triangle meshes.
+`TriangleMeshPrimitive` is part of the generic primitive model so external
+charge-density or convex-hull modules can insert triangle meshes. Set its
+optional `normals` field to one normal per vertex for smooth POV-Ray
+`mesh2` shading; when normals are omitted, the existing faceted output is
+preserved.
 
 ## Rendering
 

@@ -94,6 +94,13 @@ Update the notebook, examples, README, and roadmap when a public API or mileston
 
 Keep feature requests in focused branches and pull requests. Use branch names beginning with `agent/` for agent-authored work and open draft PRs unless the user asks otherwise.
 
+When no suitable local checkout or authenticated `gh` CLI is available, use
+the connected GitHub app directly for repository reads, branch creation,
+file commits, and draft PR creation when those operations are exposed. Do not
+treat a missing local `gh` installation as a blocker when the connector fully
+covers the requested workflow; reserve `gh` for operations the connector
+cannot perform, such as detailed Actions log inspection.
+
 Keep diffs scoped. Do not modify unrelated files or overwrite user changes. Explain deliberate behavioral changes in the PR description.
 
 Avoid speculative framework work. Implement the smallest complete layer needed for the current milestone while preserving the staged architecture and extension points above.
