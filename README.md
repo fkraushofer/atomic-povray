@@ -24,6 +24,8 @@ original POSCAR/CONTCAR (or another ASE-readable format) directly.
 - stable atom identity as `(source_index, lattice_shift)`
 - atom spheres
 - single-color or two-color bonds (with the legacy equal-visible-length split)
+- a shared default finish for atoms and bonds, with per-style material or finish
+  overrides
 - perspective and orthographic cameras
 - point lights, backgrounds, transparent output
 - direct POV-Ray SDL and INI generation
@@ -92,6 +94,42 @@ render_scene(scene, "hematite.png", RenderConfig(quality=3))
 Changing the camera only repeats `make_scene` and `render_scene`. Changing
 colors/radii repeats `apply_styles` onward. Neither operation repeats periodic
 bond detection.
+
+## Finishes and overrides
+
+`StyleConfig.default_finish` is used for every atom and bond that does not
+provide a more specific finish or material:
+
+```python
+default_finish = Finish(
+    ambient=0.10,
+    diffuse=0.60,
+    phong=0.0,
+    phong_size=10,
+)
+
+styles = StyleConfig(
+    default_finish=default_finish,
+    elements={
+        "Fe": AtomStyle(0.55, Color(0.10, 0.10, 1.10)),
+        "O": AtomStyle(0.34, Color(1.05, 0.10, 0.05)),
+    },
+    bonds={"Fe-O": BondStyle(radius=0.074)},
+)
+```
+
+Override only the finish while retaining the atom or bond color with
+`AtomStyle(..., finish=another_finish)` or
+`BondStyle(..., finish=another_finish)`. Supplying `material=Material(...)`
+overrides both color and finish. The resolution order is:
+
+1. an explicit `material`;
+2. an explicit `finish`, combined with the style color;
+3. `StyleConfig.default_finish`, combined with the style color.
+
+`BondStyle.material_template` remains available for compatibility with the
+first prototype, but `finish=` is clearer for new code because a finish has no
+dummy pigment color.
 
 ## Boundary and bond-extension behavior
 
@@ -180,6 +218,8 @@ later charge-density or convex-hull module can insert triangle meshes.
 
 `write_scene` only needs Python. `render_scene` additionally needs POV-Ray.
 It writes a `.pov` scene and `.ini` render file beside the requested image.
+Generated scenes explicitly include `global_settings { assumed_gamma 1.0 }`;
+this preserves the intended colors with POV-Ray 3.8 as well as 3.7.
 
 Linux/macOS command-line builds normally use:
 
@@ -205,4 +245,4 @@ python -m pytest
 The tests cover ordinary and boundary-crossing bonds, skewed cells, clipping
 planes, asymmetric and symmetric one-hop extensions, non-recursion, per-plane
 extension control, replication identities, bicolored styling, extra
-primitives, and SDL output.
+primitives, shared and overridden finishes, gamma settings, and SDL output.
