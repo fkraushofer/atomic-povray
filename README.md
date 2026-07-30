@@ -1,13 +1,15 @@
 # atomic-povray — Prototype 1
 
-This package moves atomic structure processing out of POV-Ray SDL. It reads any
+This package provides a pipeline to render atomic structures from the
+Atomic Simulation Environment (ASE) in POV-Ray. It reads any
 ASE-supported structure, constructs a finite replicated and cropped atomic
 geometry once, resolves periodic bonds, converts that geometry to
 renderer-independent primitives, and only then writes or renders a POV-Ray
 scene.
 
-Prototype 1 deliberately does **not** read the old `.povin` format. Use the
-original POSCAR/CONTCAR (or another ASE-readable format) directly.
+Currently, the workflow is to generate a POV-Ray SDL input file, then execute
+the POV-Ray engine as a subprocess with that input. Alternatively, the input
+file can be written and then rendered manually.
 
 ## What is implemented
 
