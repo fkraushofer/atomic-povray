@@ -140,7 +140,8 @@ space_filling = StyleConfig(preset_style="space_filling")
 
 `space_filling` uses an atom scale of `1.0` and omits bond primitives. Bond
 geometry is retained, so coordination-dependent styles remain available and
-switching presets does not require rebuilding geometry. Override the global atom and bond scales independently when needed. Both are
+switching presets does not require rebuilding geometry. Override the global
+atom and bond scales independently when needed. Both are
 applied after resolving default or explicit per-style radii:
 
 ```python
