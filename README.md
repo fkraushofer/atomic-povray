@@ -27,14 +27,17 @@ file can be written and then rendered manually.
 - single-color or two-color bonds (with the legacy equal-visible-length split)
 - a shared default finish for atoms and bonds, with per-style material or finish
   overrides
+- directional exponential depth shading with a configurable onset, direction,
+  decay length, and target color
+- native POV-Ray constant fog for continuous camera-distance fading
 - perspective and orthographic cameras
 - point lights, backgrounds, transparent output
 - direct POV-Ray SDL and INI generation
 - an `extra_primitives=` scene hook for later unit cells, arrows, isosurfaces, etc.
 - notebook-friendly, explicitly staged API
 
-Coordination styles, dashed H-bonds, depth shading, labels, polyhedra,
-persistent disk caching, and an interactive preview are intentionally deferred.
+Coordination styles, dashed H-bonds, labels, polyhedra, persistent disk caching,
+and an interactive preview are intentionally deferred.
 
 ## Installation
 
@@ -76,6 +79,12 @@ styles = StyleConfig(
         "O": AtomStyle(radius=0.34, color=Color.from_hex("#E6D84A")),
     },
     bonds={"Fe-O": BondStyle(radius=0.074)},
+    depth_shading=DepthShading(
+        origin=(0.0, 0.0, 24.0),
+        direction=(0.0, 0.0, -1.0),
+        decay_length=30.0,
+        target=Color(1.0, 1.0, 1.0),
+    ),
 )
 styled = apply_styles(geometry, styles)
 
@@ -136,6 +145,50 @@ overrides both color and finish. The resolution order is:
 `BondStyle.material_template` remains available for compatibility with the
 first prototype, but `finish=` is clearer for new code because a finish has no
 dummy pigment color.
+
+## Depth shading and fog
+
+Directional depth shading is resolved into primitive colors during
+`apply_styles`:
+
+```python
+styles = StyleConfig(
+    ...,
+    depth_shading=DepthShading(
+        origin=(0.0, 0.0, 24.0),
+        direction=(0.0, 0.0, -1.0),
+        decay_length=30.0,
+        target=Color(1.0, 1.0, 1.0),
+    ),
+)
+```
+
+The origin defines the onset plane perpendicular to `direction`. Colors before
+that plane are unchanged. Beyond it, the original color contribution decays
+exponentially and is `1/e` after `decay_length`. Spheres use their centers,
+cylinders their midpoints, and meshes the mean of their vertices. Alpha and
+finish parameters are preserved.
+
+POV-Ray's native constant fog is available as a continuous alternative when
+depth follows the camera view:
+
+```python
+scene = make_scene(
+    styled.primitives,
+    camera=camera,
+    background=Background(Color.from_hex("#F2F2F2")),
+    fog=Fog(
+        distance=30.0,
+        color=Color.from_hex("#F2F2F2"),
+    ),
+)
+```
+
+Native fog blends every pixel according to the distance traveled from the
+camera, so it varies continuously across primitives. It has no independent
+Cartesian onset or shading direction; use directional depth shading when those
+controls matter. Matching the fog and background colors gives the usual
+atmospheric fade.
 
 ## Boundary and bond-extension behavior
 
