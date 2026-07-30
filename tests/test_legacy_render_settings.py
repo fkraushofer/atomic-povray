@@ -136,7 +136,7 @@ def test_povray_version_is_configurable_and_validated():
     )
     scene = make_scene((), camera=camera)
 
-    assert scene_to_sdl(scene).startswith("#version 3.8;")
-    assert scene_to_sdl(scene, povray_version="3.7").startswith("#version 3.7;")
+    assert scene_to_sdl(scene).startswith("#version 3.7;")
+    assert scene_to_sdl(scene, povray_version="3.8").startswith("#version 3.8;")
     with pytest.raises(ValueError, match="povray_version"):
         RenderConfig(povray_version="3.8-beta")
