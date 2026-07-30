@@ -212,10 +212,30 @@ later charge-density or convex-hull module can insert triangle meshes.
 
 ## Rendering
 
-`write_scene` only needs Python. `render_scene` additionally needs POV-Ray.
-It writes a `.pov` scene and `.ini` render file beside the requested image.
+`write_scene` and `write_ini` only need Python. `render_scene` additionally
+needs POV-Ray. It writes a `.pov` scene and `.ini` render file beside the
+requested image.
 Generated scenes explicitly include `global_settings { assumed_gamma 1.0 }`;
-this preserves the intended colors with POV-Ray 3.8 as well as 3.7.
+this preserves the intended colors with POV-Ray 3.8 as well as 3.7. The
+generated SDL defaults to `#version 3.8`; use `povray_version="3.7"` when
+exporting for POV-Ray 3.7.
+
+To export both files for opening or rendering manually in POV-Ray:
+
+```python
+config = RenderConfig(width=1200, height=900, quality=5)
+scene_path = write_scene(
+    scene,
+    "hematite.pov",
+    width=config.width,
+    height=config.height,
+    povray_version=config.povray_version,
+)
+ini_path = write_ini(scene_path, "hematite.png", config)
+```
+
+Open or render `hematite.ini`, rather than the `.pov` file alone, to retain
+the configured output gamma, antialiasing, transparency, quality, and size.
 
 Linux/macOS command-line builds normally use:
 
