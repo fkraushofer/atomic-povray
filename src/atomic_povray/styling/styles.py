@@ -89,11 +89,11 @@ class DepthShading:
         return replace(
             material,
             color=self.color_at(material.color, position),
-            # Suppress directional lighting and highlights while raising ambient
-            # toward one, so the primitive flattens into the target color.
-            ambient=(
-                material.ambient
-                + (1.0 - material.ambient) * (1.0 - factor_squared)
+            # Suppress lighting and flatten the primitive with emission, which
+            # unlike ambient is not scaled by the scene's ambient_light.
+            ambient=material.ambient * factor_squared,
+            emission=(
+                material.emission * factor_squared + (1.0 - factor_squared)
             ),
             diffuse=material.diffuse * factor_squared,
             phong=material.phong * factor_squared,
