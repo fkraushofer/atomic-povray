@@ -9,6 +9,7 @@ from atomic_povray import (
     AtomStyle,
     BondRule,
     BondRuleSet,
+    BondStyle,
     Color,
     StructureModel,
     StyleConfig,
@@ -31,11 +32,12 @@ def test_empty_style_config_uses_ball_and_stick_defaults():
     styles = StyleConfig()
 
     assert styles.preset_style == "ball_and_stick"
-    assert styles.atom_size_scale == pytest.approx(0.5)
+    assert styles.atom_size_scale == pytest.approx(0.4)
+    assert styles.bond_size_scale == pytest.approx(1.0)
     assert styles.draw_bonds
     assert styles.atom_finish.phong == pytest.approx(0.3)
     assert styles.bond_finish.phong == pytest.approx(0.0)
-    assert styles.default_bond.radius == pytest.approx(0.10)
+    assert styles.default_bond.radius == pytest.approx(0.08)
 
 
 def test_style_presets_control_rendered_atom_scale_and_bond_visibility():
@@ -68,7 +70,7 @@ def test_style_presets_control_rendered_atom_scale_and_bond_visibility():
         for symbol in atoms.get_chemical_symbols()
     ]
     assert [sphere.radius for sphere in ball_spheres] == pytest.approx(
-        [0.5 * radius for radius in expected_radii]
+        [0.4 * radius for radius in expected_radii]
     )
     assert [sphere.radius for sphere in space_spheres] == pytest.approx(
         expected_radii
@@ -107,6 +109,49 @@ def test_explicit_atom_size_scale_overrides_preset_and_scales_custom_radii():
     assert sphere.radius == pytest.approx(0.3)
 
 
+def test_bond_size_scale_scales_default_and_explicit_bond_radii():
+    atoms = Atoms(
+        "FeO",
+        positions=((0.0, 0.0, 0.0), (1.8, 0.0, 0.0)),
+        cell=(10.0, 10.0, 10.0),
+        pbc=False,
+    )
+    geometry = build_geometry(StructureModel(atoms))
+
+    default_styled = apply_styles(
+        geometry,
+        StyleConfig(bond_size_scale=0.5),
+    )
+    explicit_styled = apply_styles(
+        geometry,
+        StyleConfig(
+            bond_size_scale=0.5,
+            bonds={"default:Fe-O": BondStyle(radius=0.12)},
+        ),
+    )
+    default_cylinders = [
+        primitive
+        for primitive in default_styled.primitives
+        if isinstance(primitive, CylinderPrimitive)
+    ]
+    explicit_cylinders = [
+        primitive
+        for primitive in explicit_styled.primitives
+        if isinstance(primitive, CylinderPrimitive)
+    ]
+
+    assert default_cylinders
+    assert explicit_cylinders
+    assert all(
+        cylinder.radius == pytest.approx(0.04)
+        for cylinder in default_cylinders
+    )
+    assert all(
+        cylinder.radius == pytest.approx(0.06)
+        for cylinder in explicit_cylinders
+    )
+
+
 @pytest.mark.parametrize(
     ("kwargs", "error"),
     [
@@ -114,6 +159,9 @@ def test_explicit_atom_size_scale_overrides_preset_and_scales_custom_radii():
         ({"atom_size_scale": 0.0}, ValueError),
         ({"atom_size_scale": float("inf")}, ValueError),
         ({"atom_size_scale": True}, TypeError),
+        ({"bond_size_scale": 0.0}, ValueError),
+        ({"bond_size_scale": float("inf")}, ValueError),
+        ({"bond_size_scale": True}, TypeError),
     ],
 )
 def test_style_preset_validation(kwargs, error):
@@ -171,7 +219,7 @@ def test_build_geometry_uses_default_bonds_when_rules_are_omitted():
     assert len(automatic.bonds) == 1
     assert automatic.bonds[0].rule_id == "default:Fe-O"
     assert disabled.bonds == ()
-    assert all(cylinder.radius == pytest.approx(0.10) for cylinder in cylinders)
+    assert all(cylinder.radius == pytest.approx(0.08) for cylinder in cylinders)
     assert cylinders[0].material.color != cylinders[1].material.color
 
 
