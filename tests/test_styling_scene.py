@@ -116,8 +116,11 @@ def test_dashed_bond_becomes_requested_visible_segments():
     ]
 
     assert len(cylinders) == 3
-    assert [(item.start[0], item.end[0]) for item in cylinders] == pytest.approx(
-        ((0.6, 0.76), (0.92, 1.08), (1.24, 1.4))
+    assert [item.start[0] for item in cylinders] == pytest.approx(
+        (0.6, 0.92, 1.24)
+    )
+    assert [item.end[0] for item in cylinders] == pytest.approx(
+        (0.76, 1.08, 1.4)
     )
     assert all(item.radius == 0.1 for item in cylinders)
     assert all(item.material.color == color for item in cylinders)
