@@ -62,7 +62,6 @@ def test_render_quality_is_validated(quality: int):
         RenderConfig(quality=quality)
 
 
-
 def test_constant_fog_is_written_to_sdl():
     scene = make_scene(
         (),
