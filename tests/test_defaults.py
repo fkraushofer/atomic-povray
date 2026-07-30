@@ -12,9 +12,11 @@ from atomic_povray import (
     Color,
     StructureModel,
     StyleConfig,
+    apply_styles,
     build_geometry,
     get_default_bonds,
 )
+from atomic_povray.primitives import CylinderPrimitive
 
 
 def test_atom_style_uses_ase_radius_and_color_by_default():
@@ -23,6 +25,14 @@ def test_atom_style_uses_ase_radius_and_color_by_default():
 
     assert style.radius == pytest.approx(covalent_radii[oxygen])
     assert style.color.as_tuple()[:3] == pytest.approx(jmol_colors[oxygen])
+
+
+def test_empty_style_config_uses_distinct_atom_and_bond_finishes():
+    styles = StyleConfig()
+
+    assert styles.atom_finish.phong == pytest.approx(0.3)
+    assert styles.bond_finish.phong == pytest.approx(0.0)
+    assert styles.default_bond.radius == pytest.approx(0.08)
 
 
 def test_partial_element_style_keeps_unspecified_ase_default():
@@ -53,6 +63,30 @@ def test_default_bonds_use_curated_pairs_and_metal_to_nonmetal_direction():
     assert rules["default:Rh-O"].element_a == "Rh"
     assert rules["default:Rh-O"].element_b == "O"
     assert rules["default:O-O"].allows_extension_from("O", "O")
+
+
+def test_build_geometry_uses_default_bonds_when_rules_are_omitted():
+    atoms = Atoms(
+        "FeO",
+        positions=((0.0, 0.0, 0.0), (1.8, 0.0, 0.0)),
+        cell=(10.0, 10.0, 10.0),
+        pbc=False,
+    )
+
+    automatic = build_geometry(StructureModel(atoms))
+    disabled = build_geometry(StructureModel(atoms), bond_rules=())
+    styled = apply_styles(automatic, StyleConfig())
+    cylinders = [
+        primitive
+        for primitive in styled.primitives
+        if isinstance(primitive, CylinderPrimitive)
+    ]
+
+    assert len(automatic.bonds) == 1
+    assert automatic.bonds[0].rule_id == "default:Fe-O"
+    assert disabled.bonds == ()
+    assert all(cylinder.radius == pytest.approx(0.08) for cylinder in cylinders)
+    assert cylinders[0].material.color != cylinders[1].material.color
 
 
 def test_bond_scale_controls_ordinary_cutoff():
