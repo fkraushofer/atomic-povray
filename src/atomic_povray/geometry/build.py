@@ -9,7 +9,14 @@ import numpy as np
 from ase.neighborlist import neighbor_list
 
 from ..config import BondRule, DisplayBounds
-from ..model import AtomInstance, AtomKey, Bond, GeometryModel, StructureModel
+from ..model import (
+    AtomInstance,
+    AtomKey,
+    Bond,
+    BondNeighbor,
+    GeometryModel,
+    StructureModel,
+)
 
 
 def _make_instances(
@@ -78,9 +85,14 @@ def _make_bonds(
     primary_instances: tuple[AtomInstance, ...],
     rules: Sequence[BondRule],
     bounds: DisplayBounds,
-) -> tuple[tuple[AtomInstance, ...], tuple[Bond, ...]]:
-    if not rules or not primary_instances:
-        return primary_instances, ()
+) -> tuple[
+    tuple[AtomInstance, ...],
+    tuple[Bond, ...],
+    tuple[tuple[BondNeighbor, ...], ...],
+]:
+    empty_environments = tuple(() for _ in structure.atoms)
+    if not rules:
+        return primary_instances, (), empty_environments
 
     atoms = structure.atoms
     scaled = np.asarray(atoms.get_scaled_positions(wrap=False), dtype=float)
@@ -99,36 +111,48 @@ def _make_bonds(
     for instance in primary_instances:
         instances_by_source.setdefault(instance.key.source_index, []).append(instance)
     bonds_by_endpoints: dict[tuple[AtomKey, AtomKey], Bond] = {}
+    environment_lists: list[list[BondNeighbor]] = [[] for _ in atoms]
 
     for source_i, source_j, periodic_shift, distance in zip(
         indices_i, indices_j, shifts, distances
     ):
+        source_i = int(source_i)
+        source_j = int(source_j)
+        distance = float(distance)
         rule = _matching_rule(
             rules,
-            symbols[int(source_i)],
-            symbols[int(source_j)],
-            float(distance),
+            symbols[source_i],
+            symbols[source_j],
+            distance,
         )
         if rule is None:
             continue
 
         lattice_shift = tuple(int(value) for value in periodic_shift)
-        for atom_a in instances_by_source.get(int(source_i), ()):
+        environment_lists[source_i].append(
+            BondNeighbor(
+                source_index=source_j,
+                image_shift=lattice_shift,
+                symbol=symbols[source_j],
+                rule_id=rule.rule_id,
+                distance=distance,
+            )
+        )
+
+        for atom_a in instances_by_source.get(source_i, ()):
             shift_b = tuple(
                 atom_a.key.image_shift[axis] + lattice_shift[axis] for axis in range(3)
             )
-            key_b = AtomKey(int(source_j), shift_b)
+            key_b = AtomKey(source_j, shift_b)
             key_a = atom_a.key
             if key_a == key_b:
                 continue
 
             atom_b = primary.get(key_b)
             if atom_b is None:
-                if not rule.allows_extension_from(
-                    atom_a.symbol, symbols[int(source_j)]
-                ):
+                if not rule.allows_extension_from(atom_a.symbol, symbols[source_j]):
                     continue
-                displayed_fractional = scaled[int(source_j)] + np.asarray(
+                displayed_fractional = scaled[source_j] + np.asarray(
                     shift_b, dtype=float
                 )
                 position = displayed_fractional @ cell
@@ -138,7 +162,7 @@ def _make_bonds(
                     continue
                 atom_b = AtomInstance(
                     key=key_b,
-                    symbol=symbols[int(source_j)],
+                    symbol=symbols[source_j],
                     fractional_position=fractional_tuple,
                     position=position_tuple,
                     is_extension=True,
@@ -150,7 +174,7 @@ def _make_bonds(
                 atom_a=endpoints[0],
                 atom_b=endpoints[1],
                 rule_id=rule.rule_id,
-                distance=float(distance),
+                distance=distance,
             )
             previous = bonds_by_endpoints.get(endpoints)
             if previous is not None and previous.rule_id != candidate.rule_id:
@@ -170,7 +194,21 @@ def _make_bonds(
             key=lambda bond: (bond.atom_a, bond.atom_b, bond.rule_id),
         )
     )
-    return instances, bonds
+    environments = tuple(
+        tuple(
+            sorted(
+                items,
+                key=lambda item: (
+                    item.source_index,
+                    item.image_shift,
+                    item.rule_id,
+                    item.distance,
+                ),
+            )
+        )
+        for items in environment_lists
+    )
+    return instances, bonds, environments
 
 
 def _make_adjacency(
@@ -191,11 +229,16 @@ def build_geometry(
     bounds: DisplayBounds | None = None,
     bond_rules: Iterable[BondRule] = (),
 ) -> GeometryModel:
-    """Build geometry within fractional display ranges and cutoff planes."""
+    """Build geometry and complete source environments from matching bond rules."""
 
     bounds = bounds or DisplayBounds()
     rules = tuple(bond_rules)
     primary_instances = _make_instances(structure, bounds)
-    instances, bonds = _make_bonds(structure, primary_instances, rules, bounds)
+    instances, bonds, environments = _make_bonds(
+        structure,
+        primary_instances,
+        rules,
+        bounds,
+    )
     adjacency = _make_adjacency(instances, bonds)
-    return GeometryModel(structure, instances, bonds, adjacency)
+    return GeometryModel(structure, instances, bonds, adjacency, environments)
