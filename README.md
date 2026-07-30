@@ -215,10 +215,9 @@ later charge-density or convex-hull module can insert triangle meshes.
 `write_scene` and `write_ini` only need Python. `render_scene` additionally
 needs POV-Ray. It writes a `.pov` scene and `.ini` render file beside the
 requested image.
-Generated scenes explicitly include `global_settings { assumed_gamma 1.0 }`;
-this preserves the intended colors with POV-Ray 3.8 as well as 3.7. The
-generated SDL defaults to `#version 3.8`; use `povray_version="3.7"` when
-exporting for POV-Ray 3.7.
+Generated scenes explicitly include `global_settings { assumed_gamma 1.0 }`.
+The generated SDL and `RenderConfig` default to POV-Ray 3.7. Use
+`povray_version="3.8"` only when 3.8-specific SDL compatibility is needed.
 
 To export both files for opening or rendering manually in POV-Ray:
 
@@ -246,7 +245,7 @@ RenderConfig(executable="povray")
 Windows installations commonly use:
 
 ```python
-RenderConfig(executable=r"C:\Program Files\POV-Ray\v3.8\bin\pvengine64.exe")
+RenderConfig(executable=r"C:\Program Files\POV-Ray\v3.7\bin\pvengine64.exe")
 ```
 
 The package detects `pvengine*.exe` and uses `/RENDER ... /EXIT`; other
