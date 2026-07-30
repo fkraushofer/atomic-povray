@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field, replace
 from math import exp
-from typing import Literal
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 import numpy as np
 
-from ..model import GeometryModel, Vec3
+from ..model import AtomKey, BondNeighbor, GeometryModel, Vec3
 from ..primitives import (
     Color,
     CylinderPrimitive,
@@ -18,6 +19,13 @@ from ..primitives import (
     SpherePrimitive,
     TriangleMeshPrimitive,
 )
+
+if TYPE_CHECKING:
+    from ase import Atoms
+
+
+AtomSelection: TypeAlias = int | Sequence[int] | np.ndarray
+AtomSelector: TypeAlias = Callable[["Atoms"], AtomSelection]
 
 
 @dataclass(frozen=True)
@@ -108,11 +116,91 @@ class AtomStyle:
     color: Color
     material: Material | None = None
     finish: Finish | None = None
+    visible: bool = True
 
     def resolved_material(self, default_finish: Finish | None = None) -> Material:
         if self.material is not None:
             return self.material
         return (self.finish or default_finish or Finish()).material(self.color)
+
+
+@dataclass(frozen=True)
+class AtomStyleOverride:
+    """Partial atom style applied without repeating unchanged properties."""
+
+    radius: float | None = None
+    color: Color | None = None
+    material: Material | None = None
+    finish: Finish | None = None
+    visible: bool | None = None
+
+    def apply(self, style: AtomStyle) -> AtomStyle:
+        changes = {
+            name: value
+            for name, value in (
+                ("radius", self.radius),
+                ("color", self.color),
+                ("material", self.material),
+                ("finish", self.finish),
+                ("visible", self.visible),
+            )
+            if value is not None
+        }
+        return replace(style, **changes)
+
+
+@dataclass(frozen=True)
+class CoordinationStyleRule:
+    """Apply an override to atoms with a matching bond-defined environment."""
+
+    element: str
+    coordination: int
+    style: AtomStyleOverride
+    neighbor_elements: frozenset[str] | None = None
+    bond_rules: frozenset[str] | None = None
+
+    def __post_init__(self) -> None:
+        if not self.element:
+            raise ValueError("element must not be empty")
+        if isinstance(self.coordination, bool) or not isinstance(
+            self.coordination, int
+        ):
+            raise TypeError("coordination must be an integer")
+        if self.coordination < 0:
+            raise ValueError("coordination must be non-negative")
+        if self.neighbor_elements is not None:
+            object.__setattr__(
+                self, "neighbor_elements", frozenset(self.neighbor_elements)
+            )
+        if self.bond_rules is not None:
+            object.__setattr__(self, "bond_rules", frozenset(self.bond_rules))
+
+    def matches(self, neighbors: Iterable[BondNeighbor]) -> bool:
+        count = sum(
+            1
+            for neighbor in neighbors
+            if (
+                self.neighbor_elements is None
+                or neighbor.symbol in self.neighbor_elements
+            )
+            and (
+                self.bond_rules is None
+                or neighbor.rule_id in self.bond_rules
+            )
+        )
+        return count == self.coordination
+
+
+@dataclass(frozen=True)
+class AtomSelectionRule:
+    """Apply an override to source atoms selected from the original ASE Atoms."""
+
+    selector: AtomSelector
+    style: AtomStyleOverride
+
+    def __post_init__(self) -> None:
+        if not callable(self.selector):
+            raise TypeError("selector must be callable")
 
 
 @dataclass(frozen=True)
@@ -155,6 +243,14 @@ class BondStyle:
 class StyleConfig:
     elements: dict[str, AtomStyle] = field(default_factory=dict)
     bonds: dict[str, BondStyle] = field(default_factory=dict)
+    coordination_rules: tuple[CoordinationStyleRule, ...] = ()
+    selection_rules: tuple[AtomSelectionRule, ...] = ()
+    source_atom_overrides: dict[int, AtomStyleOverride] = field(
+        default_factory=dict
+    )
+    atom_instance_overrides: dict[AtomKey, AtomStyleOverride] = field(
+        default_factory=dict
+    )
     default_atom: AtomStyle = AtomStyle(0.4, Color(0.65, 0.65, 0.65))
     default_bond: BondStyle = BondStyle()
     default_finish: Finish = Finish()
@@ -171,6 +267,85 @@ class StyleConfig:
 class StyledGeometry:
     geometry: GeometryModel
     primitives: tuple[Primitive, ...]
+
+
+def _selected_source_indices(
+    selection: AtomSelection,
+    atom_count: int,
+) -> frozenset[int]:
+    if isinstance(selection, (int, np.integer)) and not isinstance(selection, bool):
+        values = np.asarray([selection])
+    else:
+        values = np.asarray(selection)
+
+    if values.dtype.kind == "b":
+        if values.shape != (atom_count,):
+            raise ValueError(
+                "Boolean atom selector masks must have shape "
+                f"({atom_count},), got {values.shape}"
+            )
+        return frozenset(int(index) for index in np.flatnonzero(values))
+
+    if values.size == 0:
+        return frozenset()
+    if values.ndim != 1 or values.dtype.kind not in "iu":
+        raise TypeError(
+            "Atom selectors must return an integer index, a one-dimensional "
+            "integer sequence, or a one-dimensional Boolean mask"
+        )
+    if np.any(values < 0) or np.any(values >= atom_count):
+        raise IndexError(
+            f"Atom selector indices must lie between 0 and {atom_count - 1}"
+        )
+    return frozenset(int(value) for value in values)
+
+
+def resolve_atom_styles(
+    geometry: GeometryModel,
+    styles: StyleConfig,
+) -> dict[AtomKey, AtomStyle]:
+    """Resolve atom styles in documented order before creating primitives."""
+
+    source_count = len(geometry.structure.atoms)
+    selections = tuple(
+        _selected_source_indices(
+            rule.selector(geometry.structure.atoms),
+            source_count,
+        )
+        for rule in styles.selection_rules
+    )
+    environments = (
+        geometry.source_environments
+        if geometry.source_environments
+        else tuple(() for _ in range(source_count))
+    )
+
+    resolved: dict[AtomKey, AtomStyle] = {}
+    for atom in geometry.atoms:
+        style = styles.atom_style(atom.symbol)
+        source_index = atom.key.source_index
+
+        for rule in styles.coordination_rules:
+            if (
+                atom.symbol == rule.element
+                and rule.matches(environments[source_index])
+            ):
+                style = rule.style.apply(style)
+
+        for rule, selected in zip(styles.selection_rules, selections):
+            if source_index in selected:
+                style = rule.style.apply(style)
+
+        source_override = styles.source_atom_overrides.get(source_index)
+        if source_override is not None:
+            style = source_override.apply(style)
+
+        instance_override = styles.atom_instance_overrides.get(atom.key)
+        if instance_override is not None:
+            style = instance_override.apply(style)
+
+        resolved[atom.key] = style
+    return resolved
 
 
 def _primitive_position(primitive: Primitive) -> Vec3 | None:
@@ -303,13 +478,11 @@ def _bond_primitives(
 
 
 def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry:
-    """Create spheres and solid or dashed bond cylinders."""
+    """Resolve atom rules, then create spheres and bond cylinders."""
 
     primitives: list[Primitive] = []
     atom_by_key = {atom.key: atom for atom in geometry.atoms}
-    atom_styles = {
-        atom.key: styles.atom_style(atom.symbol) for atom in geometry.atoms
-    }
+    atom_styles = resolve_atom_styles(geometry, styles)
 
     # Bonds first so spheres naturally hide cylinder ends.
     for bond in geometry.bonds:
@@ -317,6 +490,8 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
         atom_b = atom_by_key[bond.atom_b]
         style_a = atom_styles[bond.atom_a]
         style_b = atom_styles[bond.atom_b]
+        if not style_a.visible or not style_b.visible:
+            continue
         bond_style = styles.bond_style(bond.rule_id)
 
         primitives.extend(
@@ -337,6 +512,7 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
             atom_styles[atom.key].resolved_material(styles.default_finish),
         )
         for atom in geometry.atoms
+        if atom_styles[atom.key].visible
     )
     _apply_depth_shading(primitives, styles.depth_shading)
     return StyledGeometry(geometry, tuple(primitives))
