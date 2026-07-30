@@ -12,7 +12,9 @@ The initial structural and rendering pipeline is established:
 - asymmetric, symmetric, or disabled one-hop bond extensions
 - per-face and per-plane extension control
 - periodic bond discovery for skewed cells
-- atom spheres and single- or two-color cylindrical bonds
+- atom spheres with ASE-backed fallback colors and covalent radii
+- opt-in editable default bond inference for conservative element pairs
+- single- or two-color cylindrical bonds
 - layered atom styling by coordination, ASE selection, source atom, or periodic
   display instance
 - solid and dashed bond styles with configurable dash counts and radii
