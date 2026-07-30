@@ -25,10 +25,11 @@ from .primitives import (
     SpherePrimitive,
     TriangleMeshPrimitive,
 )
-from .scene import Background, Camera, PointLight, Scene, make_scene
+from .scene import AreaLight, Background, Camera, PointLight, Scene, make_scene
 from .styling import AtomStyle, BondStyle, StyleConfig, StyledGeometry, apply_styles
 
 __all__ = [
+    "AreaLight",
     "AtomInstance",
     "AtomKey",
     "AtomStyle",
