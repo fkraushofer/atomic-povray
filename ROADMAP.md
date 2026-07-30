@@ -13,7 +13,7 @@ The initial structural and rendering pipeline is established:
 - per-face and per-plane extension control
 - periodic bond discovery for skewed cells
 - atom spheres and single- or two-color cylindrical bonds
-- configurable bond radii
+- solid and dashed bond styles with configurable dash counts and radii
 - orthographic and perspective cameras
 - point and area lights
 - configurable background color and transparent output
@@ -43,10 +43,7 @@ The next milestone should complete the important appearance controls without cha
 
 - General atom-selection overrides for special colors, radii, finishes, or visibility
 - Coordination-dependent atom styling integrated into the same resolver and precedence model
-- General bond-style property resolved per bond rule:
-  - solid
-  - dashed
-  - extensible to dotted or custom segmented styles
+- Extend the general bond-style property to dotted or custom segmented styles
 - Atom labels represented as text primitives
 - Tests for style precedence, coordination selection, depth mapping, segmented bonds, and labels
 
