@@ -204,6 +204,12 @@ Cartesian onset or shading direction; use directional depth shading when those
 controls matter. Matching the fog and background colors gives the usual
 atmospheric fade.
 
+POV-Ray evaluates fog only at render quality 9 or higher. The default
+`RenderConfig(quality=3)` is deliberately retained because it is useful for
+fast camera and lighting previews, but those previews omit fog. `render_scene`
+emits a warning when a foggy scene is rendered below quality 9. Use
+`RenderConfig(quality=9)` or higher for a final render that includes fog.
+
 ## Boundary and bond-extension behavior
 
 `DisplayBounds` is the only boundary model. Its three fractional `(min, max)`
