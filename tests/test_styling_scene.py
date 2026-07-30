@@ -44,6 +44,7 @@ def test_default_bicolored_bond_becomes_two_half_cylinders():
     styled = apply_styles(
         simple_geometry(),
         StyleConfig(
+            atom_size_scale=1.0,
             elements={
                 "Fe": AtomStyle(0.6, Color(0.5, 0.1, 0.1)),
                 "O": AtomStyle(0.4, Color(1.0, 0.8, 0.0)),
@@ -95,6 +96,7 @@ def test_dashed_bond_becomes_requested_visible_segments():
     styled = apply_styles(
         simple_geometry(),
         StyleConfig(
+            atom_size_scale=1.0,
             elements={
                 "Fe": AtomStyle(0.6, Color(0.5, 0.1, 0.1)),
                 "O": AtomStyle(0.4, Color(1.0, 0.8, 0.0)),
@@ -130,6 +132,7 @@ def test_dashed_bond_retains_default_split_atom_colors():
     styled = apply_styles(
         simple_geometry(),
         StyleConfig(
+            atom_size_scale=1.0,
             elements={
                 "Fe": AtomStyle(0.6, Color(0.5, 0.1, 0.1)),
                 "O": AtomStyle(0.4, Color(1.0, 0.8, 0.0)),
