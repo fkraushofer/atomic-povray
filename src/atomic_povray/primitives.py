@@ -43,6 +43,7 @@ class Material:
     phong: float = 0.0
     phong_size: float = 10.0
     specular: float = 0.0
+    emission: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -54,6 +55,7 @@ class Finish:
     phong: float = 0.0
     phong_size: float = 10.0
     specular: float = 0.0
+    emission: float = 0.0
 
     def material(self, color: Color) -> Material:
         """Combine this finish with a pigment color."""
@@ -61,6 +63,7 @@ class Finish:
         return Material(
             color=color,
             ambient=self.ambient,
+            emission=self.emission,
             diffuse=self.diffuse,
             phong=self.phong,
             phong_size=self.phong_size,
@@ -85,16 +88,11 @@ class CylinderPrimitive:
 
 @dataclass(frozen=True)
 class TriangleMeshPrimitive:
-    """Generic triangle mesh hook for external hull/isosurface modules."""
+    """Generic triangle mesh hook for later hull/isosurface modules."""
 
     vertices: tuple[Vec3, ...]
     faces: tuple[tuple[int, int, int], ...]
     material: Material
-    normals: tuple[Vec3, ...] | None = None
-
-    def __post_init__(self) -> None:
-        if self.normals is not None and len(self.normals) != len(self.vertices):
-            raise ValueError("Triangle mesh normals must match the vertex count")
 
 
 Primitive: TypeAlias = SpherePrimitive | CylinderPrimitive | TriangleMeshPrimitive
