@@ -177,10 +177,23 @@ def _light_to_sdl(light: PointLight | AreaLight) -> str:
     )
 
 
-def scene_to_sdl(scene: Scene, *, aspect_ratio: float = 4 / 3) -> str:
+def _validate_povray_version(value: str) -> str:
+    parts = value.split(".")
+    if len(parts) != 2 or not all(part.isdigit() for part in parts):
+        raise ValueError("povray_version must have the form '3.8'")
+    return value
+
+
+def scene_to_sdl(
+    scene: Scene,
+    *,
+    aspect_ratio: float = 4 / 3,
+    povray_version: str = "3.8",
+) -> str:
     ambient = scene.ambient_light
+    povray_version = _validate_povray_version(povray_version)
     lines = [
-        "#version 3.7;",
+        f"#version {povray_version};",
         "global_settings {",
         "  assumed_gamma 1.0",
         f"  ambient_light rgb <{_number(ambient.red)}, "
@@ -207,10 +220,15 @@ def write_scene(
     *,
     width: int = 800,
     height: int = 600,
+    povray_version: str = "3.8",
 ) -> Path:
     path = Path(filename)
     path.write_text(
-        scene_to_sdl(scene, aspect_ratio=width / height),
+        scene_to_sdl(
+            scene,
+            aspect_ratio=width / height,
+            povray_version=povray_version,
+        ),
         encoding="utf-8",
     )
     return path
@@ -229,6 +247,7 @@ class RenderConfig:
     transparent: bool = False
     display: bool = False
     executable: str = "povray"
+    povray_version: str = "3.8"
 
     def __post_init__(self) -> None:
         if self.width < 1 or self.height < 1:
@@ -243,6 +262,7 @@ class RenderConfig:
             raise ValueError("display_gamma must be positive")
         if self.file_gamma is not None and self.file_gamma <= 0:
             raise ValueError("file_gamma must be positive")
+        _validate_povray_version(self.povray_version)
 
 
 @dataclass(frozen=True)
@@ -255,12 +275,20 @@ class RenderResult:
     stderr: str
 
 
-def _write_ini(
-    scene_path: Path,
-    image_path: Path,
-    config: RenderConfig,
+def write_ini(
+    scene_path: str | Path,
+    image_path: str | Path,
+    config: RenderConfig | None = None,
+    *,
+    filename: str | Path | None = None,
 ) -> Path:
-    ini_path = image_path.with_suffix(".ini")
+    """Write POV-Ray render settings without starting the renderer."""
+
+    config = config or RenderConfig()
+    scene_path = Path(scene_path)
+    image_path = Path(image_path)
+    ini_path = Path(filename) if filename is not None else image_path.with_suffix(".ini")
+    ini_path.parent.mkdir(parents=True, exist_ok=True)
     values: dict[str, object] = {
         "Input_File_Name": str(scene_path.resolve()),
         "Output_File_Name": str(image_path.resolve()),
@@ -299,8 +327,14 @@ def render_scene(
     image_path = Path(output)
     image_path.parent.mkdir(parents=True, exist_ok=True)
     scene_path = image_path.with_suffix(".pov")
-    write_scene(scene, scene_path, width=config.width, height=config.height)
-    ini_path = _write_ini(scene_path, image_path, config)
+    write_scene(
+        scene,
+        scene_path,
+        width=config.width,
+        height=config.height,
+        povray_version=config.povray_version,
+    )
+    ini_path = write_ini(scene_path, image_path, config)
 
     executable_name = Path(config.executable).name.lower()
     if executable_name.startswith(("pvengine", "povwin")):
