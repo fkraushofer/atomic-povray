@@ -9,8 +9,8 @@ from atomic_povray import (
     BondRule,
     BondStyle,
     Camera,
-    CartesianBounds,
     Color,
+    DisplayBounds,
     PointLight,
     RenderConfig,
     StyleConfig,
@@ -23,7 +23,7 @@ from atomic_povray import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-INPUT = ROOT / "tests" / "data" / "hematite_1x1_unrelaxed_bare.vasp"
+INPUT = ROOT / "tests" / "data" / "fe2o3-012-1x1-relaxed.vasp"
 OUTPUT = ROOT / "hematite_prototype1.pov"
 
 
@@ -33,8 +33,9 @@ def main(*, render: bool = False) -> None:
     start = perf_counter()
     geometry = build_geometry(
         structure,
-        repetitions=(2, 1, 1),
-        bounds=CartesianBounds(z_min=17.0),
+        bounds=DisplayBounds(
+            fractional_ranges=((-2.0, 2.0), (-1.5, 1.5), (0.45, 0.75))
+        ),
         bond_rules=(BondRule("Fe", "O", 0.1, 2.45),),
     )
     geometry_seconds = perf_counter() - start
@@ -51,8 +52,8 @@ def main(*, render: bool = False) -> None:
     )
     styled = apply_styles(geometry, styles)
     camera = Camera.orthographic(
-        location=(5.0, -100.0, 25.5),
-        target=(5.0, 0.0, 25.5),
+        location=(0.0, -100.0, 21.0),
+        target=(0.0, 0.0, 21.0),
         up=(0.0, 0.0, 1.0),
         width=21.0,
     )
