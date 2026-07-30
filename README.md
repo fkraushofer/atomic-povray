@@ -96,6 +96,11 @@ write_scene(scene, "hematite.pov")
 render_scene(scene, "hematite.png", RenderConfig(quality=3))
 ```
 
+The camera `direction` points from the camera toward `target`; its magnitude
+sets the camera distance. The emitted camera position is therefore
+`target - direction`. Keeping `direction` fixed while changing `target`
+translates the view without changing its orientation or perspective.
+
 Changing the camera only repeats `make_scene` and `render_scene`. Changing
 colors/radii repeats `apply_styles` onward. Neither operation repeats periodic
 bond detection.
