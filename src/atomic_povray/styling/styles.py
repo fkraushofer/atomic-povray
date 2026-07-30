@@ -34,7 +34,10 @@ class DepthShading:
     target: Color
 
     def __post_init__(self) -> None:
+        origin = np.asarray(self.origin, dtype=float)
         direction = np.asarray(self.direction, dtype=float)
+        if origin.shape != (3,) or not np.isfinite(origin).all():
+            raise ValueError("origin must be a finite three-vector")
         if direction.shape != (3,) or not np.isfinite(direction).all():
             raise ValueError("direction must be a finite three-vector")
         if np.linalg.norm(direction) == 0:
