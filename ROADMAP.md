@@ -13,7 +13,7 @@ The initial structural and rendering pipeline is established:
 - per-face and per-plane extension control
 - periodic bond discovery for skewed cells
 - atom spheres with ASE-backed fallback colors and covalent radii
-- opt-in editable default bond inference for conservative element pairs
+- automatic editable default bond inference for conservative element pairs
 - single- or two-color cylindrical bonds
 - layered atom styling by coordination, ASE selection, source atom, or periodic
   display instance
