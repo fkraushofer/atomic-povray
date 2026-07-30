@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from math import radians, tan
 from pathlib import Path
 import subprocess
+import warnings
 
 import numpy as np
 
@@ -338,6 +339,14 @@ def render_scene(
     """Write and render a scene with POV-Ray."""
 
     config = config or RenderConfig()
+    if scene.fog is not None and config.quality < 9:
+        warnings.warn(
+            "POV-Ray fog requires quality 9 or higher and will not be rendered "
+            f"at quality {config.quality}. Low quality remains useful for "
+            "preview renders.",
+            UserWarning,
+            stacklevel=2,
+        )
     image_path = Path(output)
     image_path.parent.mkdir(parents=True, exist_ok=True)
     scene_path = image_path.with_suffix(".pov")
