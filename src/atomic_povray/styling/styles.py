@@ -215,7 +215,7 @@ class AtomSelectionRule:
 
 @dataclass(frozen=True)
 class BondStyle:
-    radius: float = 0.10
+    radius: float = 0.08
     color: Color | None = None
     material: Material | None = None
     finish: Finish | None = None
@@ -261,6 +261,7 @@ DEFAULT_HYDROGEN_BOND_STYLE = BondStyle(
 class StyleConfig:
     preset_style: Literal["ball_and_stick", "space_filling"] = "ball_and_stick"
     atom_size_scale: float | None = None
+    bond_size_scale: float = 1.0
     elements: dict[str, AtomStyle] = field(default_factory=dict)
     bonds: dict[str, BondStyle] = field(default_factory=dict)
     coordination_rules: tuple[CoordinationStyleRule, ...] = ()
@@ -280,7 +281,7 @@ class StyleConfig:
 
     def __post_init__(self) -> None:
         scales = {
-            "ball_and_stick": 0.5,
+            "ball_and_stick": 0.4,
             "space_filling": 1.0,
         }
         try:
@@ -290,14 +291,20 @@ class StyleConfig:
                 "preset_style must be 'ball_and_stick' or 'space_filling'"
             ) from None
 
-        scale = self.atom_size_scale
-        if scale is None:
-            scale = preset_scale
+        atom_scale = self.atom_size_scale
+        if atom_scale is None:
+            atom_scale = preset_scale
+        self._validate_size_scale("atom_size_scale", atom_scale)
+        self._validate_size_scale("bond_size_scale", self.bond_size_scale)
+        object.__setattr__(self, "atom_size_scale", float(atom_scale))
+        object.__setattr__(self, "bond_size_scale", float(self.bond_size_scale))
+
+    @staticmethod
+    def _validate_size_scale(name: str, scale: float) -> None:
         if isinstance(scale, bool) or not isinstance(scale, Real):
-            raise TypeError("atom_size_scale must be a real number")
+            raise TypeError(f"{name} must be a real number")
         if not isfinite(scale) or scale <= 0:
-            raise ValueError("atom_size_scale must be positive and finite")
-        object.__setattr__(self, "atom_size_scale", float(scale))
+            raise ValueError(f"{name} must be positive and finite")
 
     @property
     def draw_bonds(self) -> bool:
@@ -591,6 +598,10 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
         if not style_a.visible or not style_b.visible:
             continue
         bond_style = styles.bond_style(bond.rule_id)
+        bond_style = replace(
+            bond_style,
+            radius=bond_style.radius * styles.bond_size_scale,
+        )
 
         primitives.extend(
             _bond_primitives(
