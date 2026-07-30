@@ -26,7 +26,16 @@ from .primitives import (
     SpherePrimitive,
     TriangleMeshPrimitive,
 )
-from .scene import AreaLight, Background, Camera, Fog, PointLight, Scene, make_scene
+from .scene import (
+    AreaLight,
+    Background,
+    Camera,
+    Fog,
+    PointLight,
+    Scene,
+    get_default_light,
+    make_scene,
+)
 from .styling import (
     AtomSelectionRule,
     AtomStyle,
@@ -76,6 +85,7 @@ __all__ = [
     "apply_styles",
     "build_geometry",
     "get_default_bonds",
+    "get_default_light",
     "load_structure",
     "make_scene",
     "render_scene",
