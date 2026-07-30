@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from math import exp
+from typing import Literal
 
 import numpy as np
 
@@ -122,6 +123,16 @@ class BondStyle:
     finish: Finish | None = None
     material_template: Material | None = None
     split_by_atom_color: bool = True
+    style: Literal["solid", "dashed"] = "solid"
+    dashes: int = 4
+
+    def __post_init__(self) -> None:
+        if self.style not in ("solid", "dashed"):
+            raise ValueError("style must be 'solid' or 'dashed'")
+        if isinstance(self.dashes, bool) or not isinstance(self.dashes, int):
+            raise TypeError("dashes must be an integer")
+        if self.dashes < 1:
+            raise ValueError("dashes must be at least 1")
 
     def material_for(
         self,
@@ -192,8 +203,107 @@ def _apply_depth_shading(
         primitives[index] = replace(primitive, material=material)
 
 
+def _bond_spans(
+    start: Vec3,
+    end: Vec3,
+    style_a: AtomStyle,
+    style_b: AtomStyle,
+    bond_style: BondStyle,
+) -> tuple[tuple[np.ndarray, np.ndarray], ...]:
+    position_a = np.asarray(start, dtype=float)
+    position_b = np.asarray(end, dtype=float)
+    if bond_style.style == "solid":
+        return ((position_a, position_b),)
+
+    vector = position_b - position_a
+    length = float(np.linalg.norm(vector))
+    visible_length = length - style_a.radius - style_b.radius
+    if length == 0.0 or visible_length <= 0.0:
+        return ()
+
+    direction = vector / length
+    visible_start = position_a + style_a.radius * direction
+    dash_length = visible_length / (2 * bond_style.dashes - 1)
+    return tuple(
+        (
+            visible_start + 2 * index * dash_length * direction,
+            visible_start + (2 * index + 1) * dash_length * direction,
+        )
+        for index in range(bond_style.dashes)
+    )
+
+
+def _bond_primitives(
+    start: Vec3,
+    end: Vec3,
+    style_a: AtomStyle,
+    style_b: AtomStyle,
+    bond_style: BondStyle,
+    default_finish: Finish,
+) -> tuple[CylinderPrimitive, ...]:
+    spans = _bond_spans(start, end, style_a, style_b, bond_style)
+    if (
+        bond_style.color is not None
+        or bond_style.material is not None
+        or not bond_style.split_by_atom_color
+    ):
+        material = bond_style.material_for(style_a.color, default_finish)
+        return tuple(
+            CylinderPrimitive(
+                tuple(float(value) for value in span_start),
+                tuple(float(value) for value in span_end),
+                bond_style.radius,
+                material,
+            )
+            for span_start, span_end in spans
+        )
+
+    position_a = np.asarray(start, dtype=float)
+    position_b = np.asarray(end, dtype=float)
+    length = float(np.linalg.norm(position_b - position_a))
+    if length == 0.0:
+        return ()
+    split_fraction = (length + style_a.radius - style_b.radius) / (2 * length)
+    split_fraction = float(np.clip(split_fraction, 0.0, 1.0))
+    split_point = position_a + split_fraction * (position_b - position_a)
+    direction = (position_b - position_a) / length
+    split_coordinate = float(np.dot(split_point - position_a, direction))
+
+    primitives: list[CylinderPrimitive] = []
+    material_a = bond_style.material_for(style_a.color, default_finish)
+    material_b = bond_style.material_for(style_b.color, default_finish)
+    for span_start, span_end in spans:
+        start_coordinate = float(np.dot(span_start - position_a, direction))
+        end_coordinate = float(np.dot(span_end - position_a, direction))
+        if start_coordinate < split_coordinate:
+            piece_end = (
+                span_end if end_coordinate <= split_coordinate else split_point
+            )
+            primitives.append(
+                CylinderPrimitive(
+                    tuple(float(value) for value in span_start),
+                    tuple(float(value) for value in piece_end),
+                    bond_style.radius,
+                    material_a,
+                )
+            )
+        if end_coordinate > split_coordinate:
+            piece_start = (
+                span_start if start_coordinate >= split_coordinate else split_point
+            )
+            primitives.append(
+                CylinderPrimitive(
+                    tuple(float(value) for value in piece_start),
+                    tuple(float(value) for value in span_end),
+                    bond_style.radius,
+                    material_b,
+                )
+            )
+    return tuple(primitives)
+
+
 def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry:
-    """Create spheres and one- or two-color bond cylinders."""
+    """Create spheres and solid or dashed bond cylinders."""
 
     primitives: list[Primitive] = []
     atom_by_key = {atom.key: atom for atom in geometry.atoms}
@@ -209,48 +319,16 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
         style_b = atom_styles[bond.atom_b]
         bond_style = styles.bond_style(bond.rule_id)
 
-        if bond_style.color is not None or not bond_style.split_by_atom_color:
-            primitives.append(
-                CylinderPrimitive(
-                    atom_a.position,
-                    atom_b.position,
-                    bond_style.radius,
-                    bond_style.material_for(style_a.color, styles.default_finish),
-                )
+        primitives.extend(
+            _bond_primitives(
+                atom_a.position,
+                atom_b.position,
+                style_a,
+                style_b,
+                bond_style,
+                styles.default_finish,
             )
-        else:
-            position_a = np.asarray(atom_a.position)
-            position_b = np.asarray(atom_b.position)
-            split_fraction = (
-                bond.distance + style_a.radius - style_b.radius
-            ) / (2 * bond.distance)
-            split_fraction = float(np.clip(split_fraction, 0.0, 1.0))
-            split_point = tuple(
-                float(value)
-                for value in position_a + split_fraction * (position_b - position_a)
-            )
-            primitives.extend(
-                (
-                    CylinderPrimitive(
-                        atom_a.position,
-                        split_point,
-                        bond_style.radius,
-                        bond_style.material_for(
-                            style_a.color,
-                            styles.default_finish,
-                        ),
-                    ),
-                    CylinderPrimitive(
-                        split_point,
-                        atom_b.position,
-                        bond_style.radius,
-                        bond_style.material_for(
-                            style_b.color,
-                            styles.default_finish,
-                        ),
-                    ),
-                )
-            )
+        )
 
     primitives.extend(
         SpherePrimitive(

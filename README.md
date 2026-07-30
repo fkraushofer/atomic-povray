@@ -20,10 +20,11 @@ file can be written and then rendered manually.
 - asymmetric Fe→O-style boundary extension by default, with symmetric and
   disabled modes available per bond rule
 - per-plane and per-fractional-face control over whether extensions are allowed
-- element-pair bond rules with minimum and maximum distances
+- element-pair bond rules with half-open minimum/maximum distance ranges
 - periodic bond discovery, including skewed cells and bonds crossing cell edges
 - stable atom identity as `(source_index, lattice_shift)`
 - atom spheres
+- solid or dashed bonds, with configurable dash count and radius
 - single-color or two-color bonds (with the legacy equal-visible-length split)
 - a shared default finish for atoms and bonds, with per-style material or finish
   overrides
@@ -37,8 +38,8 @@ file can be written and then rendered manually.
 - optional per-vertex normals for smooth externally generated triangle meshes
 - notebook-friendly, explicitly staged API
 
-Coordination styles, dashed H-bonds, labels, polyhedra, persistent disk caching,
-and an interactive preview are intentionally deferred.
+Coordination styles, labels, polyhedra, persistent disk caching, and an
+interactive preview are intentionally deferred.
 
 ## Installation
 
@@ -114,6 +115,42 @@ translates the view without changing its orientation or perspective.
 Changing the camera only repeats `make_scene` and `render_scene`. Changing
 colors/radii repeats `apply_styles` onward. Neither operation repeats periodic
 bond detection.
+
+## Bond styles and distance ranges
+
+Bond-rule distance ranges are half-open: the minimum is included and the
+maximum is excluded. Adjacent rules can therefore share a cutoff without
+claiming the same bond. Give them distinct names so each rule can resolve to
+its own style:
+
+```python
+geometry = build_geometry(
+    structure,
+    bond_rules=(
+        BondRule("O", "H", 0.1, 1.2, name="covalent-O-H"),
+        BondRule("O", "H", 1.2, 2.0, name="hydrogen-O-H"),
+    ),
+)
+
+styles = StyleConfig(
+    ...,
+    bonds={
+        "covalent-O-H": BondStyle(radius=0.07),
+        "hydrogen-O-H": BondStyle(
+            style="dashed",
+            dashes=4,
+            radius=0.05,
+            color=Color(0.7, 0.7, 0.7),
+        ),
+    },
+)
+```
+
+Dashed bonds divide the visible span between the atom surfaces into the
+requested number of equal dashes with equal-sized gaps. An explicit bond
+`color` or full `material` makes the complete bond single-color. When no color is
+supplied,
+solid and dashed bonds retain the default split based on their atom colors.
 
 ## Finishes and overrides
 

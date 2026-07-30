@@ -329,3 +329,22 @@ def test_replication_faces_follow_the_same_extension_policy():
     assert len(default_geometry.bonds) == 1
     assert len(clipped_geometry.atoms) == 2
     assert clipped_geometry.bonds == ()
+
+
+def test_adjacent_bond_rules_use_half_open_distance_ranges():
+    atoms = Atoms(
+        "OH",
+        positions=((0.0, 0.0, 0.0), (1.2, 0.0, 0.0)),
+        cell=(10.0, 10.0, 10.0),
+        pbc=False,
+    )
+    geometry = build_geometry(
+        model(atoms),
+        bond_rules=(
+            BondRule("O", "H", 0.1, 1.2, name="covalent-O-H"),
+            BondRule("O", "H", 1.2, 2.0, name="hydrogen-O-H"),
+        ),
+    )
+
+    assert len(geometry.bonds) == 1
+    assert geometry.bonds[0].rule_id == "hydrogen-O-H"
