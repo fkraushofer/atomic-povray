@@ -4,10 +4,15 @@ import pytest
 
 from atomic_povray import (
     AreaLight,
+    AtomStyle,
     Background,
+    BondStyle,
     Camera,
     Color,
+    Finish,
+    Material,
     RenderConfig,
+    StyleConfig,
     make_scene,
     scene_to_sdl,
 )
@@ -20,7 +25,7 @@ def test_povray_overbright_rgb_is_allowed_but_alpha_remains_bounded():
         Color(1.0, 1.0, 1.0, alpha=1.1)
 
 
-def test_legacy_area_light_and_ambient_are_emitted():
+def test_legacy_area_light_gamma_and_ambient_are_emitted():
     camera = Camera.orthographic(
         location=(5.0, -100.0, 25.5),
         target=(5.0, 0.0, 25.5),
@@ -43,11 +48,55 @@ def test_legacy_area_light_and_ambient_are_emitted():
     )
 
     sdl = scene_to_sdl(scene)
+    assert "assumed_gamma 1.0" in sdl
     assert "ambient_light rgb <0.1, 0.1, 0.1>" in sdl
     assert "area_light" in sdl
     assert ", 9, 9" in sdl
     assert "adaptive 3" in sdl
     assert "color rgb <0.9, 0.9, 0.9>" in sdl
+
+
+def test_default_finish_is_shared_and_specific_styles_can_override_it():
+    default_finish = Finish(
+        ambient=0.10,
+        diffuse=0.60,
+        phong=0.0,
+        phong_size=10,
+    )
+    atom_finish = Finish(
+        ambient=0.10,
+        diffuse=0.60,
+        phong=0.30,
+        phong_size=10,
+    )
+    styles = StyleConfig(default_finish=default_finish)
+    color = Color(1.05, 0.10, 0.05)
+
+    default_atom_material = AtomStyle(0.4, color).resolved_material(
+        styles.default_finish
+    )
+    default_bond_material = BondStyle().material_for(
+        color,
+        styles.default_finish,
+    )
+    overridden_atom_material = AtomStyle(
+        0.4,
+        color,
+        finish=atom_finish,
+    ).resolved_material(styles.default_finish)
+
+    assert default_atom_material == default_finish.material(color)
+    assert default_bond_material == default_finish.material(color)
+    assert overridden_atom_material == atom_finish.material(color)
+
+    explicit_material = Material(color, phong=0.8)
+    assert (
+        BondStyle(material=explicit_material).material_for(
+            color,
+            styles.default_finish,
+        )
+        is explicit_material
+    )
 
 
 def test_legacy_ini_render_controls(tmp_path: Path):
