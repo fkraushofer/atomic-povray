@@ -11,34 +11,43 @@ from .primitives import Color, Primitive
 
 @dataclass(frozen=True)
 class Camera:
-    location: Vec3
+    direction: Vec3
     target: Vec3
     up: Vec3 = (0.0, 1.0, 0.0)
     projection: Literal["perspective", "orthographic"] = "perspective"
     angle: float = 35.0
     width: float = 20.0
 
+    @property
+    def location(self) -> Vec3:
+        """Return the camera position derived from its target and direction."""
+
+        return tuple(
+            float(target - direction)
+            for target, direction in zip(self.target, self.direction)
+        )
+
     @classmethod
     def perspective(
         cls,
         *,
-        location: Vec3,
+        direction: Vec3,
         target: Vec3,
         up: Vec3 = (0.0, 1.0, 0.0),
         angle: float = 35.0,
     ) -> "Camera":
-        return cls(location, target, up, "perspective", angle=angle)
+        return cls(direction, target, up, "perspective", angle=angle)
 
     @classmethod
     def orthographic(
         cls,
         *,
-        location: Vec3,
+        direction: Vec3,
         target: Vec3,
         up: Vec3 = (0.0, 1.0, 0.0),
         width: float = 20.0,
     ) -> "Camera":
-        return cls(location, target, up, "orthographic", width=width)
+        return cls(direction, target, up, "orthographic", width=width)
 
 
 @dataclass(frozen=True)
