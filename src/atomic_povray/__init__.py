@@ -5,6 +5,7 @@ from .backends import (
     RenderResult,
     render_scene,
     scene_to_sdl,
+    write_ini,
     write_scene,
 )
 from .config import (
@@ -65,5 +66,6 @@ __all__ = [
     "make_scene",
     "render_scene",
     "scene_to_sdl",
+    "write_ini",
     "write_scene",
 ]
