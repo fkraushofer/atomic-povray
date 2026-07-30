@@ -6,13 +6,10 @@ from ase import Atoms
 
 from atomic_povray import (
     BondRule,
-    BoundaryPlane,
-    BoundarySet,
-    CartesianBounds,
-    ReplicationConfig,
+    CutoffPlane,
+    DisplayBounds,
     StructureModel,
     build_geometry,
-    centered_image_shifts,
 )
 
 
@@ -20,14 +17,92 @@ def model(atoms: Atoms) -> StructureModel:
     return StructureModel(atoms)
 
 
-def test_centered_replication_shifts_match_legacy_convention():
-    assert centered_image_shifts((1, 1, 1)) == ((0, 0, 0),)
-    assert centered_image_shifts((2, 1, 1)) == ((-1, 0, 0), (0, 0, 0))
-    assert centered_image_shifts((3, 1, 1)) == (
-        (-1, 0, 0),
-        (0, 0, 0),
-        (1, 0, 0),
+def test_float_fractional_ranges_combine_replication_crop_and_offset():
+    atoms = Atoms(
+        "FeO",
+        scaled_positions=((0.25, 0.5, 0.5), (0.75, 0.5, 0.5)),
+        cell=(4.0, 4.0, 4.0),
+        pbc=True,
     )
+    geometry = build_geometry(
+        model(atoms),
+        bounds=DisplayBounds(
+            fractional_ranges=((-0.5, 1.5), (0.0, 1.0), (0.0, 1.0))
+        ),
+    )
+
+    assert [atom.fractional_position[0] for atom in geometry.atoms] == pytest.approx(
+        [-0.25, 0.25, 0.75, 1.25]
+    )
+    assert {atom.key.image_shift[0] for atom in geometry.atoms} == {-1, 0, 1}
+
+
+def test_cartesian_cutoff_plane_uses_normal_and_origin_distance():
+    atoms = Atoms(
+        "FeO",
+        positions=((0.5, 0.0, 0.0), (1.5, 0.0, 0.0)),
+        cell=(2.0, 2.0, 2.0),
+        pbc=False,
+    )
+    geometry = build_geometry(
+        model(atoms),
+        bounds=DisplayBounds(
+            cutoff_planes=(CutoffPlane(normal=(2.0, 0.0, 0.0), distance=1.0),)
+        ),
+    )
+
+    assert [atom.symbol for atom in geometry.primary_atoms] == ["Fe"]
+
+
+def test_display_range_face_can_forbid_bond_extensions():
+    atoms = Atoms(
+        "FeO",
+        scaled_positions=((0.9, 0.5, 0.5), (0.1, 0.5, 0.5)),
+        cell=(10.0, 10.0, 10.0),
+        pbc=True,
+    )
+    allowed = build_geometry(
+        model(atoms),
+        bounds=DisplayBounds(),
+        bond_rules=(BondRule("Fe", "O", 0.5, 2.5),),
+    )
+    forbidden = build_geometry(
+        model(atoms),
+        bounds=DisplayBounds(
+            upper_allow_bond_extensions=(False, True, True),
+        ),
+        bond_rules=(BondRule("Fe", "O", 0.5, 2.5),),
+    )
+
+    assert len(allowed.extension_atoms) == 1
+    assert len(allowed.bonds) == 1
+    assert forbidden.extension_atoms == ()
+    assert forbidden.bonds == ()
+
+
+def test_cutoff_plane_can_forbid_bond_extensions():
+    atoms = Atoms(
+        "FeO",
+        positions=((0.5, 0.0, 0.0), (1.5, 0.0, 0.0)),
+        cell=(2.0, 2.0, 2.0),
+        pbc=False,
+    )
+    geometry = build_geometry(
+        model(atoms),
+        bounds=DisplayBounds(
+            cutoff_planes=(
+                CutoffPlane(
+                    normal=(1.0, 0.0, 0.0),
+                    distance=1.0,
+                    allow_bond_extensions=False,
+                ),
+            )
+        ),
+        bond_rules=(BondRule("Fe", "O", 0.5, 1.5),),
+    )
+
+    assert [atom.symbol for atom in geometry.atoms] == ["Fe"]
+    assert geometry.bonds == ()
 
 
 def test_periodic_bond_is_instantiated_across_internal_replica_boundary():
@@ -39,8 +114,8 @@ def test_periodic_bond_is_instantiated_across_internal_replica_boundary():
     )
     geometry = build_geometry(
         model(atoms),
-        repetitions=ReplicationConfig(
-            (2, 1, 1),
+        bounds=DisplayBounds(
+            fractional_ranges=((-1.0, 1.0), (0.0, 1.0), (0.0, 1.0)),
             lower_allow_bond_extensions=(False, False, False),
             upper_allow_bond_extensions=(False, False, False),
         ),
@@ -67,7 +142,9 @@ def test_bond_search_handles_a_skewed_periodic_cell():
     expected = np.linalg.norm(np.array((0.1, 0.1, 0.0)) @ cell)
     geometry = build_geometry(
         model(atoms),
-        repetitions=(2, 2, 1),
+        bounds=DisplayBounds(
+            fractional_ranges=((0.0, 2.0), (0.0, 2.0), (0.0, 1.0))
+        ),
         bond_rules=(BondRule("Fe", "O", 0.1, 1.0),),
     )
 
@@ -87,7 +164,9 @@ def test_cartesian_z_bounds_remove_atoms_and_incident_bonds():
     )
     geometry = build_geometry(
         model(atoms),
-        bounds=CartesianBounds(z_min=1.5),
+        bounds=DisplayBounds(
+            cutoff_planes=(CutoffPlane((0.0, 0.0, -1.0), -1.5),)
+        ),
         bond_rules=(BondRule("Fe", "O", 0.5, 1.5),),
     )
 
@@ -119,7 +198,9 @@ def test_asymmetric_rule_adds_only_element_b_as_an_extension():
     )
     geometry = build_geometry(
         model(atoms),
-        bounds=CartesianBounds(z_min=1.5),
+        bounds=DisplayBounds(
+            cutoff_planes=(CutoffPlane((0.0, 0.0, -1.0), -1.5),)
+        ),
         bond_rules=(BondRule("Fe", "O", 0.5, 1.5),),
     )
 
@@ -129,7 +210,9 @@ def test_asymmetric_rule_adds_only_element_b_as_an_extension():
 
     reverse_rule = build_geometry(
         model(atoms),
-        bounds=CartesianBounds(z_min=1.5),
+        bounds=DisplayBounds(
+            cutoff_planes=(CutoffPlane((0.0, 0.0, -1.0), -1.5),)
+        ),
         bond_rules=(BondRule("O", "Fe", 0.5, 1.5),),
     )
     assert [atom.symbol for atom in reverse_rule.atoms] == ["Fe"]
@@ -145,7 +228,9 @@ def test_symmetric_extension_mode_searches_from_either_element():
     )
     geometry = build_geometry(
         model(atoms),
-        bounds=CartesianBounds(z_min=1.5),
+        bounds=DisplayBounds(
+            cutoff_planes=(CutoffPlane((0.0, 0.0, -1.0), -1.5),)
+        ),
         bond_rules=(BondRule("Fe", "O", 0.5, 1.5, extension_mode="symmetric"),),
     )
 
@@ -163,7 +248,9 @@ def test_extension_atom_never_seeds_a_second_extension():
     )
     geometry = build_geometry(
         model(atoms),
-        bounds=CartesianBounds(z_min=1.5),
+        bounds=DisplayBounds(
+            cutoff_planes=(CutoffPlane((0.0, 0.0, -1.0), -1.5),)
+        ),
         bond_rules=(BondRule("Fe", "O", 0.5, 1.5, extension_mode="symmetric"),),
     )
 
@@ -181,9 +268,14 @@ def test_a_plane_can_forbid_bond_extensions():
     )
     geometry = build_geometry(
         model(atoms),
-        bounds=CartesianBounds(
-            z_min=1.5,
-            z_min_allow_bond_extensions=False,
+        bounds=DisplayBounds(
+            cutoff_planes=(
+                CutoffPlane(
+                    (0.0, 0.0, -1.0),
+                    -1.5,
+                    allow_bond_extensions=False,
+                ),
+            ),
         ),
         bond_rules=(BondRule("Fe", "O", 0.5, 1.5),),
     )
@@ -192,22 +284,15 @@ def test_a_plane_can_forbid_bond_extensions():
     assert geometry.bonds == ()
 
 
-def test_arbitrary_fractional_plane_uses_the_same_extension_policy():
+def test_fractional_range_uses_the_same_extension_policy():
     atoms = Atoms(
         "FeO",
         scaled_positions=((0.6, 0.5, 0.5), (0.4, 0.5, 0.5)),
         cell=(5.0, 5.0, 5.0),
         pbc=False,
     )
-    bounds = BoundarySet(
-        (
-            BoundaryPlane(
-                (1.0, 0.0, 0.0),
-                0.5,
-                coordinate_space="fractional",
-                allow_bond_extensions=True,
-            ),
-        )
+    bounds = DisplayBounds(
+        fractional_ranges=((0.5, 1.0), (0.0, 1.0), (0.0, 1.0))
     )
     geometry = build_geometry(
         model(atoms),
@@ -233,7 +318,9 @@ def test_replication_faces_follow_the_same_extension_policy():
     )
     clipped_geometry = build_geometry(
         model(atoms),
-        repetitions=ReplicationConfig(upper_allow_bond_extensions=(False, True, True)),
+        bounds=DisplayBounds(
+            upper_allow_bond_extensions=(False, True, True)
+        ),
         bond_rules=(BondRule("Fe", "O", 0.5, 1.5),),
     )
 

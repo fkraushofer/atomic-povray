@@ -14,13 +14,12 @@ file can be written and then rendered manually.
 ## What is implemented
 
 - ASE structure loading
-- centered finite replications
-- a unified boundary-plane model for Cartesian or fractional clipping
-- convenient inclusive Cartesian `z_min` / `z_max` bounds
+- floating-point fractional ranges that combine replication, offset, and crop
+- optional Cartesian cutoff planes defined by a normal and signed distance
 - one-hop bond-extension atoms across clipping and replication boundaries
 - asymmetric Fe→O-style boundary extension by default, with symmetric and
   disabled modes available per bond rule
-- per-plane and per-replication-face control over whether extensions are allowed
+- per-plane and per-fractional-face control over whether extensions are allowed
 - element-pair bond rules with minimum and maximum distances
 - periodic bond discovery, including skewed cells and bonds crossing cell edges
 - stable atom identity as `(source_index, lattice_shift)`
@@ -60,8 +59,12 @@ structure = load_structure("POSCAR")
 # This is the expensive stage. Reuse `geometry` while changing appearance/camera.
 geometry = build_geometry(
     structure,
-    repetitions=(2, 1, 1),
-    bounds=CartesianBounds(z_min=17.0),
+    bounds=DisplayBounds(
+        fractional_ranges=((-2.0, 2.0), (-1.5, 1.5), (0.45, 0.75)),
+        cutoff_planes=(
+            CutoffPlane(normal=(1.0, 0.0, 0.0), distance=9.5),
+        ),
+    ),
     # Order matters only for extensions: an in-bounds Fe may pull in an
     # out-of-bounds O, but an in-bounds O does not pull in an Fe.
     bond_rules=[BondRule("Fe", "O", 0.1, 2.45)],
@@ -131,8 +134,37 @@ dummy pigment color.
 
 ## Boundary and bond-extension behavior
 
-Every displayed atom is either a primary atom satisfying all clipping and
-replication bounds, or a bond-extension atom outside at least one such bound.
+`DisplayBounds` is the only boundary model. Its three fractional `(min, max)`
+ranges correspond to the three unit-cell vectors and simultaneously define
+replication, offset, and fractional cropping:
+
+```python
+bounds = DisplayBounds(
+    fractional_ranges=((-2.0, 2.0), (-1.5, 1.5), (0.45, 0.75)),
+)
+```
+
+Ranges are half-open: the lower endpoint is included and the upper endpoint is
+excluded. Thus `(0.0, 3.0)` gives exactly three copies along that lattice
+vector, while non-integer endpoints crop or offset the displayed region.
+
+Optional Cartesian cutoff planes remove everything beyond their normal:
+
+```python
+bounds = DisplayBounds(
+    fractional_ranges=((0.0, 3.0), (0.0, 2.0), (0.0, 1.0)),
+    cutoff_planes=(
+        CutoffPlane(normal=(1.0, 1.0, 0.0), distance=12.0),
+    ),
+)
+```
+
+The normal is normalized internally; `distance` is the signed perpendicular
+distance from the Cartesian origin. A point is retained when
+`unit(normal) · position <= distance`.
+
+Every displayed atom is either a primary atom satisfying all fractional ranges
+and cutoff planes, or a bond-extension atom outside at least one such boundary.
 Extension atoms are admitted only as direct endpoints of bonds initiated from
 primary atoms. They never initiate another neighbor search, so extensions
 cannot grow recursively beyond the first outside atom.
@@ -151,33 +183,27 @@ search in both directions, request it explicitly:
 BondRule("Fe", "O", 0.1, 2.45, extension_mode="symmetric")
 ```
 
-Use `extension_mode="none"` to suppress extensions for that rule. A boundary
-can independently forbid all bond extensions across itself:
+Use `extension_mode="none"` to suppress extensions for that rule. Each cutoff
+plane can independently forbid bond extensions across itself:
 
 ```python
-bounds = BoundarySet(
-    planes=(
-        BoundaryPlane(
-            normal=(0.0, 0.0, 1.0),
-            offset=17.0,
+bounds = DisplayBounds(
+    cutoff_planes=(
+        CutoffPlane(
+            normal=(1.0, 0.0, 0.0),
+            distance=12.0,
             allow_bond_extensions=False,
         ),
     )
 )
 ```
 
-`BoundaryPlane` keeps the side satisfying
-`normal · coordinate >= offset`; set `coordinate_space="fractional"` for a
-fractional plane. `CartesianBounds` is a convenience wrapper around the same
-plane model and exposes `z_min_allow_bond_extensions` and
-`z_max_allow_bond_extensions`.
-
-Finite replication faces follow the same default: extensions are allowed.
-Their six faces can be configured separately:
+The six fractional range faces follow the same default: extensions are allowed.
+Their lower and upper faces can be configured separately:
 
 ```python
-repetitions = ReplicationConfig(
-    counts=(2, 1, 1),
+bounds = DisplayBounds(
+    fractional_ranges=((0.0, 2.0), (0.0, 1.0), (0.0, 1.0)),
     lower_allow_bond_extensions=(True, True, True),
     upper_allow_bond_extensions=(False, True, True),
 )

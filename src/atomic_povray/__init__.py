@@ -10,12 +10,10 @@ from .backends import (
 )
 from .config import (
     BondRule,
-    BoundaryPlane,
-    BoundarySet,
-    CartesianBounds,
-    ReplicationConfig,
+    CutoffPlane,
+    DisplayBounds,
 )
-from .geometry import build_geometry, centered_image_shifts
+from .geometry import build_geometry
 from .io import load_structure
 from .model import AtomInstance, AtomKey, Bond, GeometryModel, StructureModel
 from .primitives import (
@@ -39,12 +37,11 @@ __all__ = [
     "Bond",
     "BondRule",
     "BondStyle",
-    "BoundaryPlane",
-    "BoundarySet",
     "Camera",
-    "CartesianBounds",
     "Color",
+    "CutoffPlane",
     "CylinderPrimitive",
+    "DisplayBounds",
     "Finish",
     "GeometryModel",
     "Material",
@@ -52,7 +49,6 @@ __all__ = [
     "Primitive",
     "RenderConfig",
     "RenderResult",
-    "ReplicationConfig",
     "Scene",
     "SpherePrimitive",
     "StructureModel",
@@ -61,7 +57,6 @@ __all__ = [
     "TriangleMeshPrimitive",
     "apply_styles",
     "build_geometry",
-    "centered_image_shifts",
     "load_structure",
     "make_scene",
     "render_scene",

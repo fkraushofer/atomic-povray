@@ -8,38 +8,13 @@ from itertools import product
 import numpy as np
 from ase.neighborlist import neighbor_list
 
-from ..config import (
-    BondRule,
-    BoundarySet,
-    CartesianBounds,
-    ReplicationConfig,
-)
+from ..config import BondRule, DisplayBounds
 from ..model import AtomInstance, AtomKey, Bond, GeometryModel, StructureModel
-
-
-def _centered_indices(count: int) -> range:
-    if count < 1:
-        raise ValueError("Every repetition count must be at least one")
-    return range(-(count // 2), count - count // 2)
-
-
-def centered_image_shifts(
-    repetitions: tuple[int, int, int],
-) -> tuple[tuple[int, int, int], ...]:
-    """Return legacy-compatible centered lattice shifts.
-
-    Examples: ``1 -> (0,)``, ``2 -> (-1, 0)``, ``3 -> (-1, 0, 1)``.
-    """
-
-    if len(repetitions) != 3:
-        raise ValueError("repetitions must contain exactly three integers")
-    return tuple(product(*(_centered_indices(int(count)) for count in repetitions)))
 
 
 def _make_instances(
     structure: StructureModel,
-    replication: ReplicationConfig,
-    bounds: BoundarySet | CartesianBounds,
+    bounds: DisplayBounds,
 ) -> tuple[AtomInstance, ...]:
     atoms = structure.atoms
     scaled = np.asarray(atoms.get_scaled_positions(wrap=False), dtype=float)
@@ -47,7 +22,7 @@ def _make_instances(
     symbols = atoms.get_chemical_symbols()
     instances: list[AtomInstance] = []
 
-    for shift in centered_image_shifts(replication.counts):
+    for shift in _display_bound_image_shifts(scaled, bounds):
         shift_array = np.asarray(shift, dtype=float)
         for source_index, (symbol, fractional) in enumerate(zip(symbols, scaled)):
             displayed_fractional = fractional + shift_array
@@ -66,6 +41,26 @@ def _make_instances(
     return tuple(instances)
 
 
+def _display_bound_image_shifts(
+    scaled: np.ndarray,
+    bounds: DisplayBounds,
+    *,
+    tolerance: float = 1e-9,
+) -> tuple[tuple[int, int, int], ...]:
+    """Return every lattice shift that can intersect fractional display ranges."""
+
+    if not len(scaled):
+        return ()
+    shifts_by_axis: list[range] = []
+    for axis, (lower, upper) in enumerate(bounds.fractional_ranges):
+        minimum = float(np.min(scaled[:, axis]))
+        maximum = float(np.max(scaled[:, axis]))
+        first = int(np.ceil(lower - maximum - tolerance))
+        last = int(np.floor(upper - minimum + tolerance))
+        shifts_by_axis.append(range(first, last + 1))
+    return tuple(product(*shifts_by_axis))
+
+
 def _matching_rule(
     rules: Sequence[BondRule],
     symbol_a: str,
@@ -82,8 +77,7 @@ def _make_bonds(
     structure: StructureModel,
     primary_instances: tuple[AtomInstance, ...],
     rules: Sequence[BondRule],
-    replication: ReplicationConfig,
-    bounds: BoundarySet | CartesianBounds,
+    bounds: DisplayBounds,
 ) -> tuple[tuple[AtomInstance, ...], tuple[Bond, ...]]:
     if not rules or not primary_instances:
         return primary_instances, ()
@@ -140,8 +134,6 @@ def _make_bonds(
                 position = displayed_fractional @ cell
                 fractional_tuple = tuple(float(value) for value in displayed_fractional)
                 position_tuple = tuple(float(value) for value in position)
-                if not _replication_permits_extension(shift_b, replication):
-                    continue
                 if not bounds.permits_extension(position_tuple, fractional_tuple):
                     continue
                 atom_b = AtomInstance(
@@ -181,21 +173,6 @@ def _make_bonds(
     return instances, bonds
 
 
-def _replication_permits_extension(
-    image_shift: tuple[int, int, int],
-    replication: ReplicationConfig,
-) -> bool:
-    shifts_by_axis = tuple(
-        _centered_indices(int(count)) for count in replication.counts
-    )
-    for axis, (shift, valid) in enumerate(zip(image_shift, shifts_by_axis)):
-        if shift < valid.start and not replication.lower_allow_bond_extensions[axis]:
-            return False
-        if shift >= valid.stop and not replication.upper_allow_bond_extensions[axis]:
-            return False
-    return True
-
-
 def _make_adjacency(
     instances: tuple[AtomInstance, ...],
     bonds: tuple[Bond, ...],
@@ -211,22 +188,14 @@ def _make_adjacency(
 def build_geometry(
     structure: StructureModel,
     *,
-    repetitions: tuple[int, int, int] | ReplicationConfig = (1, 1, 1),
-    bounds: BoundarySet | CartesianBounds | None = None,
+    bounds: DisplayBounds | None = None,
     bond_rules: Iterable[BondRule] = (),
 ) -> GeometryModel:
-    """Build the reusable structural geometry stage."""
+    """Build geometry within fractional display ranges and cutoff planes."""
 
-    bounds = bounds or BoundarySet()
-    replication = (
-        repetitions
-        if isinstance(repetitions, ReplicationConfig)
-        else ReplicationConfig(tuple(int(value) for value in repetitions))
-    )
+    bounds = bounds or DisplayBounds()
     rules = tuple(bond_rules)
-    primary_instances = _make_instances(structure, replication, bounds)
-    instances, bonds = _make_bonds(
-        structure, primary_instances, rules, replication, bounds
-    )
+    primary_instances = _make_instances(structure, bounds)
+    instances, bonds = _make_bonds(structure, primary_instances, rules, bounds)
     adjacency = _make_adjacency(instances, bonds)
     return GeometryModel(structure, instances, bonds, adjacency)
