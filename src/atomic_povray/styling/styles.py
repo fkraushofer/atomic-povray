@@ -270,8 +270,22 @@ class StyleConfig:
     )
     default_atom: AtomStyle = AtomStyle()
     default_bond: BondStyle = BondStyle()
-    default_finish: Finish = Finish()
+    default_atom_finish: Finish = Finish(phong=0.3)
+    default_bond_finish: Finish = Finish()
+    default_finish: Finish | None = None
     depth_shading: DepthShading | None = None
+
+    @property
+    def atom_finish(self) -> Finish:
+        """Return the atom finish, honoring the legacy shared override."""
+
+        return self.default_finish or self.default_atom_finish
+
+    @property
+    def bond_finish(self) -> Finish:
+        """Return the bond finish, honoring the legacy shared override."""
+
+        return self.default_finish or self.default_bond_finish
 
     def atom_style(self, symbol: str) -> AtomStyle:
         """Resolve built-in, global, and element radius/color defaults."""
@@ -552,7 +566,7 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
                 style_a,
                 style_b,
                 bond_style,
-                styles.default_finish,
+                styles.bond_finish,
             )
         )
 
@@ -560,7 +574,7 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
         SpherePrimitive(
             atom.position,
             atom_styles[atom.key].radius,
-            atom_styles[atom.key].resolved_material(styles.default_finish),
+            atom_styles[atom.key].resolved_material(styles.atom_finish),
         )
         for atom in geometry.atoms
         if atom_styles[atom.key].visible
