@@ -18,6 +18,8 @@ The initial structural and rendering pipeline is established:
 - point and area lights
 - configurable background color and transparent output
 - shared default finishes with atom- and bond-specific overrides
+- directional exponential depth shading resolved per primitive
+- native POV-Ray constant fog for continuous camera-distance fading
 - POV-Ray 3.7 SDL and INI export, plus direct rendering
 - generic extra-primitives insertion for future arrows, cells, isosurfaces, and similar objects
 - compact 1×1 hematite notebook example and focused regression tests
@@ -39,7 +41,6 @@ Whether that background appears in the PNG still depends on `RenderConfig.transp
 
 The next milestone should complete the important appearance controls without changing structural geometry.
 
-- Depth shading implemented as a style rule, with configurable origin, direction/range, and target color
 - General atom-selection overrides for special colors, radii, finishes, or visibility
 - Coordination-dependent atom styling integrated into the same resolver and precedence model
 - General bond-style property resolved per bond rule:

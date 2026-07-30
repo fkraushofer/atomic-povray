@@ -27,7 +27,7 @@ def test_povray_overbright_rgb_is_allowed_but_alpha_remains_bounded():
 
 def test_legacy_area_light_gamma_and_ambient_are_emitted():
     camera = Camera.orthographic(
-        location=(5.0, -100.0, 25.5),
+        direction=(0.0, 100.0, 0.0),
         target=(5.0, 0.0, 25.5),
         up=(0.0, 0.0, 1.0),
     )
@@ -61,6 +61,7 @@ def test_default_finish_is_shared_and_specific_styles_can_override_it():
     default_finish = Finish()
     atom_finish = Finish(
         ambient=0.10,
+        emission=0.05,
         diffuse=0.60,
         phong=0.30,
         phong_size=10,
@@ -85,11 +86,13 @@ def test_default_finish_is_shared_and_specific_styles_can_override_it():
     assert default_bond_material == default_finish.material(color)
     assert default_finish == Finish(
         ambient=0.10,
+        emission=0.0,
         diffuse=0.60,
         phong=0.0,
         phong_size=10,
     )
     assert overridden_atom_material == atom_finish.material(color)
+    assert overridden_atom_material.emission == pytest.approx(0.05)
 
     explicit_material = Material(color, phong=0.8)
     assert (
@@ -130,7 +133,7 @@ def test_legacy_ini_render_controls(tmp_path: Path):
 
 def test_povray_version_is_configurable_and_validated():
     camera = Camera.perspective(
-        location=(0, -10, 0),
+        direction=(0, 10, 0),
         target=(0, 0, 0),
         up=(0, 0, 1),
     )

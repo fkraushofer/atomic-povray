@@ -10,6 +10,7 @@ from atomic_povray import (
     BondStyle,
     Camera,
     Color,
+    DepthShading,
     DisplayBounds,
     PointLight,
     RenderConfig,
@@ -49,6 +50,12 @@ def main(*, render: bool = False) -> None:
             # No explicit color: each bond is split into Fe- and O-colored halves.
             "Fe-O": BondStyle(radius=0.074),
         },
+        depth_shading=DepthShading(
+            origin=(0.0, 0.0, 24.0),
+            direction=(0.0, 0.0, -1.0),
+            decay_length=30.0,
+            target=Color(1.0, 1.0, 1.0),
+        ),
     )
     styled = apply_styles(geometry, styles)
     camera = Camera.orthographic(

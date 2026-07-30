@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from math import radians, tan
 from pathlib import Path
 import subprocess
+import warnings
 
 import numpy as np
 
@@ -42,9 +43,11 @@ def _finish(material: Material) -> str:
     return (
         "finish { "
         f"ambient {_number(material.ambient)} "
+        f"emission {_number(material.emission)} "
         f"diffuse {_number(material.diffuse)} "
         f"phong {_number(material.phong)} "
-        f"phong_size {_number(material.phong_size)}"
+        f"phong_size {_number(material.phong_size)} "
+        f"specular {_number(material.specular)}"
         " }"
     )
 
@@ -69,23 +72,12 @@ def _primitive_to_sdl(primitive: Primitive) -> str:
         lines.append(f"  vertex_vectors {{ {len(primitive.vertices)},")
         lines.extend(f"    {_vector(vertex)}," for vertex in primitive.vertices)
         lines.append("  }")
-        if primitive.normals is not None:
-            lines.append(f"  normal_vectors {{ {len(primitive.normals)},")
-            lines.extend(f"    {_vector(normal)}," for normal in primitive.normals)
-            lines.append("  }")
         lines.append(f"  face_indices {{ {len(primitive.faces)},")
         lines.extend(
             f"    <{face[0]}, {face[1]}, {face[2]}>,"
             for face in primitive.faces
         )
         lines.append("  }")
-        if primitive.normals is not None:
-            lines.append(f"  normal_indices {{ {len(primitive.faces)},")
-            lines.extend(
-                f"    <{face[0]}, {face[1]}, {face[2]}>,"
-                for face in primitive.faces
-            )
-            lines.append("  }")
         lines.append(f"  {_material(primitive.material)}")
         lines.append("}")
         return "\n".join(lines)
@@ -216,6 +208,20 @@ def scene_to_sdl(
         f"{_number(scene.background.color.blue)}, "
         f"{_number(1.0 - scene.background.color.alpha)}> }}",
     ]
+    if scene.fog is not None:
+        fog = scene.fog
+        lines.extend(
+            (
+                "",
+                "fog {",
+                "  fog_type 1",
+                f"  distance {_number(fog.distance)}",
+                f"  color rgbf <{_number(fog.color.red)}, "
+                f"{_number(fog.color.green)}, {_number(fog.color.blue)}, "
+                f"{_number(1.0 - fog.color.alpha)}>",
+                "}",
+            )
+        )
     lines.extend(_light_to_sdl(light) for light in scene.lights)
     lines.append("")
     lines.extend(_primitive_to_sdl(primitive) for primitive in scene.primitives)
@@ -333,6 +339,14 @@ def render_scene(
     """Write and render a scene with POV-Ray."""
 
     config = config or RenderConfig()
+    if scene.fog is not None and config.quality < 9:
+        warnings.warn(
+            "POV-Ray fog requires quality 9 or higher and will not be rendered "
+            f"at quality {config.quality}. Low quality remains useful for "
+            "preview renders.",
+            UserWarning,
+            stacklevel=2,
+        )
     image_path = Path(output)
     image_path.parent.mkdir(parents=True, exist_ok=True)
     scene_path = image_path.with_suffix(".pov")

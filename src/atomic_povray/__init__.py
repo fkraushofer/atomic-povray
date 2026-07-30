@@ -25,8 +25,15 @@ from .primitives import (
     SpherePrimitive,
     TriangleMeshPrimitive,
 )
-from .scene import AreaLight, Background, Camera, PointLight, Scene, make_scene
-from .styling import AtomStyle, BondStyle, StyleConfig, StyledGeometry, apply_styles
+from .scene import AreaLight, Background, Camera, Fog, PointLight, Scene, make_scene
+from .styling import (
+    AtomStyle,
+    BondStyle,
+    DepthShading,
+    StyleConfig,
+    StyledGeometry,
+    apply_styles,
+)
 
 __all__ = [
     "AreaLight",
@@ -41,8 +48,10 @@ __all__ = [
     "Color",
     "CutoffPlane",
     "CylinderPrimitive",
+    "DepthShading",
     "DisplayBounds",
     "Finish",
+    "Fog",
     "GeometryModel",
     "Material",
     "PointLight",
