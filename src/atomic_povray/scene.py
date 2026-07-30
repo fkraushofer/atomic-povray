@@ -50,6 +50,33 @@ class PointLight:
 
 
 @dataclass(frozen=True)
+class AreaLight:
+    """A square soft light specified by its angular diameter at a target."""
+
+    location: Vec3
+    target: Vec3 = (0.0, 0.0, 0.0)
+    color: Color = Color(1.0, 1.0, 1.0)
+    intensity: float = 1.0
+    angular_diameter: float = 35.0
+    samples: tuple[int, int] = (9, 9)
+    adaptive: int = 2
+    circular: bool = False
+    orient: bool = True
+    jitter: bool = False
+
+    def __post_init__(self) -> None:
+        if not 0 < self.angular_diameter < 180:
+            raise ValueError("angular_diameter must lie between 0 and 180 degrees")
+        if len(self.samples) != 2 or any(sample < 1 for sample in self.samples):
+            raise ValueError("samples must contain two positive integers")
+        if self.adaptive < 0:
+            raise ValueError("adaptive must be non-negative")
+
+
+Light = PointLight | AreaLight
+
+
+@dataclass(frozen=True)
 class Background:
     color: Color = Color(1.0, 1.0, 1.0)
 
@@ -58,16 +85,18 @@ class Background:
 class Scene:
     primitives: tuple[Primitive, ...]
     camera: Camera
-    lights: tuple[PointLight, ...]
+    lights: tuple[Light, ...]
     background: Background
+    ambient_light: Color = Color(1.0, 1.0, 1.0)
 
 
 def make_scene(
     primitives: tuple[Primitive, ...],
     *,
     camera: Camera,
-    lights: tuple[PointLight, ...] = (),
+    lights: tuple[Light, ...] = (),
     background: Background | None = None,
+    ambient_light: Color = Color(1.0, 1.0, 1.0),
     extra_primitives: tuple[Primitive, ...] = (),
 ) -> Scene:
     """Assemble a scene; extras are a public extension point."""
@@ -77,5 +106,5 @@ def make_scene(
         camera=camera,
         lights=lights,
         background=background or Background(),
+        ambient_light=ambient_light,
     )
-
