@@ -82,10 +82,8 @@ def _primitive_to_sdl(primitive: Primitive) -> str:
 
 
 def _camera_to_sdl(camera: Camera, aspect_ratio: float) -> str:
-    location = np.asarray(camera.location, dtype=float)
-    target = np.asarray(camera.target, dtype=float)
+    view = np.asarray(camera.direction, dtype=float)
     up_hint = np.asarray(camera.up, dtype=float)
-    view = target - location
     view /= np.linalg.norm(view)
     right = np.cross(view, up_hint)
     if np.linalg.norm(right) < 1e-12:

@@ -52,7 +52,7 @@ def main(*, render: bool = False) -> None:
     )
     styled = apply_styles(geometry, styles)
     camera = Camera.orthographic(
-        location=(0.0, -100.0, 21.0),
+        direction=(0.0, 100.0, 0.0),
         target=(0.0, 0.0, 21.0),
         up=(0.0, 0.0, 1.0),
         width=21.0,

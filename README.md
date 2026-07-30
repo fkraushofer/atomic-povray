@@ -80,7 +80,7 @@ styles = StyleConfig(
 styled = apply_styles(geometry, styles)
 
 camera = Camera.orthographic(
-    location=(5.0, -100.0, 25.5),
+    direction=(0.0, 100.0, 0.0),
     target=(5.0, 0.0, 25.5),
     up=(0.0, 0.0, 1.0),
     width=21.0,
@@ -95,6 +95,11 @@ scene = make_scene(
 write_scene(scene, "hematite.pov")
 render_scene(scene, "hematite.png", RenderConfig(quality=3))
 ```
+
+The camera `direction` points from the camera toward `target`; its magnitude
+sets the camera distance. The emitted camera position is therefore
+`target - direction`. Keeping `direction` fixed while changing `target`
+translates the view without changing its orientation or perspective.
 
 Changing the camera only repeats `make_scene` and `render_scene`. Changing
 colors/radii repeats `apply_styles` onward. Neither operation repeats periodic
