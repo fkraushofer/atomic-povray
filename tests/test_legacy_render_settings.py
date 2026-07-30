@@ -15,8 +15,8 @@ from atomic_povray import (
     StyleConfig,
     make_scene,
     scene_to_sdl,
+    write_ini,
 )
-from atomic_povray.backends.povray_sdl import _write_ini
 
 
 def test_povray_overbright_rgb_is_allowed_but_alpha_remains_bounded():
@@ -47,7 +47,8 @@ def test_legacy_area_light_gamma_and_ambient_are_emitted():
         background=Background(Color(1.0, 1.0, 1.0, alpha=0.0)),
     )
 
-    sdl = scene_to_sdl(scene)
+    sdl = scene_to_sdl(scene, povray_version="3.8")
+    assert sdl.startswith("#version 3.8;")
     assert "assumed_gamma 1.0" in sdl
     assert "ambient_light rgb <0.1, 0.1, 0.1>" in sdl
     assert "area_light" in sdl
@@ -112,7 +113,7 @@ def test_legacy_ini_render_controls(tmp_path: Path):
         transparent=True,
         display=True,
     )
-    ini = _write_ini(tmp_path / "scene.pov", tmp_path / "scene.png", config)
+    ini = write_ini(tmp_path / "scene.pov", tmp_path / "scene.png", config)
 
     values = ini.read_text(encoding="utf-8")
     assert "Width=1024" in values
@@ -125,3 +126,17 @@ def test_legacy_ini_render_controls(tmp_path: Path):
     assert "File_Gamma=2.0" in values
     assert "Output_File_Type=N" in values
     assert "Output_Alpha=On" in values
+
+
+def test_povray_version_is_configurable_and_validated():
+    camera = Camera.perspective(
+        location=(0, -10, 0),
+        target=(0, 0, 0),
+        up=(0, 0, 1),
+    )
+    scene = make_scene((), camera=camera)
+
+    assert scene_to_sdl(scene).startswith("#version 3.8;")
+    assert scene_to_sdl(scene, povray_version="3.7").startswith("#version 3.7;")
+    with pytest.raises(ValueError, match="povray_version"):
+        RenderConfig(povray_version="3.8-beta")
