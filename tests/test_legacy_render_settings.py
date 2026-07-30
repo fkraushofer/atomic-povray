@@ -27,7 +27,7 @@ def test_povray_overbright_rgb_is_allowed_but_alpha_remains_bounded():
 
 def test_legacy_area_light_gamma_and_ambient_are_emitted():
     camera = Camera.orthographic(
-        location=(5.0, -100.0, 25.5),
+        direction=(0.0, 100.0, 0.0),
         target=(5.0, 0.0, 25.5),
         up=(0.0, 0.0, 1.0),
     )
@@ -130,7 +130,7 @@ def test_legacy_ini_render_controls(tmp_path: Path):
 
 def test_povray_version_is_configurable_and_validated():
     camera = Camera.perspective(
-        location=(0, -10, 0),
+        direction=(0, 10, 0),
         target=(0, 0, 0),
         up=(0, 0, 1),
     )
