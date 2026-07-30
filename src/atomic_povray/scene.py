@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 from typing import Literal
 
 from .model import Vec3
@@ -91,12 +92,25 @@ class Background:
 
 
 @dataclass(frozen=True)
+class Fog:
+    """POV-Ray's constant, camera-distance-based atmospheric fog."""
+
+    distance: float
+    color: Color = Color(1.0, 1.0, 1.0)
+
+    def __post_init__(self) -> None:
+        if not isfinite(self.distance) or self.distance <= 0:
+            raise ValueError("fog distance must be positive and finite")
+
+
+@dataclass(frozen=True)
 class Scene:
     primitives: tuple[Primitive, ...]
     camera: Camera
     lights: tuple[Light, ...]
     background: Background
     ambient_light: Color = Color(1.0, 1.0, 1.0)
+    fog: Fog | None = None
 
 
 def make_scene(
@@ -106,6 +120,7 @@ def make_scene(
     lights: tuple[Light, ...] = (),
     background: Background | None = None,
     ambient_light: Color = Color(1.0, 1.0, 1.0),
+    fog: Fog | None = None,
     extra_primitives: tuple[Primitive, ...] = (),
 ) -> Scene:
     """Assemble a scene; extras are a public extension point."""
@@ -116,4 +131,5 @@ def make_scene(
         lights=lights,
         background=background or Background(),
         ambient_light=ambient_light,
+        fog=fog,
     )
