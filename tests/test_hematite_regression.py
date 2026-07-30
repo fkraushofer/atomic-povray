@@ -2,16 +2,24 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from atomic_povray import BondRule, CartesianBounds, build_geometry, load_structure
+from atomic_povray import (
+    BondRule,
+    CutoffPlane,
+    DisplayBounds,
+    build_geometry,
+    load_structure,
+)
 
 
 def test_realistic_hematite_example_builds_consistent_geometry():
-    path = Path(__file__).parent / "data" / "hematite_1x1_unrelaxed_bare.vasp"
+    path = Path(__file__).parent / "data" / "fe2o3-012-3x3-unrelaxed.vasp"
     structure = load_structure(path)
     geometry = build_geometry(
         structure,
-        repetitions=(2, 1, 1),
-        bounds=CartesianBounds(z_min=17.0),
+        bounds=DisplayBounds(
+            fractional_ranges=((-1.0, 1.0), (0.0, 1.0), (0.0, 1.0)),
+            cutoff_planes=(CutoffPlane((0.0, 0.0, -1.0), -17.0),),
+        ),
         bond_rules=(BondRule("Fe", "O", 0.1, 2.45),),
     )
 
