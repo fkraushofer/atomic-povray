@@ -16,7 +16,7 @@ from atomic_povray import (
     build_geometry,
     get_default_bonds,
 )
-from atomic_povray.primitives import CylinderPrimitive
+from atomic_povray.primitives import CylinderPrimitive, SpherePrimitive
 
 
 def test_atom_style_uses_ase_radius_and_color_by_default():
@@ -27,12 +27,98 @@ def test_atom_style_uses_ase_radius_and_color_by_default():
     assert style.color.as_tuple()[:3] == pytest.approx(jmol_colors[oxygen])
 
 
-def test_empty_style_config_uses_distinct_atom_and_bond_finishes():
+def test_empty_style_config_uses_ball_and_stick_defaults():
     styles = StyleConfig()
 
+    assert styles.preset_style == "ball_and_stick"
+    assert styles.atom_size_scale == pytest.approx(0.5)
+    assert styles.draw_bonds
     assert styles.atom_finish.phong == pytest.approx(0.3)
     assert styles.bond_finish.phong == pytest.approx(0.0)
-    assert styles.default_bond.radius == pytest.approx(0.08)
+    assert styles.default_bond.radius == pytest.approx(0.10)
+
+
+def test_style_presets_control_rendered_atom_scale_and_bond_visibility():
+    atoms = Atoms(
+        "FeO",
+        positions=((0.0, 0.0, 0.0), (1.8, 0.0, 0.0)),
+        cell=(10.0, 10.0, 10.0),
+        pbc=False,
+    )
+    geometry = build_geometry(StructureModel(atoms))
+    ball_and_stick = apply_styles(geometry, StyleConfig())
+    space_filling = apply_styles(
+        geometry,
+        StyleConfig(preset_style="space_filling"),
+    )
+
+    ball_spheres = [
+        primitive
+        for primitive in ball_and_stick.primitives
+        if isinstance(primitive, SpherePrimitive)
+    ]
+    space_spheres = [
+        primitive
+        for primitive in space_filling.primitives
+        if isinstance(primitive, SpherePrimitive)
+    ]
+
+    expected_radii = [
+        covalent_radii[atomic_numbers[symbol]]
+        for symbol in atoms.get_chemical_symbols()
+    ]
+    assert [sphere.radius for sphere in ball_spheres] == pytest.approx(
+        [0.5 * radius for radius in expected_radii]
+    )
+    assert [sphere.radius for sphere in space_spheres] == pytest.approx(
+        expected_radii
+    )
+    assert any(
+        isinstance(primitive, CylinderPrimitive)
+        for primitive in ball_and_stick.primitives
+    )
+    assert not any(
+        isinstance(primitive, CylinderPrimitive)
+        for primitive in space_filling.primitives
+    )
+
+
+def test_explicit_atom_size_scale_overrides_preset_and_scales_custom_radii():
+    atoms = Atoms(
+        "O",
+        positions=((0.0, 0.0, 0.0),),
+        cell=(10.0, 10.0, 10.0),
+        pbc=False,
+    )
+    styled = apply_styles(
+        build_geometry(StructureModel(atoms), bond_rules=()),
+        StyleConfig(
+            preset_style="space_filling",
+            atom_size_scale=0.75,
+            elements={"O": AtomStyle(radius=0.4)},
+        ),
+    )
+    sphere = next(
+        primitive
+        for primitive in styled.primitives
+        if isinstance(primitive, SpherePrimitive)
+    )
+
+    assert sphere.radius == pytest.approx(0.3)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "error"),
+    [
+        ({"preset_style": "wireframe"}, ValueError),
+        ({"atom_size_scale": 0.0}, ValueError),
+        ({"atom_size_scale": float("inf")}, ValueError),
+        ({"atom_size_scale": True}, TypeError),
+    ],
+)
+def test_style_preset_validation(kwargs, error):
+    with pytest.raises(error):
+        StyleConfig(**kwargs)
 
 
 def test_partial_element_style_keeps_unspecified_ase_default():
@@ -85,7 +171,7 @@ def test_build_geometry_uses_default_bonds_when_rules_are_omitted():
     assert len(automatic.bonds) == 1
     assert automatic.bonds[0].rule_id == "default:Fe-O"
     assert disabled.bonds == ()
-    assert all(cylinder.radius == pytest.approx(0.08) for cylinder in cylinders)
+    assert all(cylinder.radius == pytest.approx(0.10) for cylinder in cylinders)
     assert cylinders[0].material.color != cylinders[1].material.color
 
 
