@@ -20,6 +20,7 @@ from .model import AtomInstance, AtomKey, Bond, GeometryModel, StructureModel
 from .primitives import (
     Color,
     CylinderPrimitive,
+    Finish,
     Material,
     Primitive,
     SpherePrimitive,
@@ -43,6 +44,7 @@ __all__ = [
     "CartesianBounds",
     "Color",
     "CylinderPrimitive",
+    "Finish",
     "GeometryModel",
     "Material",
     "PointLight",
