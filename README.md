@@ -126,6 +126,27 @@ styles = StyleConfig(
 )
 ```
 
+The default preset is a ball-and-stick representation: all resolved atom radii
+are multiplied by `0.5`, bonds are drawn, and the default ordinary bond radius
+is `0.10` Å. The scale is global and is applied after element, coordination,
+selection, and individual-atom radius overrides.
+
+Use the built-in presets directly when switching representations:
+
+```python
+ball_and_stick = StyleConfig(preset_style="ball_and_stick")
+space_filling = StyleConfig(preset_style="space_filling")
+```
+
+`space_filling` uses an atom scale of `1.0` and omits bond primitives. Bond
+geometry is retained, so coordination-dependent styles remain available and
+switching presets does not require rebuilding geometry. Override the global
+scale independently when needed:
+
+```python
+styles = StyleConfig(atom_size_scale=0.65)
+```
+
 `build_geometry()` automatically generates bond rules for the elements present,
 omitting noble-gas and metal-metal pairs by default. Pass an empty iterable to
 request an atom-only geometry explicitly:
@@ -286,7 +307,7 @@ solid and dashed bonds retain the default split based on their atom colors.
 Atoms and bonds have distinct built-in finishes. Both use ambient `0.10`,
 diffuse `0.60`, and Phong size `10`; atoms use Phong `0.30`, while bonds use
 Phong `0.0`. Together with the automatic ASE colors/radii and the default bond
-radius of `0.08` Å, no appearance declaration is required:
+radius of `0.10` Å, no appearance declaration is required:
 
 ```python
 styles = StyleConfig()
