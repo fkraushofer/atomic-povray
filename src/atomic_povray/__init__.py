@@ -27,25 +27,32 @@ from .primitives import (
 )
 from .scene import AreaLight, Background, Camera, Fog, PointLight, Scene, make_scene
 from .styling import (
+    AtomSelectionRule,
     AtomStyle,
+    AtomStyleOverride,
     BondStyle,
+    CoordinationStyleRule,
     DepthShading,
     StyleConfig,
     StyledGeometry,
     apply_styles,
+    resolve_atom_styles,
 )
 
 __all__ = [
     "AreaLight",
     "AtomInstance",
     "AtomKey",
+    "AtomSelectionRule",
     "AtomStyle",
+    "AtomStyleOverride",
     "Background",
     "Bond",
     "BondRule",
     "BondStyle",
     "Camera",
     "Color",
+    "CoordinationStyleRule",
     "CutoffPlane",
     "CylinderPrimitive",
     "DepthShading",
@@ -69,6 +76,7 @@ __all__ = [
     "load_structure",
     "make_scene",
     "render_scene",
+    "resolve_atom_styles",
     "scene_to_sdl",
     "write_ini",
     "write_scene",

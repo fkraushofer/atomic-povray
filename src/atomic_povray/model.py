@@ -41,6 +41,17 @@ class Bond:
 
 
 @dataclass(frozen=True)
+class BondNeighbor:
+    """One bond-rule-matched neighbor in a source atom's periodic environment."""
+
+    source_index: int
+    image_shift: ImageShift
+    symbol: str
+    rule_id: str
+    distance: float
+
+
+@dataclass(frozen=True)
 class StructureModel:
     """ASE structure kept by composition rather than inheritance."""
 
@@ -54,12 +65,13 @@ class StructureModel:
 
 @dataclass(frozen=True)
 class GeometryModel:
-    """Finite displayed atoms, bonds, and derived adjacency."""
+    """Finite displayed atoms, bonds, and complete source-atom environments."""
 
     structure: StructureModel
     atoms: tuple[AtomInstance, ...]
     bonds: tuple[Bond, ...]
     adjacency: tuple[tuple[int, ...], ...]
+    source_environments: tuple[tuple[BondNeighbor, ...], ...] = ()
 
     def atom_index(self) -> dict[AtomKey, int]:
         return {atom.key: index for index, atom in enumerate(self.atoms)}

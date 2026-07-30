@@ -24,6 +24,8 @@ file can be written and then rendered manually.
 - periodic bond discovery, including skewed cells and bonds crossing cell edges
 - stable atom identity as `(source_index, lattice_shift)`
 - atom spheres
+- layered atom-style overrides by coordination, ASE selection, source index, or
+  displayed periodic instance
 - solid or dashed bonds, with configurable dash count and radius
 - single-color or two-color bonds (with the legacy equal-visible-length split)
 - a shared default finish for atoms and bonds, with per-style material or finish
@@ -38,8 +40,8 @@ file can be written and then rendered manually.
 - optional per-vertex normals for smooth externally generated triangle meshes
 - notebook-friendly, explicitly staged API
 
-Coordination styles, labels, polyhedra, persistent disk caching, and an
-interactive preview are intentionally deferred.
+Labels, polyhedra, persistent disk caching, and an interactive preview are
+intentionally deferred.
 
 ## Installation
 
@@ -115,6 +117,74 @@ translates the view without changing its orientation or perspective.
 Changing the camera only repeats `make_scene` and `render_scene`. Changing
 colors/radii repeats `apply_styles` onward. Neither operation repeats periodic
 bond detection.
+
+## Atom style rules
+
+Atom appearance resolves from the general element style through increasingly
+specific partial overrides:
+
+```text
+global default
+→ element style
+→ coordination rules
+→ selection rules
+→ source-atom override
+→ displayed-instance override
+```
+
+Selection rules receive the original ASE `Atoms` and may return one index, a
+one-dimensional integer sequence, or a Boolean mask. The selector is evaluated
+once per styling call and applies to every displayed image of each selected
+source atom:
+
+```python
+styles = StyleConfig(
+    elements={"O": AtomStyle(0.34, oxygen_color)},
+    selection_rules=(
+        AtomSelectionRule(
+            selector=lambda atoms: (
+                (np.asarray(atoms.get_chemical_symbols()) == "O")
+                & (atoms.positions[:, 2] > 26.0)
+            ),
+            style=AtomStyleOverride(color=surface_oxygen_color),
+        ),
+    ),
+)
+```
+
+Coordination is calculated during geometry construction from the complete
+periodic bond-rule environment, before display clipping. A boundary atom
+therefore does not appear undercoordinated merely because one of its neighbors
+is outside the rendered region:
+
+```python
+styles = StyleConfig(
+    ...,
+    coordination_rules=(
+        CoordinationStyleRule(
+            element="Fe",
+            coordination=4,
+            neighbor_elements={"O"},
+            bond_rules={"Fe-O"},
+            style=AtomStyleOverride(color=tetrahedral_fe_color),
+        ),
+        CoordinationStyleRule(
+            element="Fe",
+            coordination=6,
+            neighbor_elements={"O"},
+            bond_rules={"Fe-O"},
+            style=AtomStyleOverride(color=octahedral_fe_color),
+        ),
+    ),
+)
+```
+
+Use `source_atom_overrides={17: ...}` for ASE atom 17 in every displayed
+replication, or `atom_instance_overrides={AtomKey(17, (1, 0, 0)): ...}` for
+one particular periodic image. Later matching rules win within a category, and
+partial overrides retain properties they do not specify. Setting
+`visible=False` also removes bonds incident to that atom. Split-color solid
+and dashed bonds automatically use the final resolved endpoint colors.
 
 ## Bond styles and distance ranges
 
