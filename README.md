@@ -80,7 +80,7 @@ styles = StyleConfig(
 styled = apply_styles(geometry, styles)
 
 camera = Camera.orthographic(
-    location=(5.0, -100.0, 25.5),
+    direction=(0.0, 100.0, 0.0),
     target=(5.0, 0.0, 25.5),
     up=(0.0, 0.0, 1.0),
     width=21.0,
