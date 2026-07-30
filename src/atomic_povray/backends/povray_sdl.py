@@ -42,6 +42,7 @@ def _finish(material: Material) -> str:
     return (
         "finish { "
         f"ambient {_number(material.ambient)} "
+        f"emission {_number(material.emission)} "
         f"diffuse {_number(material.diffuse)} "
         f"phong {_number(material.phong)} "
         f"phong_size {_number(material.phong_size)} "
@@ -70,23 +71,12 @@ def _primitive_to_sdl(primitive: Primitive) -> str:
         lines.append(f"  vertex_vectors {{ {len(primitive.vertices)},")
         lines.extend(f"    {_vector(vertex)}," for vertex in primitive.vertices)
         lines.append("  }")
-        if primitive.normals is not None:
-            lines.append(f"  normal_vectors {{ {len(primitive.normals)},")
-            lines.extend(f"    {_vector(normal)}," for normal in primitive.normals)
-            lines.append("  }")
         lines.append(f"  face_indices {{ {len(primitive.faces)},")
         lines.extend(
             f"    <{face[0]}, {face[1]}, {face[2]}>,"
             for face in primitive.faces
         )
         lines.append("  }")
-        if primitive.normals is not None:
-            lines.append(f"  normal_indices {{ {len(primitive.faces)},")
-            lines.extend(
-                f"    <{face[0]}, {face[1]}, {face[2]}>,"
-                for face in primitive.faces
-            )
-            lines.append("  }")
         lines.append(f"  {_material(primitive.material)}")
         lines.append("}")
         return "\n".join(lines)
