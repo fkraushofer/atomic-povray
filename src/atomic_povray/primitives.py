@@ -45,6 +45,27 @@ class Material:
 
 
 @dataclass(frozen=True)
+class Finish:
+    """Color-independent POV-Ray finish shared by styled primitives."""
+
+    ambient: float = 0.15
+    diffuse: float = 0.75
+    phong: float = 0.35
+    phong_size: float = 40.0
+
+    def material(self, color: Color) -> Material:
+        """Combine this finish with a pigment color."""
+
+        return Material(
+            color=color,
+            ambient=self.ambient,
+            diffuse=self.diffuse,
+            phong=self.phong,
+            phong_size=self.phong_size,
+        )
+
+
+@dataclass(frozen=True)
 class SpherePrimitive:
     center: Vec3
     radius: float
