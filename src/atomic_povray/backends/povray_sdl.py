@@ -1,0 +1,246 @@
+"""Direct declarative POV-Ray SDL backend."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+import subprocess
+
+import numpy as np
+
+from ..model import Vec3
+from ..primitives import (
+    Color,
+    CylinderPrimitive,
+    Material,
+    Primitive,
+    SpherePrimitive,
+    TriangleMeshPrimitive,
+)
+from ..scene import Camera, Scene
+
+
+def _number(value: float) -> str:
+    return f"{float(value):.9g}"
+
+
+def _vector(vector: Vec3) -> str:
+    return "<" + ", ".join(_number(value) for value in vector) + ">"
+
+
+def _pigment(color: Color) -> str:
+    # POV-Ray filter 0 is opaque; our alpha 1 is opaque.
+    return (
+        "pigment { color rgbf <"
+        f"{_number(color.red)}, {_number(color.green)}, {_number(color.blue)}, "
+        f"{_number(1.0 - color.alpha)}> }}"
+    )
+
+
+def _finish(material: Material) -> str:
+    return (
+        "finish { "
+        f"ambient {_number(material.ambient)} "
+        f"diffuse {_number(material.diffuse)} "
+        f"phong {_number(material.phong)} "
+        f"phong_size {_number(material.phong_size)}"
+        " }"
+    )
+
+
+def _material(material: Material) -> str:
+    return f"{_pigment(material.color)} {_finish(material)}"
+
+
+def _primitive_to_sdl(primitive: Primitive) -> str:
+    if isinstance(primitive, SpherePrimitive):
+        return (
+            f"sphere {{ {_vector(primitive.center)}, {_number(primitive.radius)} "
+            f"{_material(primitive.material)} }}"
+        )
+    if isinstance(primitive, CylinderPrimitive):
+        return (
+            f"cylinder {{ {_vector(primitive.start)}, {_vector(primitive.end)}, "
+            f"{_number(primitive.radius)} {_material(primitive.material)} }}"
+        )
+    if isinstance(primitive, TriangleMeshPrimitive):
+        lines = ["mesh2 {"]
+        lines.append(f"  vertex_vectors {{ {len(primitive.vertices)},")
+        lines.extend(f"    {_vector(vertex)}," for vertex in primitive.vertices)
+        lines.append("  }")
+        lines.append(f"  face_indices {{ {len(primitive.faces)},")
+        lines.extend(
+            f"    <{face[0]}, {face[1]}, {face[2]}>," for face in primitive.faces
+        )
+        lines.append("  }")
+        lines.append(f"  {_material(primitive.material)}")
+        lines.append("}")
+        return "\n".join(lines)
+    raise TypeError(f"Unsupported primitive type: {type(primitive).__name__}")
+
+
+def _camera_to_sdl(camera: Camera, aspect_ratio: float) -> str:
+    location = np.asarray(camera.location, dtype=float)
+    target = np.asarray(camera.target, dtype=float)
+    up_hint = np.asarray(camera.up, dtype=float)
+    view = target - location
+    view /= np.linalg.norm(view)
+    right = np.cross(view, up_hint)
+    if np.linalg.norm(right) < 1e-12:
+        raise ValueError("Camera up vector must not be parallel to the view direction")
+    right /= np.linalg.norm(right)
+    true_up = np.cross(right, view)
+    true_up /= np.linalg.norm(true_up)
+
+    lines = ["camera {"]
+    if camera.projection == "orthographic":
+        lines.append("  orthographic")
+        right_vector = tuple(float(value) for value in right * camera.width)
+        up_vector = tuple(
+            float(value) for value in true_up * camera.width / aspect_ratio
+        )
+        lines.append(f"  right {_vector(right_vector)}")
+        lines.append(f"  up {_vector(up_vector)}")
+    else:
+        lines.append(f"  angle {_number(camera.angle)}")
+        # Preserve image orientation and requested aspect ratio.
+        right_vector = tuple(float(value) for value in right * aspect_ratio)
+        up_vector = tuple(float(value) for value in true_up)
+        lines.append(f"  right {_vector(right_vector)}")
+        lines.append(f"  up {_vector(up_vector)}")
+    lines.extend(
+        (
+            f"  location {_vector(camera.location)}",
+            f"  look_at {_vector(camera.target)}",
+            f"  sky {_vector(camera.up)}",
+            "}",
+        )
+    )
+    return "\n".join(lines)
+
+
+def scene_to_sdl(scene: Scene, *, aspect_ratio: float = 4 / 3) -> str:
+    lines = [
+        "#version 3.7;",
+        "global_settings { assumed_gamma 1.0 }",
+        "",
+        _camera_to_sdl(scene.camera, aspect_ratio),
+        "",
+        f"background {{ color rgbf <{_number(scene.background.color.red)}, "
+        f"{_number(scene.background.color.green)}, "
+        f"{_number(scene.background.color.blue)}, "
+        f"{_number(1.0 - scene.background.color.alpha)}> }}",
+    ]
+    for light in scene.lights:
+        color = tuple(
+            channel * light.intensity
+            for channel in (light.color.red, light.color.green, light.color.blue)
+        )
+        shadowless = " shadowless" if light.shadowless else ""
+        lines.append(
+            f"light_source {{ {_vector(light.location)} color rgb "
+            f"{_vector(color)}{shadowless} }}"
+        )
+    lines.append("")
+    lines.extend(_primitive_to_sdl(primitive) for primitive in scene.primitives)
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_scene(
+    scene: Scene,
+    filename: str | Path,
+    *,
+    width: int = 800,
+    height: int = 600,
+) -> Path:
+    path = Path(filename)
+    path.write_text(
+        scene_to_sdl(scene, aspect_ratio=width / height),
+        encoding="utf-8",
+    )
+    return path
+
+
+@dataclass(frozen=True)
+class RenderConfig:
+    width: int = 800
+    height: int = 600
+    quality: int = 3
+    antialias: bool = True
+    transparent: bool = False
+    executable: str = "povray"
+
+    def __post_init__(self) -> None:
+        if self.width < 1 or self.height < 1:
+            raise ValueError("Render width and height must be positive")
+        if not 0 <= self.quality <= 11:
+            raise ValueError("POV-Ray quality must lie between 0 and 11")
+
+
+@dataclass(frozen=True)
+class RenderResult:
+    image_path: Path
+    scene_path: Path
+    ini_path: Path
+    command: tuple[str, ...]
+    stdout: str
+    stderr: str
+
+
+def _write_ini(
+    scene_path: Path,
+    image_path: Path,
+    config: RenderConfig,
+) -> Path:
+    ini_path = image_path.with_suffix(".ini")
+    values = {
+        "Input_File_Name": str(scene_path.resolve()),
+        "Output_File_Name": str(image_path.resolve()),
+        "Width": config.width,
+        "Height": config.height,
+        "Quality": config.quality,
+        "Antialias": "On" if config.antialias else "Off",
+        "Output_Alpha": "On" if config.transparent else "Off",
+    }
+    ini_path.write_text(
+        "\n".join(f"{key}={value}" for key, value in values.items()) + "\n",
+        encoding="utf-8",
+    )
+    return ini_path
+
+
+def render_scene(
+    scene: Scene,
+    output: str | Path,
+    config: RenderConfig | None = None,
+) -> RenderResult:
+    """Write and render a scene with POV-Ray."""
+
+    config = config or RenderConfig()
+    image_path = Path(output)
+    image_path.parent.mkdir(parents=True, exist_ok=True)
+    scene_path = image_path.with_suffix(".pov")
+    write_scene(scene, scene_path, width=config.width, height=config.height)
+    ini_path = _write_ini(scene_path, image_path, config)
+
+    executable_name = Path(config.executable).name.lower()
+    if executable_name.startswith(("pvengine", "povwin")):
+        command = (config.executable, "/RENDER", str(ini_path), "/EXIT")
+    else:
+        command = (config.executable, str(ini_path))
+    completed = subprocess.run(
+        command,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return RenderResult(
+        image_path,
+        scene_path,
+        ini_path,
+        command,
+        completed.stdout,
+        completed.stderr,
+    )
+
