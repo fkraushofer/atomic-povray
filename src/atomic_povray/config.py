@@ -14,7 +14,10 @@ BondExtensionMode = Literal["asymmetric", "symmetric", "none"]
 
 @dataclass(frozen=True)
 class BondRule:
-    """A distance rule for a pair of elements.
+    """A half-open distance rule for a pair of elements.
+
+    Distances satisfy ``min_distance <= distance < max_distance``, so adjacent
+    rules can share a cutoff without matching the same bond.
 
     The order of ``element_a`` and ``element_b`` only matters at a boundary.
     With the default ``extension_mode="asymmetric"``, an in-bounds
@@ -47,7 +50,7 @@ class BondRule:
         elements_match = (
             symbol_a == self.element_a and symbol_b == self.element_b
         ) or (symbol_a == self.element_b and symbol_b == self.element_a)
-        return elements_match and self.min_distance <= distance <= self.max_distance
+        return elements_match and self.min_distance <= distance < self.max_distance
 
     def allows_extension_from(self, anchor: str, extension: str) -> bool:
         """Return whether an in-bounds anchor may add an outside endpoint."""
