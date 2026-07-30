@@ -82,11 +82,16 @@ class CylinderPrimitive:
 
 @dataclass(frozen=True)
 class TriangleMeshPrimitive:
-    """Generic triangle mesh hook for later hull/isosurface modules."""
+    """Generic triangle mesh hook for external hull/isosurface modules."""
 
     vertices: tuple[Vec3, ...]
     faces: tuple[tuple[int, int, int], ...]
     material: Material
+    normals: tuple[Vec3, ...] | None = None
+
+    def __post_init__(self) -> None:
+        if self.normals is not None and len(self.normals) != len(self.vertices):
+            raise ValueError("Triangle mesh normals must match the vertex count")
 
 
 Primitive: TypeAlias = SpherePrimitive | CylinderPrimitive | TriangleMeshPrimitive
