@@ -230,7 +230,7 @@ def test_selected_endpoint_colors_split_dashed_bonds():
 def test_real_structure_selects_twelve_oxygen_atoms_above_z_26():
     structure = load_structure(DATA_PATH)
     selected_color = Color(0.12, 0.34, 0.56)
-    geometry = build_geometry(structure)
+    geometry = build_geometry(structure, bond_rules=())
     resolved = resolve_atom_styles(
         geometry,
         StyleConfig(
