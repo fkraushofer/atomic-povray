@@ -276,7 +276,9 @@ def _bond_primitives(
         start_coordinate = float(np.dot(span_start - position_a, direction))
         end_coordinate = float(np.dot(span_end - position_a, direction))
         if start_coordinate < split_coordinate:
-            piece_end = span_end if end_coordinate <= split_coordinate else split_point
+            piece_end = (
+                span_end if end_coordinate <= split_coordinate else split_point
+            )
             primitives.append(
                 CylinderPrimitive(
                     tuple(float(value) for value in span_start),
@@ -286,7 +288,9 @@ def _bond_primitives(
                 )
             )
         if end_coordinate > split_coordinate:
-            piece_start = span_start if start_coordinate >= split_coordinate else split_point
+            piece_start = (
+                span_start if start_coordinate >= split_coordinate else split_point
+            )
             primitives.append(
                 CylinderPrimitive(
                     tuple(float(value) for value in piece_start),
