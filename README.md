@@ -23,7 +23,8 @@ file can be written and then rendered manually.
 - element-pair bond rules with half-open minimum/maximum distance ranges
 - periodic bond discovery, including skewed cells and bonds crossing cell edges
 - stable atom identity as `(source_index, lattice_shift)`
-- atom spheres
+- atom spheres with ASE-backed fallback colors and covalent radii
+- opt-in, editable default bond rules for chemically plausible element pairs
 - layered atom-style overrides by coordination, ASE selection, source index, or
   displayed periodic instance
 - solid or dashed bonds, with configurable dash count and radius
@@ -117,6 +118,64 @@ translates the view without changing its orientation or perspective.
 Changing the camera only repeats `make_scene` and `render_scene`. Changing
 colors/radii repeats `apply_styles` onward. Neither operation repeats periodic
 bond detection.
+
+## Atomic and bond defaults
+
+Atom colors and radii fall back field by field to ASE's Jmol colors and
+covalent radii. Explicit element styles therefore only need to contain the
+properties that differ:
+
+```python
+styles = StyleConfig(
+    elements={
+        "Fe": AtomStyle(color=Color.from_hex("#A63B32")),
+        "O": AtomStyle(radius=0.4),
+    },
+)
+```
+
+Bond inference remains opt-in. `get_default_bonds()` examines only the
+elements present, omits noble-gas and metal-metal pairs by default, and returns
+an ordinary editable `BondRuleSet`:
+
+```python
+bond_rules = get_default_bonds(structure, bond_scale=1.2)
+
+bond_rules.remove("default:Fe-H")
+bond_rules.update("default:Fe-O", max_distance=2.45)
+bond_rules.remove_pair("H", "H")
+bond_rules.add(
+    BondRule("Fe", "Fe", 0.0, 2.8, name="custom:Fe-Fe")
+)
+
+geometry = build_geometry(structure, bond_rules=bond_rules)
+```
+
+Ordinary cutoffs are `bond_scale` times the sum of the two ASE covalent
+radii. Heteronuclear metal/non-metal rules are oriented from metal to
+non-metal, so the default asymmetric boundary extension completes
+coordination shells around in-bounds metals. Homonuclear rules may also extend
+past boundaries.
+
+When O and H are both present, the returned set contains adjacent covalent O-H
+and hydrogen O···H ranges. The hydrogen-bond maximum is fixed at 2.1 Å,
+independent of `bond_scale`, uses `extension_mode="none"`, and receives a
+dashed default style. It remains an ordinary rule and can be changed
+separately:
+
+```python
+bond_rules.update("default:hydrogen:O-H", max_distance=2.3)
+```
+
+Use `include_pairs={("Fe", "Fe")}` to admit a pair excluded by the default
+chemical policy, or `exclude_pairs={("Fe", "H")}` to suppress an otherwise
+eligible pair.
+
+The element data are read from ASE rather than copied from VESTA. ASE's
+covalent radii are based on Cordero *et al.*, “Covalent radii revisited”
+([DOI: 10.1039/B801115J](https://doi.org/10.1039/B801115J)); colors use ASE's
+Jmol color table. VESTA inspired the conservative candidate-pair policy and
+editable workflow, but no VESTA data files are redistributed.
 
 ## Atom style rules
 
