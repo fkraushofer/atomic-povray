@@ -97,19 +97,13 @@ bond detection.
 
 ## Finishes and overrides
 
-`StyleConfig.default_finish` is used for every atom and bond that does not
-provide a more specific finish or material:
+The built-in default finish is used for every atom and bond that does not
+provide a more specific finish or material. Its values reproduce the common
+legacy finish: ambient `0.10`, diffuse `0.60`, Phong `0.0`, and Phong size
+`10`. No finish declaration is required for that behavior:
 
 ```python
-default_finish = Finish(
-    ambient=0.10,
-    diffuse=0.60,
-    phong=0.0,
-    phong_size=10,
-)
-
 styles = StyleConfig(
-    default_finish=default_finish,
     elements={
         "Fe": AtomStyle(0.55, Color(0.10, 0.10, 1.10)),
         "O": AtomStyle(0.34, Color(1.05, 0.10, 0.05)),
@@ -118,6 +112,8 @@ styles = StyleConfig(
 )
 ```
 
+To change the shared default, pass
+`StyleConfig(default_finish=Finish(...), ...)`.
 Override only the finish while retaining the atom or bond color with
 `AtomStyle(..., finish=another_finish)` or
 `BondStyle(..., finish=another_finish)`. Supplying `material=Material(...)`
