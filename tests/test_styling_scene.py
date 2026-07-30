@@ -89,6 +89,73 @@ def test_single_color_bond_becomes_one_cylinder():
     assert len(cylinders) == 1
 
 
+
+def test_dashed_bond_becomes_requested_visible_segments():
+    color = Color(0.7, 0.7, 0.7)
+    styled = apply_styles(
+        simple_geometry(),
+        StyleConfig(
+            elements={
+                "Fe": AtomStyle(0.6, Color(0.5, 0.1, 0.1)),
+                "O": AtomStyle(0.4, Color(1.0, 0.8, 0.0)),
+            },
+            bonds={
+                "Fe-O": BondStyle(
+                    radius=0.1,
+                    color=color,
+                    style="dashed",
+                    dashes=3,
+                )
+            },
+        ),
+    )
+    cylinders = [
+        primitive
+        for primitive in styled.primitives
+        if isinstance(primitive, CylinderPrimitive)
+    ]
+
+    assert len(cylinders) == 3
+    assert [(item.start[0], item.end[0]) for item in cylinders] == pytest.approx(
+        ((0.6, 0.76), (0.92, 1.08), (1.24, 1.4))
+    )
+    assert all(item.radius == 0.1 for item in cylinders)
+    assert all(item.material.color == color for item in cylinders)
+
+
+def test_dashed_bond_retains_default_split_atom_colors():
+    styled = apply_styles(
+        simple_geometry(),
+        StyleConfig(
+            elements={
+                "Fe": AtomStyle(0.6, Color(0.5, 0.1, 0.1)),
+                "O": AtomStyle(0.4, Color(1.0, 0.8, 0.0)),
+            },
+            bonds={"Fe-O": BondStyle(style="dashed", dashes=2)},
+        ),
+    )
+    cylinders = [
+        primitive
+        for primitive in styled.primitives
+        if isinstance(primitive, CylinderPrimitive)
+    ]
+
+    assert len(cylinders) == 2
+    assert cylinders[0].material.color != cylinders[1].material.color
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "exception", "message"),
+    (
+        ({"style": "dots"}, ValueError, "style"),
+        ({"dashes": 0}, ValueError, "dashes"),
+        ({"dashes": 2.5}, TypeError, "dashes"),
+    ),
+)
+def test_bond_style_validates_segment_configuration(kwargs, exception, message):
+    with pytest.raises(exception, match=message):
+        BondStyle(**kwargs)
+
 def test_extra_primitives_are_appended_and_written_to_sdl():
     styled = apply_styles(simple_geometry(), StyleConfig())
     extra = CylinderPrimitive(
