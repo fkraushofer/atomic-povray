@@ -180,7 +180,7 @@ def _light_to_sdl(light: PointLight | AreaLight) -> str:
 def _validate_povray_version(value: str) -> str:
     parts = value.split(".")
     if len(parts) != 2 or not all(part.isdigit() for part in parts):
-        raise ValueError("povray_version must have the form '3.8'")
+        raise ValueError("povray_version must have the form 'major.minor'")
     return value
 
 
@@ -188,7 +188,7 @@ def scene_to_sdl(
     scene: Scene,
     *,
     aspect_ratio: float = 4 / 3,
-    povray_version: str = "3.8",
+    povray_version: str = "3.7",
 ) -> str:
     ambient = scene.ambient_light
     povray_version = _validate_povray_version(povray_version)
@@ -220,7 +220,7 @@ def write_scene(
     *,
     width: int = 800,
     height: int = 600,
-    povray_version: str = "3.8",
+    povray_version: str = "3.7",
 ) -> Path:
     path = Path(filename)
     path.write_text(
@@ -247,7 +247,7 @@ class RenderConfig:
     transparent: bool = False
     display: bool = False
     executable: str = "povray"
-    povray_version: str = "3.8"
+    povray_version: str = "3.7"
 
     def __post_init__(self) -> None:
         if self.width < 1 or self.height < 1:
