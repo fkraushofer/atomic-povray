@@ -24,12 +24,12 @@ file can be written and then rendered manually.
 - periodic bond discovery, including skewed cells and bonds crossing cell edges
 - stable atom identity as `(source_index, lattice_shift)`
 - atom spheres with ASE-backed fallback colors and covalent radii
-- opt-in, editable default bond rules for chemically plausible element pairs
+- automatic, editable default bond rules for chemically plausible element pairs
 - layered atom-style overrides by coordination, ASE selection, source index, or
   displayed periodic instance
 - solid or dashed bonds, with configurable dash count and radius
 - single-color or two-color bonds (with the legacy equal-visible-length split)
-- a shared default finish for atoms and bonds, with per-style material or finish
+- distinct default atom and bond finishes, with per-style material or finish
   overrides
 - directional exponential depth shading with a configurable onset, direction,
   decay length, and target color
@@ -73,17 +73,9 @@ geometry = build_geometry(
             CutoffPlane(normal=(1.0, 0.0, 0.0), distance=9.5),
         ),
     ),
-    # Order matters only for extensions: an in-bounds Fe may pull in an
-    # out-of-bounds O, but an in-bounds O does not pull in an Fe.
-    bond_rules=[BondRule("Fe", "O", 0.1, 2.45)],
 )
 
 styles = StyleConfig(
-    elements={
-        "Fe": AtomStyle(radius=0.55, color=Color.from_hex("#A63B32")),
-        "O": AtomStyle(radius=0.34, color=Color.from_hex("#E6D84A")),
-    },
-    bonds={"Fe-O": BondStyle(radius=0.074)},
     depth_shading=DepthShading(
         origin=(0.0, 0.0, 24.0),
         direction=(0.0, 0.0, -1.0),
@@ -134,8 +126,16 @@ styles = StyleConfig(
 )
 ```
 
-Bond inference remains opt-in. `get_default_bonds()` examines only the
-elements present, omits noble-gas and metal-metal pairs by default, and returns
+`build_geometry()` automatically generates bond rules for the elements present,
+omitting noble-gas and metal-metal pairs by default. Pass an empty iterable to
+request an atom-only geometry explicitly:
+
+```python
+geometry = build_geometry(structure)
+geometry_without_bonds = build_geometry(structure, bond_rules=())
+```
+
+To inspect, edit, or delete the defaults before geometry construction, materialize
 an ordinary editable `BondRuleSet`:
 
 ```python
@@ -283,23 +283,18 @@ solid and dashed bonds retain the default split based on their atom colors.
 
 ## Finishes and overrides
 
-The built-in default finish is used for every atom and bond that does not
-provide a more specific finish or material. Its values reproduce the common
-legacy finish: ambient `0.10`, diffuse `0.60`, Phong `0.0`, and Phong size
-`10`. No finish declaration is required for that behavior:
+Atoms and bonds have distinct built-in finishes. Both use ambient `0.10`,
+diffuse `0.60`, and Phong size `10`; atoms use Phong `0.30`, while bonds use
+Phong `0.0`. Together with the automatic ASE colors/radii and the default bond
+radius of `0.08` Å, no appearance declaration is required:
 
 ```python
-styles = StyleConfig(
-    elements={
-        "Fe": AtomStyle(0.55, Color(0.10, 0.10, 1.10)),
-        "O": AtomStyle(0.34, Color(1.05, 0.10, 0.05)),
-    },
-    bonds={"Fe-O": BondStyle(radius=0.074)},
-)
+styles = StyleConfig()
 ```
 
-To change the shared default, pass
-`StyleConfig(default_finish=Finish(...), ...)`.
+Override them independently with `default_atom_finish=` or
+`default_bond_finish=`. The compatibility argument `default_finish=` still sets
+a shared finish for both.
 Override only the finish while retaining the atom or bond color with
 `AtomStyle(..., finish=another_finish)` or
 `BondStyle(..., finish=another_finish)`. Supplying `material=Material(...)`
@@ -307,7 +302,7 @@ overrides both color and finish. The resolution order is:
 
 1. an explicit `material`;
 2. an explicit `finish`, combined with the style color;
-3. `StyleConfig.default_finish`, combined with the style color.
+3. the corresponding atom or bond default finish, combined with the style color.
 
 `BondStyle.material_template` remains available for compatibility with the
 first prototype, but `finish=` is clearer for new code because a finish has no
