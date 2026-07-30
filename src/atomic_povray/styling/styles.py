@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field, replace
-from math import exp
+from math import exp, isfinite
+from numbers import Real
 from typing import TYPE_CHECKING, Literal, TypeAlias
 
 import numpy as np
@@ -214,7 +215,7 @@ class AtomSelectionRule:
 
 @dataclass(frozen=True)
 class BondStyle:
-    radius: float = 0.08
+    radius: float = 0.10
     color: Color | None = None
     material: Material | None = None
     finish: Finish | None = None
@@ -258,6 +259,8 @@ DEFAULT_HYDROGEN_BOND_STYLE = BondStyle(
 
 @dataclass(frozen=True)
 class StyleConfig:
+    preset_style: Literal["ball_and_stick", "space_filling"] = "ball_and_stick"
+    atom_size_scale: float | None = None
     elements: dict[str, AtomStyle] = field(default_factory=dict)
     bonds: dict[str, BondStyle] = field(default_factory=dict)
     coordination_rules: tuple[CoordinationStyleRule, ...] = ()
@@ -274,6 +277,33 @@ class StyleConfig:
     default_bond_finish: Finish = Finish()
     default_finish: Finish | None = None
     depth_shading: DepthShading | None = None
+
+    def __post_init__(self) -> None:
+        scales = {
+            "ball_and_stick": 0.5,
+            "space_filling": 1.0,
+        }
+        try:
+            preset_scale = scales[self.preset_style]
+        except KeyError:
+            raise ValueError(
+                "preset_style must be 'ball_and_stick' or 'space_filling'"
+            ) from None
+
+        scale = self.atom_size_scale
+        if scale is None:
+            scale = preset_scale
+        if isinstance(scale, bool) or not isinstance(scale, Real):
+            raise TypeError("atom_size_scale must be a real number")
+        if not isfinite(scale) or scale <= 0:
+            raise ValueError("atom_size_scale must be positive and finite")
+        object.__setattr__(self, "atom_size_scale", float(scale))
+
+    @property
+    def draw_bonds(self) -> bool:
+        """Return whether the selected preset draws bond primitives."""
+
+        return self.preset_style == "ball_and_stick"
 
     @property
     def atom_finish(self) -> Finish:
@@ -409,7 +439,10 @@ def resolve_atom_styles(
         if instance_override is not None:
             style = instance_override.apply(style)
 
-        resolved[atom.key] = style
+        resolved[atom.key] = replace(
+            style,
+            radius=style.radius * styles.atom_size_scale,
+        )
     return resolved
 
 
@@ -550,7 +583,7 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
     atom_styles = resolve_atom_styles(geometry, styles)
 
     # Bonds first so spheres naturally hide cylinder ends.
-    for bond in geometry.bonds:
+    for bond in (geometry.bonds if styles.draw_bonds else ()):
         atom_a = atom_by_key[bond.atom_a]
         atom_b = atom_by_key[bond.atom_b]
         style_a = atom_styles[bond.atom_a]
