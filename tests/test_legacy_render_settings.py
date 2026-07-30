@@ -57,7 +57,7 @@ def test_legacy_area_light_gamma_and_ambient_are_emitted():
     assert "color rgb <0.9, 0.9, 0.9>" in sdl
 
 
-def test_default_finish_is_shared_and_specific_styles_can_override_it():
+def test_atom_and_bond_finishes_have_distinct_defaults_and_can_be_overridden():
     default_finish = Finish()
     atom_finish = Finish(
         ambient=0.10,
@@ -66,23 +66,23 @@ def test_default_finish_is_shared_and_specific_styles_can_override_it():
         phong=0.30,
         phong_size=10,
     )
-    styles = StyleConfig(default_finish=default_finish)
+    styles = StyleConfig()
     color = Color(1.05, 0.10, 0.05)
 
     default_atom_material = AtomStyle(0.4, color).resolved_material(
-        styles.default_finish
+        styles.atom_finish
     )
     default_bond_material = BondStyle().material_for(
         color,
-        styles.default_finish,
+        styles.bond_finish,
     )
     overridden_atom_material = AtomStyle(
         0.4,
         color,
         finish=atom_finish,
-    ).resolved_material(styles.default_finish)
+    ).resolved_material(styles.atom_finish)
 
-    assert default_atom_material == default_finish.material(color)
+    assert default_atom_material.phong == pytest.approx(0.3)
     assert default_bond_material == default_finish.material(color)
     assert default_finish == Finish(
         ambient=0.10,
@@ -98,10 +98,14 @@ def test_default_finish_is_shared_and_specific_styles_can_override_it():
     assert (
         BondStyle(material=explicit_material).material_for(
             color,
-            styles.default_finish,
+            styles.bond_finish,
         )
         is explicit_material
     )
+
+    shared = StyleConfig(default_finish=Finish(phong=0.6))
+    assert shared.atom_finish.phong == pytest.approx(0.6)
+    assert shared.bond_finish.phong == pytest.approx(0.6)
 
 
 def test_legacy_ini_render_controls(tmp_path: Path):
