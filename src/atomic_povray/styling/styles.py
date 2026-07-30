@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from math import exp
 
 import numpy as np
 
-from ..model import GeometryModel
+from ..model import GeometryModel, Vec3
 from ..primitives import (
     Color,
     CylinderPrimitive,
@@ -14,7 +15,57 @@ from ..primitives import (
     Material,
     Primitive,
     SpherePrimitive,
+    TriangleMeshPrimitive,
 )
+
+
+@dataclass(frozen=True)
+class DepthShading:
+    """Fade primitive colors along a Cartesian direction.
+
+    ``origin`` is the onset plane and ``direction`` points toward increasing
+    fade. At ``decay_length`` beyond that plane, the original color contributes
+    1/e. Points before the plane retain their original color.
+    """
+
+    origin: Vec3
+    direction: Vec3
+    decay_length: float
+    target: Color
+
+    def __post_init__(self) -> None:
+        direction = np.asarray(self.direction, dtype=float)
+        if direction.shape != (3,) or not np.isfinite(direction).all():
+            raise ValueError("direction must be a finite three-vector")
+        if np.linalg.norm(direction) == 0:
+            raise ValueError("direction must be non-zero")
+        if not np.isfinite(self.decay_length) or self.decay_length <= 0:
+            raise ValueError("decay_length must be positive and finite")
+
+    def color_at(self, color: Color, position: Vec3) -> Color:
+        """Return ``color`` exponentially blended toward the target color."""
+
+        direction = np.asarray(self.direction, dtype=float)
+        axis = direction / np.linalg.norm(direction)
+        depth = max(
+            0.0,
+            float(np.dot(np.asarray(position, dtype=float) - self.origin, axis)),
+        )
+        original_fraction = exp(-depth / self.decay_length)
+        target_fraction = 1.0 - original_fraction
+        return Color(
+            red=original_fraction * color.red + target_fraction * self.target.red,
+            green=(
+                original_fraction * color.green
+                + target_fraction * self.target.green
+            ),
+            blue=(
+                original_fraction * color.blue
+                + target_fraction * self.target.blue
+            ),
+            # Depth shading changes pigment color, not physical transparency.
+            alpha=color.alpha,
+        )
 
 
 @dataclass(frozen=True)
@@ -63,6 +114,7 @@ class StyleConfig:
     default_atom: AtomStyle = AtomStyle(0.4, Color(0.65, 0.65, 0.65))
     default_bond: BondStyle = BondStyle()
     default_finish: Finish = Finish()
+    depth_shading: DepthShading | None = None
 
     def atom_style(self, symbol: str) -> AtomStyle:
         return self.elements.get(symbol, self.default_atom)
@@ -75,6 +127,39 @@ class StyleConfig:
 class StyledGeometry:
     geometry: GeometryModel
     primitives: tuple[Primitive, ...]
+
+
+def _primitive_position(primitive: Primitive) -> Vec3 | None:
+    if isinstance(primitive, SpherePrimitive):
+        return primitive.center
+    if isinstance(primitive, CylinderPrimitive):
+        return tuple(
+            float((start + end) / 2)
+            for start, end in zip(primitive.start, primitive.end)
+        )
+    if isinstance(primitive, TriangleMeshPrimitive) and primitive.vertices:
+        return tuple(
+            float(value)
+            for value in np.mean(np.asarray(primitive.vertices, dtype=float), axis=0)
+        )
+    return None
+
+
+def _apply_depth_shading(
+    primitives: list[Primitive],
+    shading: DepthShading | None,
+) -> None:
+    if shading is None:
+        return
+    for index, primitive in enumerate(primitives):
+        position = _primitive_position(primitive)
+        if position is None:
+            continue
+        material = replace(
+            primitive.material,
+            color=shading.color_at(primitive.material.color, position),
+        )
+        primitives[index] = replace(primitive, material=material)
 
 
 def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry:
@@ -145,4 +230,5 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
         )
         for atom in geometry.atoms
     )
+    _apply_depth_shading(primitives, styles.depth_shading)
     return StyledGeometry(geometry, tuple(primitives))
