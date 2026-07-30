@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from math import exp
+
 from ase import Atoms
 import pytest
 
@@ -11,6 +13,7 @@ from atomic_povray import (
     Camera,
     Color,
     CylinderPrimitive,
+    DepthShading,
     Material,
     PointLight,
     SpherePrimitive,
@@ -113,3 +116,64 @@ def test_extra_primitives_are_appended_and_written_to_sdl():
     assert "rgbf <1, 1, 1, 1>" in sdl
     assert sdl.count("cylinder {") == 3
     assert sdl.count("sphere {") == 2
+
+
+def test_depth_shading_fades_primitive_colors_from_an_onset_plane():
+    styled = apply_styles(
+        simple_geometry(),
+        StyleConfig(
+            elements={
+                "Fe": AtomStyle(0.6, Color(1.0, 0.0, 0.0, alpha=0.4)),
+                "O": AtomStyle(0.4, Color(1.0, 0.0, 0.0, alpha=0.4)),
+            },
+            bonds={
+                "Fe-O": BondStyle(
+                    radius=0.08,
+                    color=Color(1.0, 0.0, 0.0),
+                )
+            },
+            depth_shading=DepthShading(
+                origin=(0.8, 0.0, 0.0),
+                direction=(1.0, 0.0, 0.0),
+                decay_length=1.0,
+                target=Color(1.0, 1.0, 1.0),
+            ),
+        ),
+    )
+    cylinder = next(
+        primitive
+        for primitive in styled.primitives
+        if isinstance(primitive, CylinderPrimitive)
+    )
+    spheres = [
+        primitive
+        for primitive in styled.primitives
+        if isinstance(primitive, SpherePrimitive)
+    ]
+
+    assert spheres[0].material.color == Color(1.0, 0.0, 0.0, alpha=0.4)
+    assert spheres[1].material.color.green == pytest.approx(1.0 - exp(-1.0))
+    assert spheres[1].material.color.alpha == 0.4
+    # A cylinder is shaded at its midpoint (x=0.9 here).
+    assert cylinder.material.color.green == pytest.approx(1.0 - exp(-0.1))
+
+
+@pytest.mark.parametrize(
+    "direction, decay_length, message",
+    (
+        ((0.0, 0.0, 0.0), 1.0, "direction"),
+        ((1.0, 0.0, 0.0), 0.0, "decay_length"),
+    ),
+)
+def test_depth_shading_validates_configuration(
+    direction,
+    decay_length,
+    message,
+):
+    with pytest.raises(ValueError, match=message):
+        DepthShading(
+            origin=(0.0, 0.0, 0.0),
+            direction=direction,
+            decay_length=decay_length,
+            target=Color(1.0, 1.0, 1.0),
+        )
