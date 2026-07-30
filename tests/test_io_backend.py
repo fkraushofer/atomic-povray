@@ -24,7 +24,7 @@ def test_write_empty_scene(tmp_path: Path):
     scene = make_scene(
         (),
         camera=Camera.perspective(
-            location=(0.0, -10.0, 0.0),
+            direction=(0.0, 10.0, 0.0),
             target=(0.0, 0.0, 0.0),
             up=(0.0, 0.0, 1.0),
         ),
@@ -35,6 +35,23 @@ def test_write_empty_scene(tmp_path: Path):
     assert output.exists()
     assert "angle 35" in text
     assert "camera {" in text
+    assert "location <0, -10, 0>" in text
+    assert "look_at <0, 0, 0>" in text
+
+
+def test_camera_location_follows_target_with_fixed_direction():
+    camera = Camera.orthographic(
+        direction=(0.0, 20.0, 5.0),
+        target=(3.0, 4.0, 5.0),
+    )
+
+    assert camera.location == pytest.approx((3.0, -16.0, 0.0))
+
+    moved = Camera.orthographic(
+        direction=camera.direction,
+        target=(8.0, 9.0, 10.0),
+    )
+    assert moved.location == pytest.approx((8.0, -11.0, 5.0))
 
 
 @pytest.mark.parametrize("quality", (-1, 12))
