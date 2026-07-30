@@ -69,6 +69,7 @@ def test_constant_fog_is_written_to_sdl():
         camera=Camera.perspective(
             direction=(0.0, 10.0, 0.0),
             target=(0.0, 0.0, 0.0),
+            up=(0.0, 0.0, 1.0),
         ),
         fog=Fog(
             distance=25.0,
