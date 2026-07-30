@@ -38,20 +38,20 @@ class Color:
 @dataclass(frozen=True)
 class Material:
     color: Color
-    ambient: float = 0.15
-    diffuse: float = 0.75
-    phong: float = 0.35
-    phong_size: float = 40.0
+    ambient: float = 0.10
+    diffuse: float = 0.60
+    phong: float = 0.0
+    phong_size: float = 10.0
 
 
 @dataclass(frozen=True)
 class Finish:
     """Color-independent POV-Ray finish shared by styled primitives."""
 
-    ambient: float = 0.15
-    diffuse: float = 0.75
-    phong: float = 0.35
-    phong_size: float = 40.0
+    ambient: float = 0.10
+    diffuse: float = 0.60
+    phong: float = 0.0
+    phong_size: float = 10.0
 
     def material(self, color: Color) -> Material:
         """Combine this finish with a pigment color."""
