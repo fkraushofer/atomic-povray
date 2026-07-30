@@ -94,7 +94,7 @@ camera = Camera.orthographic(
 scene = make_scene(
     styled.primitives,
     camera=camera,
-    lights=(PointLight(location=(20.0, -40.0, 60.0)),),
+    lights=(get_default_light(camera),),
     background=Background(Color(1.0, 1.0, 1.0)),
 )
 
@@ -106,6 +106,13 @@ The camera `direction` points from the camera toward `target`; its magnitude
 sets the camera distance. The emitted camera position is therefore
 `target - direction`. Keeping `direction` fixed while changing `target`
 translates the view without changing its orientation or perspective.
+
+`get_default_light(camera)` creates a soft area light that tracks the camera,
+offset half a camera distance upward and half a camera distance to screen-right.
+This gives the target consistent elevated three-quarter illumination while the
+view changes. Its defaults are equivalent to
+`AreaLight(intensity=1.8, angular_diameter=35.0, samples=(9, 9), adaptive=3)`;
+all four settings can be overridden directly.
 
 Changing the camera only repeats `make_scene` and `render_scene`. Changing
 colors/radii repeats `apply_styles` onward. Neither operation repeats periodic

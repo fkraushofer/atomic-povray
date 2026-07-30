@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import isfinite
+from math import isfinite, sqrt
 from typing import Literal
 
 from .model import Vec3
@@ -81,6 +81,59 @@ class AreaLight:
             raise ValueError("samples must contain two positive integers")
         if self.adaptive < 0:
             raise ValueError("adaptive must be non-negative")
+
+
+def get_default_light(
+    camera: Camera,
+    *,
+    intensity: float = 1.8,
+    angular_diameter: float = 35.0,
+    samples: tuple[int, int] = (9, 9),
+    adaptive: int = 3,
+) -> AreaLight:
+    """Return a soft key light positioned above and right of the camera.
+
+    The light starts at the camera location and is offset by half the camera
+    distance along both the camera's corrected up direction and screen-right
+    direction. This keeps the illumination consistent as the camera moves or
+    rotates.
+    """
+
+    distance = sqrt(sum(component * component for component in camera.direction))
+    if not isfinite(distance) or distance <= 0:
+        raise ValueError("camera direction must be non-zero and finite")
+
+    view = tuple(component / distance for component in camera.direction)
+    right_raw = (
+        view[1] * camera.up[2] - view[2] * camera.up[1],
+        view[2] * camera.up[0] - view[0] * camera.up[2],
+        view[0] * camera.up[1] - view[1] * camera.up[0],
+    )
+    right_length = sqrt(sum(component * component for component in right_raw))
+    if not isfinite(right_length) or right_length <= 0:
+        raise ValueError("camera up must be finite and not parallel to direction")
+    right = tuple(component / right_length for component in right_raw)
+    corrected_up = (
+        right[1] * view[2] - right[2] * view[1],
+        right[2] * view[0] - right[0] * view[2],
+        right[0] * view[1] - right[1] * view[0],
+    )
+
+    offset = 0.5 * distance
+    location = tuple(
+        camera_component + offset * (right_component + up_component)
+        for camera_component, right_component, up_component in zip(
+            camera.location, right, corrected_up
+        )
+    )
+    return AreaLight(
+        location=location,
+        target=camera.target,
+        intensity=intensity,
+        angular_diameter=angular_diameter,
+        samples=samples,
+        adaptive=adaptive,
+    )
 
 
 Light = PointLight | AreaLight
