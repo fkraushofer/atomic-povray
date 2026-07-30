@@ -24,6 +24,8 @@ original POSCAR/CONTCAR (or another ASE-readable format) directly.
 - stable atom identity as `(source_index, lattice_shift)`
 - atom spheres
 - single-color or two-color bonds (with the legacy equal-visible-length split)
+- a shared default finish for atoms and bonds, with per-style material or finish
+  overrides
 - perspective and orthographic cameras
 - point lights, backgrounds, transparent output
 - direct POV-Ray SDL and INI generation
@@ -92,6 +94,38 @@ render_scene(scene, "hematite.png", RenderConfig(quality=3))
 Changing the camera only repeats `make_scene` and `render_scene`. Changing
 colors/radii repeats `apply_styles` onward. Neither operation repeats periodic
 bond detection.
+
+## Finishes and overrides
+
+The built-in default finish is used for every atom and bond that does not
+provide a more specific finish or material. Its values reproduce the common
+legacy finish: ambient `0.10`, diffuse `0.60`, Phong `0.0`, and Phong size
+`10`. No finish declaration is required for that behavior:
+
+```python
+styles = StyleConfig(
+    elements={
+        "Fe": AtomStyle(0.55, Color(0.10, 0.10, 1.10)),
+        "O": AtomStyle(0.34, Color(1.05, 0.10, 0.05)),
+    },
+    bonds={"Fe-O": BondStyle(radius=0.074)},
+)
+```
+
+To change the shared default, pass
+`StyleConfig(default_finish=Finish(...), ...)`.
+Override only the finish while retaining the atom or bond color with
+`AtomStyle(..., finish=another_finish)` or
+`BondStyle(..., finish=another_finish)`. Supplying `material=Material(...)`
+overrides both color and finish. The resolution order is:
+
+1. an explicit `material`;
+2. an explicit `finish`, combined with the style color;
+3. `StyleConfig.default_finish`, combined with the style color.
+
+`BondStyle.material_template` remains available for compatibility with the
+first prototype, but `finish=` is clearer for new code because a finish has no
+dummy pigment color.
 
 ## Boundary and bond-extension behavior
 
@@ -178,8 +212,29 @@ later charge-density or convex-hull module can insert triangle meshes.
 
 ## Rendering
 
-`write_scene` only needs Python. `render_scene` additionally needs POV-Ray.
-It writes a `.pov` scene and `.ini` render file beside the requested image.
+`write_scene` and `write_ini` only need Python. `render_scene` additionally
+needs POV-Ray. It writes a `.pov` scene and `.ini` render file beside the
+requested image.
+Generated scenes explicitly include `global_settings { assumed_gamma 1.0 }`.
+The generated SDL and `RenderConfig` default to POV-Ray 3.7. Use
+`povray_version="3.8"` only when 3.8-specific SDL compatibility is needed.
+
+To export both files for opening or rendering manually in POV-Ray:
+
+```python
+config = RenderConfig(width=1200, height=900, quality=5)
+scene_path = write_scene(
+    scene,
+    "hematite.pov",
+    width=config.width,
+    height=config.height,
+    povray_version=config.povray_version,
+)
+ini_path = write_ini(scene_path, "hematite.png", config)
+```
+
+Open or render `hematite.ini`, rather than the `.pov` file alone, to retain
+the configured output gamma, antialiasing, transparency, quality, and size.
 
 Linux/macOS command-line builds normally use:
 
@@ -190,7 +245,7 @@ RenderConfig(executable="povray")
 Windows installations commonly use:
 
 ```python
-RenderConfig(executable=r"C:\Program Files\POV-Ray\v3.8\bin\pvengine64.exe")
+RenderConfig(executable=r"C:\Program Files\POV-Ray\v3.7\bin\pvengine64.exe")
 ```
 
 The package detects `pvengine*.exe` and uses `/RENDER ... /EXIT`; other
@@ -205,4 +260,4 @@ python -m pytest
 The tests cover ordinary and boundary-crossing bonds, skewed cells, clipping
 planes, asymmetric and symmetric one-hop extensions, non-recursion, per-plane
 extension control, replication identities, bicolored styling, extra
-primitives, and SDL output.
+primitives, shared and overridden finishes, gamma settings, and SDL output.

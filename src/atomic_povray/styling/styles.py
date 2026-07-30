@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 
 from ..model import GeometryModel
-from ..primitives import Color, CylinderPrimitive, Material, Primitive, SpherePrimitive
+from ..primitives import (
+    Color,
+    CylinderPrimitive,
+    Finish,
+    Material,
+    Primitive,
+    SpherePrimitive,
+)
 
 
 @dataclass(frozen=True)
@@ -15,9 +22,12 @@ class AtomStyle:
     radius: float
     color: Color
     material: Material | None = None
+    finish: Finish | None = None
 
-    def resolved_material(self) -> Material:
-        return self.material or Material(self.color)
+    def resolved_material(self, default_finish: Finish | None = None) -> Material:
+        if self.material is not None:
+            return self.material
+        return (self.finish or default_finish or Finish()).material(self.color)
 
 
 @dataclass(frozen=True)
@@ -25,10 +35,25 @@ class BondStyle:
     radius: float = 0.08
     color: Color | None = None
     material: Material | None = None
+    finish: Finish | None = None
+    material_template: Material | None = None
     split_by_atom_color: bool = True
 
-    def material_for(self, fallback: Color) -> Material:
-        return self.material or Material(self.color or fallback)
+    def material_for(
+        self,
+        fallback: Color,
+        default_finish: Finish | None = None,
+    ) -> Material:
+        if self.material is not None:
+            return self.material
+        if self.finish is not None:
+            return self.finish.material(self.color or fallback)
+        if self.material_template is not None:
+            return replace(
+                self.material_template,
+                color=self.color or fallback,
+            )
+        return (default_finish or Finish()).material(self.color or fallback)
 
 
 @dataclass(frozen=True)
@@ -37,6 +62,7 @@ class StyleConfig:
     bonds: dict[str, BondStyle] = field(default_factory=dict)
     default_atom: AtomStyle = AtomStyle(0.4, Color(0.65, 0.65, 0.65))
     default_bond: BondStyle = BondStyle()
+    default_finish: Finish = Finish()
 
     def atom_style(self, symbol: str) -> AtomStyle:
         return self.elements.get(symbol, self.default_atom)
@@ -74,15 +100,12 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
                     atom_a.position,
                     atom_b.position,
                     bond_style.radius,
-                    bond_style.material_for(style_a.color),
+                    bond_style.material_for(style_a.color, styles.default_finish),
                 )
             )
         else:
             position_a = np.asarray(atom_a.position)
             position_b = np.asarray(atom_b.position)
-            # Match the legacy renderer: after the cylinders disappear under
-            # unequal atom spheres, their visible colored halves have equal
-            # lengths. For equal radii this is the geometric midpoint.
             split_fraction = (
                 bond.distance + style_a.radius - style_b.radius
             ) / (2 * bond.distance)
@@ -97,19 +120,29 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
                         atom_a.position,
                         split_point,
                         bond_style.radius,
-                        bond_style.material_for(style_a.color),
+                        bond_style.material_for(
+                            style_a.color,
+                            styles.default_finish,
+                        ),
                     ),
                     CylinderPrimitive(
                         split_point,
                         atom_b.position,
                         bond_style.radius,
-                        bond_style.material_for(style_b.color),
+                        bond_style.material_for(
+                            style_b.color,
+                            styles.default_finish,
+                        ),
                     ),
                 )
             )
 
     primitives.extend(
-        SpherePrimitive(atom.position, atom_styles[atom.key].radius, atom_styles[atom.key].resolved_material())
+        SpherePrimitive(
+            atom.position,
+            atom_styles[atom.key].radius,
+            atom_styles[atom.key].resolved_material(styles.default_finish),
+        )
         for atom in geometry.atoms
     )
     return StyledGeometry(geometry, tuple(primitives))

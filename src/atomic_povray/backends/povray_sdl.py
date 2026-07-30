@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import radians, tan
 from pathlib import Path
 import subprocess
 
@@ -17,7 +18,7 @@ from ..primitives import (
     SpherePrimitive,
     TriangleMeshPrimitive,
 )
-from ..scene import Camera, Scene
+from ..scene import AreaLight, Camera, PointLight, Scene
 
 
 def _number(value: float) -> str:
@@ -70,7 +71,8 @@ def _primitive_to_sdl(primitive: Primitive) -> str:
         lines.append("  }")
         lines.append(f"  face_indices {{ {len(primitive.faces)},")
         lines.extend(
-            f"    <{face[0]}, {face[1]}, {face[2]}>," for face in primitive.faces
+            f"    <{face[0]}, {face[1]}, {face[2]}>,"
+            for face in primitive.faces
         )
         lines.append("  }")
         lines.append(f"  {_material(primitive.material)}")
@@ -103,7 +105,6 @@ def _camera_to_sdl(camera: Camera, aspect_ratio: float) -> str:
         lines.append(f"  up {_vector(up_vector)}")
     else:
         lines.append(f"  angle {_number(camera.angle)}")
-        # Preserve image orientation and requested aspect ratio.
         right_vector = tuple(float(value) for value in right * aspect_ratio)
         up_vector = tuple(float(value) for value in true_up)
         lines.append(f"  right {_vector(right_vector)}")
@@ -119,10 +120,85 @@ def _camera_to_sdl(camera: Camera, aspect_ratio: float) -> str:
     return "\n".join(lines)
 
 
-def scene_to_sdl(scene: Scene, *, aspect_ratio: float = 4 / 3) -> str:
+def _light_color(light: PointLight | AreaLight) -> tuple[float, float, float]:
+    return tuple(
+        channel * light.intensity
+        for channel in (light.color.red, light.color.green, light.color.blue)
+    )
+
+
+def _area_light_axes(light: AreaLight) -> tuple[Vec3, Vec3]:
+    location = np.asarray(light.location, dtype=float)
+    target = np.asarray(light.target, dtype=float)
+    direction = target - location
+    distance = np.linalg.norm(direction)
+    if distance < 1e-12:
+        raise ValueError("Area-light target must differ from its location")
+    direction /= distance
+
+    reference = np.array((0.0, 0.0, 1.0))
+    if abs(float(np.dot(direction, reference))) > 0.99:
+        reference = np.array((0.0, 1.0, 0.0))
+    axis_a = np.cross(direction, reference)
+    axis_a /= np.linalg.norm(axis_a)
+    axis_b = np.cross(direction, axis_a)
+    side = 2.0 * distance * tan(radians(light.angular_diameter) / 2.0)
+    return (
+        tuple(float(value) for value in axis_a * side),
+        tuple(float(value) for value in axis_b * side),
+    )
+
+
+def _light_to_sdl(light: PointLight | AreaLight) -> str:
+    color = _light_color(light)
+    if isinstance(light, PointLight):
+        shadowless = " shadowless" if light.shadowless else ""
+        return (
+            f"light_source {{ {_vector(light.location)} color rgb "
+            f"{_vector(color)}{shadowless} }}"
+        )
+
+    axis_a, axis_b = _area_light_axes(light)
+    options = [f"adaptive {light.adaptive}"]
+    if light.circular:
+        options.append("circular")
+    if light.orient:
+        options.append("orient")
+    if light.jitter:
+        options.append("jitter")
+    return "\n".join(
+        (
+            f"light_source {{ {_vector(light.location)} color rgb {_vector(color)}",
+            f"  area_light {_vector(axis_a)}, {_vector(axis_b)}, "
+            f"{light.samples[0]}, {light.samples[1]}",
+            "  " + " ".join(options),
+            "}",
+        )
+    )
+
+
+def _validate_povray_version(value: str) -> str:
+    parts = value.split(".")
+    if len(parts) != 2 or not all(part.isdigit() for part in parts):
+        raise ValueError("povray_version must have the form 'major.minor'")
+    return value
+
+
+def scene_to_sdl(
+    scene: Scene,
+    *,
+    aspect_ratio: float = 4 / 3,
+    povray_version: str = "3.7",
+) -> str:
+    ambient = scene.ambient_light
+    povray_version = _validate_povray_version(povray_version)
     lines = [
-        "#version 3.7;",
-        "global_settings { assumed_gamma 1.0 }",
+        f"#version {povray_version};",
+        "global_settings {",
+        "  assumed_gamma 1.0",
+        f"  ambient_light rgb <{_number(ambient.red)}, "
+        f"{_number(ambient.green)}, {_number(ambient.blue)}>",
+        "}",
         "",
         _camera_to_sdl(scene.camera, aspect_ratio),
         "",
@@ -131,16 +207,7 @@ def scene_to_sdl(scene: Scene, *, aspect_ratio: float = 4 / 3) -> str:
         f"{_number(scene.background.color.blue)}, "
         f"{_number(1.0 - scene.background.color.alpha)}> }}",
     ]
-    for light in scene.lights:
-        color = tuple(
-            channel * light.intensity
-            for channel in (light.color.red, light.color.green, light.color.blue)
-        )
-        shadowless = " shadowless" if light.shadowless else ""
-        lines.append(
-            f"light_source {{ {_vector(light.location)} color rgb "
-            f"{_vector(color)}{shadowless} }}"
-        )
+    lines.extend(_light_to_sdl(light) for light in scene.lights)
     lines.append("")
     lines.extend(_primitive_to_sdl(primitive) for primitive in scene.primitives)
     lines.append("")
@@ -153,10 +220,15 @@ def write_scene(
     *,
     width: int = 800,
     height: int = 600,
+    povray_version: str = "3.7",
 ) -> Path:
     path = Path(filename)
     path.write_text(
-        scene_to_sdl(scene, aspect_ratio=width / height),
+        scene_to_sdl(
+            scene,
+            aspect_ratio=width / height,
+            povray_version=povray_version,
+        ),
         encoding="utf-8",
     )
     return path
@@ -168,14 +240,29 @@ class RenderConfig:
     height: int = 600
     quality: int = 3
     antialias: bool = True
+    antialias_threshold: float | None = None
+    sampling_method: int | None = None
+    display_gamma: float | None = None
+    file_gamma: float | None = None
     transparent: bool = False
+    display: bool = False
     executable: str = "povray"
+    povray_version: str = "3.7"
 
     def __post_init__(self) -> None:
         if self.width < 1 or self.height < 1:
             raise ValueError("Render width and height must be positive")
         if not 0 <= self.quality <= 11:
             raise ValueError("POV-Ray quality must lie between 0 and 11")
+        if self.antialias_threshold is not None and self.antialias_threshold <= 0:
+            raise ValueError("antialias_threshold must be positive")
+        if self.sampling_method not in (None, 1, 2, 3):
+            raise ValueError("sampling_method must be 1, 2, or 3")
+        if self.display_gamma is not None and self.display_gamma <= 0:
+            raise ValueError("display_gamma must be positive")
+        if self.file_gamma is not None and self.file_gamma <= 0:
+            raise ValueError("file_gamma must be positive")
+        _validate_povray_version(self.povray_version)
 
 
 @dataclass(frozen=True)
@@ -188,21 +275,40 @@ class RenderResult:
     stderr: str
 
 
-def _write_ini(
-    scene_path: Path,
-    image_path: Path,
-    config: RenderConfig,
+def write_ini(
+    scene_path: str | Path,
+    image_path: str | Path,
+    config: RenderConfig | None = None,
+    *,
+    filename: str | Path | None = None,
 ) -> Path:
-    ini_path = image_path.with_suffix(".ini")
-    values = {
+    """Write POV-Ray render settings without starting the renderer."""
+
+    config = config or RenderConfig()
+    scene_path = Path(scene_path)
+    image_path = Path(image_path)
+    ini_path = Path(filename) if filename is not None else image_path.with_suffix(".ini")
+    ini_path.parent.mkdir(parents=True, exist_ok=True)
+    values: dict[str, object] = {
         "Input_File_Name": str(scene_path.resolve()),
         "Output_File_Name": str(image_path.resolve()),
         "Width": config.width,
         "Height": config.height,
         "Quality": config.quality,
+        "Display": "On" if config.display else "Off",
         "Antialias": "On" if config.antialias else "Off",
+        "Output_File_Type": "N",
         "Output_Alpha": "On" if config.transparent else "Off",
     }
+    optional_values = {
+        "Antialias_Threshold": config.antialias_threshold,
+        "Sampling_Method": config.sampling_method,
+        "Display_Gamma": config.display_gamma,
+        "File_Gamma": config.file_gamma,
+    }
+    values.update(
+        (key, value) for key, value in optional_values.items() if value is not None
+    )
     ini_path.write_text(
         "\n".join(f"{key}={value}" for key, value in values.items()) + "\n",
         encoding="utf-8",
@@ -221,8 +327,14 @@ def render_scene(
     image_path = Path(output)
     image_path.parent.mkdir(parents=True, exist_ok=True)
     scene_path = image_path.with_suffix(".pov")
-    write_scene(scene, scene_path, width=config.width, height=config.height)
-    ini_path = _write_ini(scene_path, image_path, config)
+    write_scene(
+        scene,
+        scene_path,
+        width=config.width,
+        height=config.height,
+        povray_version=config.povray_version,
+    )
+    ini_path = write_ini(scene_path, image_path, config)
 
     executable_name = Path(config.executable).name.lower()
     if executable_name.startswith(("pvengine", "povwin")):
@@ -243,4 +355,3 @@ def render_scene(
         completed.stdout,
         completed.stderr,
     )
-

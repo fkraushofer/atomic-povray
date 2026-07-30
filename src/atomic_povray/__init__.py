@@ -5,6 +5,7 @@ from .backends import (
     RenderResult,
     render_scene,
     scene_to_sdl,
+    write_ini,
     write_scene,
 )
 from .config import (
@@ -20,15 +21,17 @@ from .model import AtomInstance, AtomKey, Bond, GeometryModel, StructureModel
 from .primitives import (
     Color,
     CylinderPrimitive,
+    Finish,
     Material,
     Primitive,
     SpherePrimitive,
     TriangleMeshPrimitive,
 )
-from .scene import Background, Camera, PointLight, Scene, make_scene
+from .scene import AreaLight, Background, Camera, PointLight, Scene, make_scene
 from .styling import AtomStyle, BondStyle, StyleConfig, StyledGeometry, apply_styles
 
 __all__ = [
+    "AreaLight",
     "AtomInstance",
     "AtomKey",
     "AtomStyle",
@@ -42,6 +45,7 @@ __all__ = [
     "CartesianBounds",
     "Color",
     "CylinderPrimitive",
+    "Finish",
     "GeometryModel",
     "Material",
     "PointLight",
@@ -62,5 +66,6 @@ __all__ = [
     "make_scene",
     "render_scene",
     "scene_to_sdl",
+    "write_ini",
     "write_scene",
 ]

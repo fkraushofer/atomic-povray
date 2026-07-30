@@ -3,6 +3,7 @@ from .povray_sdl import (
     RenderResult,
     render_scene,
     scene_to_sdl,
+    write_ini,
     write_scene,
 )
 
@@ -11,6 +12,6 @@ __all__ = [
     "RenderResult",
     "render_scene",
     "scene_to_sdl",
+    "write_ini",
     "write_scene",
 ]
-
