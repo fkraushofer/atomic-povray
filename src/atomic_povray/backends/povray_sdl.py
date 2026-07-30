@@ -205,6 +205,20 @@ def scene_to_sdl(
         f"{_number(scene.background.color.blue)}, "
         f"{_number(1.0 - scene.background.color.alpha)}> }}",
     ]
+    if scene.fog is not None:
+        fog = scene.fog
+        lines.extend(
+            (
+                "",
+                "fog {",
+                "  fog_type 1",
+                f"  distance {_number(fog.distance)}",
+                f"  color rgbf <{_number(fog.color.red)}, "
+                f"{_number(fog.color.green)}, {_number(fog.color.blue)}, "
+                f"{_number(1.0 - fog.color.alpha)}>",
+                "}",
+            )
+        )
     lines.extend(_light_to_sdl(light) for light in scene.lights)
     lines.append("")
     lines.extend(_primitive_to_sdl(primitive) for primitive in scene.primitives)
