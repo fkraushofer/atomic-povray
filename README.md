@@ -148,7 +148,8 @@ styles = StyleConfig(
 
 Dashed bonds divide the visible span between the atom surfaces into the
 requested number of equal dashes with equal-sized gaps. An explicit bond
-`color` or full `material` makes the complete bond single-color. When no color is\nsupplied,
+`color` or full `material` makes the complete bond single-color. When no color is
+supplied,
 solid and dashed bonds retain the default split based on their atom colors.
 
 ## Finishes and overrides
