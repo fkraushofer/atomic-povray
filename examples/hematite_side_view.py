@@ -4,10 +4,7 @@ from pathlib import Path
 from time import perf_counter
 
 from atomic_povray import (
-    AtomStyle,
     Background,
-    BondRule,
-    BondStyle,
     Camera,
     Color,
     DepthShading,
@@ -37,19 +34,10 @@ def main(*, render: bool = False) -> None:
         bounds=DisplayBounds(
             fractional_ranges=((-2.0, 2.0), (-1.5, 1.5), (0.45, 0.75))
         ),
-        bond_rules=(BondRule("Fe", "O", 0.1, 2.45),),
     )
     geometry_seconds = perf_counter() - start
 
     styles = StyleConfig(
-        elements={
-            "Fe": AtomStyle(0.55, Color.from_hex("#A8463B")),
-            "O": AtomStyle(0.34, Color.from_hex("#E6D44A")),
-        },
-        bonds={
-            # No explicit color: each bond is split into Fe- and O-colored halves.
-            "Fe-O": BondStyle(radius=0.074),
-        },
         depth_shading=DepthShading(
             origin=(0.0, 0.0, 24.0),
             direction=(0.0, 0.0, -1.0),

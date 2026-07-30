@@ -23,12 +23,13 @@ file can be written and then rendered manually.
 - element-pair bond rules with half-open minimum/maximum distance ranges
 - periodic bond discovery, including skewed cells and bonds crossing cell edges
 - stable atom identity as `(source_index, lattice_shift)`
-- atom spheres
+- atom spheres with ASE-backed fallback colors and covalent radii
+- automatic, editable default bond rules for chemically plausible element pairs
 - layered atom-style overrides by coordination, ASE selection, source index, or
   displayed periodic instance
 - solid or dashed bonds, with configurable dash count and radius
 - single-color or two-color bonds (with the legacy equal-visible-length split)
-- a shared default finish for atoms and bonds, with per-style material or finish
+- distinct default atom and bond finishes, with per-style material or finish
   overrides
 - directional exponential depth shading with a configurable onset, direction,
   decay length, and target color
@@ -72,17 +73,9 @@ geometry = build_geometry(
             CutoffPlane(normal=(1.0, 0.0, 0.0), distance=9.5),
         ),
     ),
-    # Order matters only for extensions: an in-bounds Fe may pull in an
-    # out-of-bounds O, but an in-bounds O does not pull in an Fe.
-    bond_rules=[BondRule("Fe", "O", 0.1, 2.45)],
 )
 
 styles = StyleConfig(
-    elements={
-        "Fe": AtomStyle(radius=0.55, color=Color.from_hex("#A63B32")),
-        "O": AtomStyle(radius=0.34, color=Color.from_hex("#E6D84A")),
-    },
-    bonds={"Fe-O": BondStyle(radius=0.074)},
     depth_shading=DepthShading(
         origin=(0.0, 0.0, 24.0),
         direction=(0.0, 0.0, -1.0),
@@ -117,6 +110,97 @@ translates the view without changing its orientation or perspective.
 Changing the camera only repeats `make_scene` and `render_scene`. Changing
 colors/radii repeats `apply_styles` onward. Neither operation repeats periodic
 bond detection.
+
+## Atomic and bond defaults
+
+Atom colors and radii fall back field by field to ASE's Jmol colors and
+covalent radii. Explicit element styles therefore only need to contain the
+properties that differ:
+
+```python
+styles = StyleConfig(
+    elements={
+        "Fe": AtomStyle(color=Color.from_hex("#A63B32")),
+        "O": AtomStyle(radius=0.4),
+    },
+)
+```
+
+The default preset is a ball-and-stick representation: all resolved atom radii
+are multiplied by `0.4`, bonds are drawn, and the default ordinary bond radius
+is `0.08` Å. The atom scale is global and is applied after element,
+coordination, selection, and individual-atom radius overrides.
+
+Use the built-in presets directly when switching representations:
+
+```python
+ball_and_stick = StyleConfig(preset_style="ball_and_stick")
+space_filling = StyleConfig(preset_style="space_filling")
+```
+
+`space_filling` uses an atom scale of `1.0` and omits bond primitives. Bond
+geometry is retained, so coordination-dependent styles remain available and
+switching presets does not require rebuilding geometry. Override the global
+atom and bond scales independently when needed. Both are
+applied after resolving default or explicit per-style radii:
+
+```python
+styles = StyleConfig(
+    atom_size_scale=0.55,
+    bond_size_scale=1.25,
+)
+```
+
+`build_geometry()` automatically generates bond rules for the elements present,
+omitting noble-gas and metal-metal pairs by default. Pass an empty iterable to
+request an atom-only geometry explicitly:
+
+```python
+geometry = build_geometry(structure)
+geometry_without_bonds = build_geometry(structure, bond_rules=())
+```
+
+To inspect, edit, or delete the defaults before geometry construction, materialize
+an ordinary editable `BondRuleSet`:
+
+```python
+bond_rules = get_default_bonds(structure, bond_scale=1.2)
+
+bond_rules.remove("default:Fe-H")
+bond_rules.update("default:Fe-O", max_distance=2.45)
+bond_rules.remove_pair("H", "H")
+bond_rules.add(
+    BondRule("Fe", "Fe", 0.0, 2.8, name="custom:Fe-Fe")
+)
+
+geometry = build_geometry(structure, bond_rules=bond_rules)
+```
+
+Ordinary cutoffs are `bond_scale` times the sum of the two ASE covalent
+radii. Heteronuclear metal/non-metal rules are oriented from metal to
+non-metal, so the default asymmetric boundary extension completes
+coordination shells around in-bounds metals. Homonuclear rules may also extend
+past boundaries.
+
+When O and H are both present, the returned set contains adjacent covalent O-H
+and hydrogen O···H ranges. The hydrogen-bond maximum is fixed at 2.1 Å,
+independent of `bond_scale`, uses `extension_mode="none"`, and receives a
+dashed default style. It remains an ordinary rule and can be changed
+separately:
+
+```python
+bond_rules.update("default:hydrogen:O-H", max_distance=2.3)
+```
+
+Use `include_pairs={("Fe", "Fe")}` to admit a pair excluded by the default
+chemical policy, or `exclude_pairs={("Fe", "H")}` to suppress an otherwise
+eligible pair.
+
+The element data are read from ASE rather than copied from VESTA. ASE's
+covalent radii are based on Cordero *et al.*, “Covalent radii revisited”
+([DOI: 10.1039/B801115J](https://doi.org/10.1039/B801115J)); colors use ASE's
+Jmol color table. VESTA inspired the conservative candidate-pair policy and
+editable workflow, but no VESTA data files are redistributed.
 
 ## Atom style rules
 
@@ -224,23 +308,18 @@ solid and dashed bonds retain the default split based on their atom colors.
 
 ## Finishes and overrides
 
-The built-in default finish is used for every atom and bond that does not
-provide a more specific finish or material. Its values reproduce the common
-legacy finish: ambient `0.10`, diffuse `0.60`, Phong `0.0`, and Phong size
-`10`. No finish declaration is required for that behavior:
+Atoms and bonds have distinct built-in finishes. Both use ambient `0.10`,
+diffuse `0.60`, and Phong size `10`; atoms use Phong `0.30`, while bonds use
+Phong `0.0`. Together with the automatic ASE colors/radii and the default bond
+radius of `0.08` Å, no appearance declaration is required:
 
 ```python
-styles = StyleConfig(
-    elements={
-        "Fe": AtomStyle(0.55, Color(0.10, 0.10, 1.10)),
-        "O": AtomStyle(0.34, Color(1.05, 0.10, 0.05)),
-    },
-    bonds={"Fe-O": BondStyle(radius=0.074)},
-)
+styles = StyleConfig()
 ```
 
-To change the shared default, pass
-`StyleConfig(default_finish=Finish(...), ...)`.
+Override them independently with `default_atom_finish=` or
+`default_bond_finish=`. The compatibility argument `default_finish=` still sets
+a shared finish for both.
 Override only the finish while retaining the atom or bond color with
 `AtomStyle(..., finish=another_finish)` or
 `BondStyle(..., finish=another_finish)`. Supplying `material=Material(...)`
@@ -248,7 +327,7 @@ overrides both color and finish. The resolution order is:
 
 1. an explicit `material`;
 2. an explicit `finish`, combined with the style color;
-3. `StyleConfig.default_finish`, combined with the style color.
+3. the corresponding atom or bond default finish, combined with the style color.
 
 `BondStyle.material_template` remains available for compatibility with the
 first prototype, but `finish=` is clearer for new code because a finish has no

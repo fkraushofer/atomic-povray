@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field, replace
-from math import exp
+from math import exp, isfinite
+from numbers import Real
 from typing import TYPE_CHECKING, Literal, TypeAlias
 
 import numpy as np
 
+from ..defaults import (
+    DEFAULT_HYDROGEN_BOND_RULE_ID,
+    default_atom_color,
+    default_atom_radius,
+)
 from ..model import AtomKey, BondNeighbor, GeometryModel, Vec3
 from ..primitives import (
     Color,
@@ -112,8 +118,10 @@ class DepthShading:
 
 @dataclass(frozen=True)
 class AtomStyle:
-    radius: float
-    color: Color
+    """Atom appearance with optional radius/color for element overrides."""
+
+    radius: float | None = None
+    color: Color | None = None
     material: Material | None = None
     finish: Finish | None = None
     visible: bool = True
@@ -121,6 +129,8 @@ class AtomStyle:
     def resolved_material(self, default_finish: Finish | None = None) -> Material:
         if self.material is not None:
             return self.material
+        if self.color is None:
+            raise ValueError("AtomStyle must be resolved before creating a material")
         return (self.finish or default_finish or Finish()).material(self.color)
 
 
@@ -239,8 +249,19 @@ class BondStyle:
         return (default_finish or Finish()).material(self.color or fallback)
 
 
+DEFAULT_HYDROGEN_BOND_STYLE = BondStyle(
+    radius=0.05,
+    color=Color(0.7, 0.7, 0.7),
+    style="dashed",
+    dashes=4,
+)
+
+
 @dataclass(frozen=True)
 class StyleConfig:
+    preset_style: Literal["ball_and_stick", "space_filling"] = "ball_and_stick"
+    atom_size_scale: float | None = None
+    bond_size_scale: float = 1.0
     elements: dict[str, AtomStyle] = field(default_factory=dict)
     bonds: dict[str, BondStyle] = field(default_factory=dict)
     coordination_rules: tuple[CoordinationStyleRule, ...] = ()
@@ -251,16 +272,97 @@ class StyleConfig:
     atom_instance_overrides: dict[AtomKey, AtomStyleOverride] = field(
         default_factory=dict
     )
-    default_atom: AtomStyle = AtomStyle(0.4, Color(0.65, 0.65, 0.65))
+    default_atom: AtomStyle = AtomStyle()
     default_bond: BondStyle = BondStyle()
-    default_finish: Finish = Finish()
+    default_atom_finish: Finish = Finish(phong=0.3)
+    default_bond_finish: Finish = Finish()
+    default_finish: Finish | None = None
     depth_shading: DepthShading | None = None
 
+    def __post_init__(self) -> None:
+        scales = {
+            "ball_and_stick": 0.4,
+            "space_filling": 1.0,
+        }
+        try:
+            preset_scale = scales[self.preset_style]
+        except KeyError:
+            raise ValueError(
+                "preset_style must be 'ball_and_stick' or 'space_filling'"
+            ) from None
+
+        atom_scale = self.atom_size_scale
+        if atom_scale is None:
+            atom_scale = preset_scale
+        self._validate_size_scale("atom_size_scale", atom_scale)
+        self._validate_size_scale("bond_size_scale", self.bond_size_scale)
+        object.__setattr__(self, "atom_size_scale", float(atom_scale))
+        object.__setattr__(self, "bond_size_scale", float(self.bond_size_scale))
+
+    @staticmethod
+    def _validate_size_scale(name: str, scale: float) -> None:
+        if isinstance(scale, bool) or not isinstance(scale, Real):
+            raise TypeError(f"{name} must be a real number")
+        if not isfinite(scale) or scale <= 0:
+            raise ValueError(f"{name} must be positive and finite")
+
+    @property
+    def draw_bonds(self) -> bool:
+        """Return whether the selected preset draws bond primitives."""
+
+        return self.preset_style == "ball_and_stick"
+
+    @property
+    def atom_finish(self) -> Finish:
+        """Return the atom finish, honoring the legacy shared override."""
+
+        return self.default_finish or self.default_atom_finish
+
+    @property
+    def bond_finish(self) -> Finish:
+        """Return the bond finish, honoring the legacy shared override."""
+
+        return self.default_finish or self.default_bond_finish
+
     def atom_style(self, symbol: str) -> AtomStyle:
-        return self.elements.get(symbol, self.default_atom)
+        """Resolve built-in, global, and element radius/color defaults."""
+
+        element = self.elements.get(symbol)
+        global_default = self.default_atom
+        return AtomStyle(
+            radius=(
+                element.radius
+                if element is not None and element.radius is not None
+                else global_default.radius
+                if global_default.radius is not None
+                else default_atom_radius(symbol)
+            ),
+            color=(
+                element.color
+                if element is not None and element.color is not None
+                else global_default.color
+                if global_default.color is not None
+                else default_atom_color(symbol)
+            ),
+            material=(
+                element.material
+                if element is not None and element.material is not None
+                else global_default.material
+            ),
+            finish=(
+                element.finish
+                if element is not None and element.finish is not None
+                else global_default.finish
+            ),
+            visible=element.visible if element is not None else global_default.visible,
+        )
 
     def bond_style(self, rule_id: str) -> BondStyle:
-        return self.bonds.get(rule_id, self.default_bond)
+        if rule_id in self.bonds:
+            return self.bonds[rule_id]
+        if rule_id == DEFAULT_HYDROGEN_BOND_RULE_ID:
+            return DEFAULT_HYDROGEN_BOND_STYLE
+        return self.default_bond
 
 
 @dataclass(frozen=True)
@@ -344,7 +446,10 @@ def resolve_atom_styles(
         if instance_override is not None:
             style = instance_override.apply(style)
 
-        resolved[atom.key] = style
+        resolved[atom.key] = replace(
+            style,
+            radius=style.radius * styles.atom_size_scale,
+        )
     return resolved
 
 
@@ -485,7 +590,7 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
     atom_styles = resolve_atom_styles(geometry, styles)
 
     # Bonds first so spheres naturally hide cylinder ends.
-    for bond in geometry.bonds:
+    for bond in (geometry.bonds if styles.draw_bonds else ()):
         atom_a = atom_by_key[bond.atom_a]
         atom_b = atom_by_key[bond.atom_b]
         style_a = atom_styles[bond.atom_a]
@@ -493,6 +598,10 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
         if not style_a.visible or not style_b.visible:
             continue
         bond_style = styles.bond_style(bond.rule_id)
+        bond_style = replace(
+            bond_style,
+            radius=bond_style.radius * styles.bond_size_scale,
+        )
 
         primitives.extend(
             _bond_primitives(
@@ -501,7 +610,7 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
                 style_a,
                 style_b,
                 bond_style,
-                styles.default_finish,
+                styles.bond_finish,
             )
         )
 
@@ -509,7 +618,7 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
         SpherePrimitive(
             atom.position,
             atom_styles[atom.key].radius,
-            atom_styles[atom.key].resolved_material(styles.default_finish),
+            atom_styles[atom.key].resolved_material(styles.atom_finish),
         )
         for atom in geometry.atoms
         if atom_styles[atom.key].visible

@@ -29,6 +29,7 @@ def test_float_fractional_ranges_combine_replication_crop_and_offset():
         bounds=DisplayBounds(
             fractional_ranges=((-0.5, 1.5), (0.0, 1.0), (0.0, 1.0))
         ),
+        bond_rules=(),
     )
 
     assert [atom.fractional_position[0] for atom in geometry.atoms] == pytest.approx(
