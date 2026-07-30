@@ -16,8 +16,10 @@ class Color:
     alpha: float = 1.0
 
     def __post_init__(self) -> None:
-        if any(value < 0 or value > 1 for value in self.as_tuple()):
-            raise ValueError("Color channels and alpha must lie between 0 and 1")
+        if any(value < 0 for value in (self.red, self.green, self.blue)):
+            raise ValueError("RGB color channels must be non-negative")
+        if not 0 <= self.alpha <= 1:
+            raise ValueError("Alpha must lie between 0 and 1")
 
     def as_tuple(self) -> tuple[float, float, float, float]:
         return self.red, self.green, self.blue, self.alpha
@@ -27,7 +29,10 @@ class Color:
         text = value.removeprefix("#")
         if len(text) != 6:
             raise ValueError("Hex colors must have exactly six digits")
-        return cls(*(int(text[index : index + 2], 16) / 255 for index in (0, 2, 4)), alpha)
+        return cls(
+            *(int(text[index : index + 2], 16) / 255 for index in (0, 2, 4)),
+            alpha,
+        )
 
 
 @dataclass(frozen=True)
@@ -64,4 +69,3 @@ class TriangleMeshPrimitive:
 
 
 Primitive: TypeAlias = SpherePrimitive | CylinderPrimitive | TriangleMeshPrimitive
-
