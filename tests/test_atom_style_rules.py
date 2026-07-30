@@ -100,6 +100,7 @@ def test_rule_precedence_and_later_rules_apply_partial_overrides():
     resolved = resolve_atom_styles(
         geometry,
         StyleConfig(
+            atom_size_scale=1.0,
             elements={"Fe": AtomStyle(0.5, Color(0.1, 0.1, 0.1))},
             coordination_rules=(
                 CoordinationStyleRule(
