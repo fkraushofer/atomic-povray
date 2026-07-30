@@ -13,6 +13,7 @@ from .config import (
     CutoffPlane,
     DisplayBounds,
 )
+from .defaults import BondRuleSet, get_default_bonds
 from .geometry import build_geometry
 from .io import load_structure
 from .model import AtomInstance, AtomKey, Bond, GeometryModel, StructureModel
@@ -49,6 +50,7 @@ __all__ = [
     "Background",
     "Bond",
     "BondRule",
+    "BondRuleSet",
     "BondStyle",
     "Camera",
     "Color",
@@ -73,6 +75,7 @@ __all__ = [
     "TriangleMeshPrimitive",
     "apply_styles",
     "build_geometry",
+    "get_default_bonds",
     "load_structure",
     "make_scene",
     "render_scene",
