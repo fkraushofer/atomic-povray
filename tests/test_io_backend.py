@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -12,6 +13,7 @@ from atomic_povray import (
     RenderConfig,
     make_scene,
     load_structure,
+    render_scene,
     scene_to_sdl,
     write_scene,
 )
@@ -82,6 +84,29 @@ def test_constant_fog_is_written_to_sdl():
     assert "fog_type 1" in text
     assert "distance 25" in text
     assert "color rgbf <0.9, 0.8, 0.7, 0>" in text
+
+
+def test_render_warns_when_quality_disables_fog(tmp_path: Path, monkeypatch):
+    scene = make_scene(
+        (),
+        camera=Camera.perspective(
+            direction=(0.0, 10.0, 0.0),
+            target=(0.0, 0.0, 0.0),
+            up=(0.0, 0.0, 1.0),
+        ),
+        fog=Fog(distance=25.0),
+    )
+    monkeypatch.setattr(
+        "atomic_povray.backends.povray_sdl.subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(stdout="", stderr=""),
+    )
+
+    with pytest.warns(UserWarning, match="fog requires quality 9 or higher"):
+        render_scene(
+            scene,
+            tmp_path / "fog.png",
+            RenderConfig(quality=3),
+        )
 
 
 @pytest.mark.parametrize("distance", (0.0, -1.0, float("inf"), float("nan")))
