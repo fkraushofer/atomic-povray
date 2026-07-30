@@ -9,6 +9,11 @@ from typing import TYPE_CHECKING, Literal, TypeAlias
 
 import numpy as np
 
+from ..defaults import (
+    DEFAULT_HYDROGEN_BOND_RULE_ID,
+    default_atom_color,
+    default_atom_radius,
+)
 from ..model import AtomKey, BondNeighbor, GeometryModel, Vec3
 from ..primitives import (
     Color,
@@ -112,8 +117,10 @@ class DepthShading:
 
 @dataclass(frozen=True)
 class AtomStyle:
-    radius: float
-    color: Color
+    """Atom appearance with optional radius/color for element overrides."""
+
+    radius: float | None = None
+    color: Color | None = None
     material: Material | None = None
     finish: Finish | None = None
     visible: bool = True
@@ -121,6 +128,8 @@ class AtomStyle:
     def resolved_material(self, default_finish: Finish | None = None) -> Material:
         if self.material is not None:
             return self.material
+        if self.color is None:
+            raise ValueError("AtomStyle must be resolved before creating a material")
         return (self.finish or default_finish or Finish()).material(self.color)
 
 
@@ -239,6 +248,14 @@ class BondStyle:
         return (default_finish or Finish()).material(self.color or fallback)
 
 
+DEFAULT_HYDROGEN_BOND_STYLE = BondStyle(
+    radius=0.05,
+    color=Color(0.7, 0.7, 0.7),
+    style="dashed",
+    dashes=4,
+)
+
+
 @dataclass(frozen=True)
 class StyleConfig:
     elements: dict[str, AtomStyle] = field(default_factory=dict)
@@ -251,16 +268,50 @@ class StyleConfig:
     atom_instance_overrides: dict[AtomKey, AtomStyleOverride] = field(
         default_factory=dict
     )
-    default_atom: AtomStyle = AtomStyle(0.4, Color(0.65, 0.65, 0.65))
+    default_atom: AtomStyle = AtomStyle()
     default_bond: BondStyle = BondStyle()
     default_finish: Finish = Finish()
     depth_shading: DepthShading | None = None
 
     def atom_style(self, symbol: str) -> AtomStyle:
-        return self.elements.get(symbol, self.default_atom)
+        """Resolve built-in, global, and element radius/color defaults."""
+
+        element = self.elements.get(symbol)
+        global_default = self.default_atom
+        return AtomStyle(
+            radius=(
+                element.radius
+                if element is not None and element.radius is not None
+                else global_default.radius
+                if global_default.radius is not None
+                else default_atom_radius(symbol)
+            ),
+            color=(
+                element.color
+                if element is not None and element.color is not None
+                else global_default.color
+                if global_default.color is not None
+                else default_atom_color(symbol)
+            ),
+            material=(
+                element.material
+                if element is not None and element.material is not None
+                else global_default.material
+            ),
+            finish=(
+                element.finish
+                if element is not None and element.finish is not None
+                else global_default.finish
+            ),
+            visible=element.visible if element is not None else global_default.visible,
+        )
 
     def bond_style(self, rule_id: str) -> BondStyle:
-        return self.bonds.get(rule_id, self.default_bond)
+        if rule_id in self.bonds:
+            return self.bonds[rule_id]
+        if rule_id == DEFAULT_HYDROGEN_BOND_RULE_ID:
+            return DEFAULT_HYDROGEN_BOND_STYLE
+        return self.default_bond
 
 
 @dataclass(frozen=True)
