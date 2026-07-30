@@ -13,6 +13,8 @@ The initial structural and rendering pipeline is established:
 - per-face and per-plane extension control
 - periodic bond discovery for skewed cells
 - atom spheres and single- or two-color cylindrical bonds
+- layered atom styling by coordination, ASE selection, source atom, or periodic
+  display instance
 - solid and dashed bond styles with configurable dash counts and radii
 - orthographic and perspective cameras
 - point and area lights
@@ -41,11 +43,9 @@ Whether that background appears in the PNG still depends on `RenderConfig.transp
 
 The next milestone should complete the important appearance controls without changing structural geometry.
 
-- General atom-selection overrides for special colors, radii, finishes, or visibility
-- Coordination-dependent atom styling integrated into the same resolver and precedence model
 - Extend the general bond-style property to dotted or custom segmented styles
 - Atom labels represented as text primitives
-- Tests for style precedence, coordination selection, depth mapping, segmented bonds, and labels
+- Tests for depth mapping, segmented bonds, and labels
 
 The atom-style resolution order should be:
 
