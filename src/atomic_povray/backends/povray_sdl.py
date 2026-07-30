@@ -44,7 +44,8 @@ def _finish(material: Material) -> str:
         f"ambient {_number(material.ambient)} "
         f"diffuse {_number(material.diffuse)} "
         f"phong {_number(material.phong)} "
-        f"phong_size {_number(material.phong_size)}"
+        f"phong_size {_number(material.phong_size)} "
+        f"specular {_number(material.specular)}"
         " }"
     )
 

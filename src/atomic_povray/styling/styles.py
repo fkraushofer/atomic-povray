@@ -25,13 +25,16 @@ class DepthShading:
 
     ``origin`` is the onset plane and ``direction`` points toward increasing
     fade. At ``decay_length`` beyond that plane, the original color contributes
-    1/e. Points before the plane retain their original color.
+    1/e. Points before the plane retain their original material. Directional
+    lighting and highlights fade faster than color so distant primitives
+    flatten into ``target``. Alpha is preserved unless ``shade_alpha`` is true.
     """
 
     origin: Vec3
     direction: Vec3
     decay_length: float
     target: Color
+    shade_alpha: bool = False
 
     def __post_init__(self) -> None:
         origin = np.asarray(self.origin, dtype=float)
@@ -45,16 +48,20 @@ class DepthShading:
         if not np.isfinite(self.decay_length) or self.decay_length <= 0:
             raise ValueError("decay_length must be positive and finite")
 
-    def color_at(self, color: Color, position: Vec3) -> Color:
-        """Return ``color`` exponentially blended toward the target color."""
-
+    def factor_at(self, position: Vec3) -> float:
+        """Return the surviving foreground fraction at ``position``."""
         direction = np.asarray(self.direction, dtype=float)
         axis = direction / np.linalg.norm(direction)
         depth = max(
             0.0,
             float(np.dot(np.asarray(position, dtype=float) - self.origin, axis)),
         )
-        original_fraction = exp(-depth / self.decay_length)
+        return exp(-depth / self.decay_length)
+
+    def color_at(self, color: Color, position: Vec3) -> Color:
+        """Return ``color`` exponentially blended toward the target color."""
+
+        original_fraction = self.factor_at(position)
         target_fraction = 1.0 - original_fraction
         return Color(
             red=original_fraction * color.red + target_fraction * self.target.red,
@@ -66,8 +73,31 @@ class DepthShading:
                 original_fraction * color.blue
                 + target_fraction * self.target.blue
             ),
-            # Depth shading changes pigment color, not physical transparency.
-            alpha=color.alpha,
+            alpha=(
+                original_fraction * color.alpha
+                + target_fraction * self.target.alpha
+                if self.shade_alpha
+                else color.alpha
+            ),
+        )
+
+    def material_at(self, material: Material, position: Vec3) -> Material:
+        """Fade a material using the legacy fog-like finish response."""
+
+        factor = self.factor_at(position)
+        factor_squared = factor * factor
+        return replace(
+            material,
+            color=self.color_at(material.color, position),
+            # Suppress directional lighting and highlights while raising ambient
+            # toward one, so the primitive flattens into the target color.
+            ambient=(
+                material.ambient
+                + (1.0 - material.ambient) * (1.0 - factor_squared)
+            ),
+            diffuse=material.diffuse * factor_squared,
+            phong=material.phong * factor_squared,
+            specular=material.specular * factor_squared * factor,
         )
 
 
@@ -158,10 +188,7 @@ def _apply_depth_shading(
         position = _primitive_position(primitive)
         if position is None:
             continue
-        material = replace(
-            primitive.material,
-            color=shading.color_at(primitive.material.color, position),
-        )
+        material = shading.material_at(primitive.material, position)
         primitives[index] = replace(primitive, material=material)
 
 

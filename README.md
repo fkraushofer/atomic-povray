@@ -166,8 +166,21 @@ styles = StyleConfig(
 The origin defines the onset plane perpendicular to `direction`. Colors before
 that plane are unchanged. Beyond it, the original color contribution decays
 exponentially and is `1/e` after `decay_length`. Spheres use their centers,
-cylinders their midpoints, and meshes the mean of their vertices. Alpha and
-finish parameters are preserved.
+cylinders their midpoints, and meshes the mean of their vertices. To reproduce
+the fog-like appearance of the legacy renderer, diffuse and Phong lighting decay
+as the square of the color factor, specular highlights decay as its cube, and
+ambient lighting rises toward `1` so distant primitives flatten into the target
+color. Alpha is preserved by default.
+
+Set `shade_alpha=True` to blend opacity toward `target.alpha` as well:
+
+```python
+DepthShading(
+    ...,
+    target=Color(1.0, 1.0, 1.0, alpha=0.0),
+    shade_alpha=True,
+)
+```
 
 POV-Ray's native constant fog is available as a continuous alternative when
 depth follows the camera view:

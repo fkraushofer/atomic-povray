@@ -42,6 +42,7 @@ class Material:
     diffuse: float = 0.60
     phong: float = 0.0
     phong_size: float = 10.0
+    specular: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,7 @@ class Finish:
     diffuse: float = 0.60
     phong: float = 0.0
     phong_size: float = 10.0
+    specular: float = 0.0
 
     def material(self, color: Color) -> Material:
         """Combine this finish with a pigment color."""
@@ -62,6 +64,7 @@ class Finish:
             diffuse=self.diffuse,
             phong=self.phong,
             phong_size=self.phong_size,
+            specular=self.specular,
         )
 
 

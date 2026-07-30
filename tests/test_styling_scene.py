@@ -14,6 +14,7 @@ from atomic_povray import (
     Color,
     CylinderPrimitive,
     DepthShading,
+    Finish,
     Material,
     PointLight,
     SpherePrimitive,
@@ -138,6 +139,12 @@ def test_depth_shading_fades_primitive_colors_from_an_onset_plane():
                 decay_length=1.0,
                 target=Color(1.0, 1.0, 1.0),
             ),
+            default_finish=Finish(
+                ambient=0.1,
+                diffuse=0.6,
+                phong=0.3,
+                specular=0.2,
+            ),
         ),
     )
     cylinder = next(
@@ -154,8 +161,34 @@ def test_depth_shading_fades_primitive_colors_from_an_onset_plane():
     assert spheres[0].material.color == Color(1.0, 0.0, 0.0, alpha=0.4)
     assert spheres[1].material.color.green == pytest.approx(1.0 - exp(-1.0))
     assert spheres[1].material.color.alpha == 0.4
+    factor = exp(-1.0)
+    assert spheres[1].material.ambient == pytest.approx(
+        0.1 + 0.9 * (1.0 - factor**2)
+    )
+    assert spheres[1].material.diffuse == pytest.approx(0.6 * factor**2)
+    assert spheres[1].material.phong == pytest.approx(0.3 * factor**2)
+    assert spheres[1].material.specular == pytest.approx(0.2 * factor**3)
     # A cylinder is shaded at its midpoint (x=0.9 here).
     assert cylinder.material.color.green == pytest.approx(1.0 - exp(-0.1))
+
+
+def test_depth_shading_can_blend_alpha_toward_target():
+    shading = DepthShading(
+        origin=(0.0, 0.0, 0.0),
+        direction=(1.0, 0.0, 0.0),
+        decay_length=1.0,
+        target=Color(1.0, 1.0, 1.0, alpha=0.1),
+        shade_alpha=True,
+    )
+
+    color = shading.color_at(
+        Color(0.0, 0.0, 0.0, alpha=0.9),
+        (1.0, 0.0, 0.0),
+    )
+
+    assert color.alpha == pytest.approx(
+        exp(-1.0) * 0.9 + (1.0 - exp(-1.0)) * 0.1
+    )
 
 
 @pytest.mark.parametrize(
