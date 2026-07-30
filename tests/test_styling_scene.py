@@ -96,7 +96,7 @@ def test_extra_primitives_are_appended_and_written_to_sdl():
     scene = make_scene(
         styled.primitives,
         camera=Camera.orthographic(
-            location=(0.0, -20.0, 0.0),
+            direction=(0.0, 20.0, 0.0),
             target=(0.0, 0.0, 0.0),
             up=(0.0, 0.0, 1.0),
             width=10.0,
