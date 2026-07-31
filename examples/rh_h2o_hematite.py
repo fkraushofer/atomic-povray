@@ -26,7 +26,7 @@ from atomic_povray import (
     render_scene,
 )
 from my_defaults import (
-    AMBIENT_LIGHT,
+    AMBIENT_SCALE,
     SURFACE_OXYGEN_COLOR,
     atom_styles,
     legacy_light,
@@ -58,6 +58,7 @@ def main() -> None:
     styles = StyleConfig(
         atom_size_scale=1.0,
         elements=atom_styles(structure.atoms.get_chemical_symbols()),
+        ambient_scale=AMBIENT_SCALE,
         selection_rules=(
             AtomSelectionRule(
                 selector=select_top_surface_oxygen,
@@ -77,7 +78,6 @@ def main() -> None:
         styled.primitives,
         camera=camera,
         lights=(legacy_light(camera),),
-        ambient_light=AMBIENT_LIGHT,
         background=Background(Color(1.0, 1.0, 1.0)),
     )
     result = render_scene(

@@ -94,7 +94,7 @@ config = RenderConfig(executable=os.environ.get("POVRAY", "povray"))
 | `examples/minimal_workflow.py` | The same minimal workflow as a regular Python script |
 | `examples/hematite_side_view.py` | Command-line rendering, executable resolution, and staged geometry timing |
 | `examples/rh_h2o_hematite.py` | Hydrogen bonds, surface-oxygen selection, and imported project defaults |
-| `examples/my_defaults.py` | Reusable legacy atom colors, radii, finish, ambient light, and area light |
+| `examples/my_defaults.py` | Reusable legacy atom colors, radii, finish, ambient scale, and area light |
 
 Run scripts from the repository root, for example:
 
@@ -211,16 +211,21 @@ space_filling = StyleConfig(preset_style="space_filling")
 
 `space_filling` uses an atom scale of `1.0` and omits bond primitives. Bond
 geometry is retained, so coordination-dependent styles remain available and
-switching presets does not require rebuilding geometry. Override the global
-atom and bond scales independently when needed. Both are
-applied after resolving default or explicit per-style radii:
+switching presets does not require rebuilding geometry. Override the global atom and bond scales independently when needed. Both are
+applied after resolving default or explicit per-style radii. The ambient
+coefficient can likewise be scaled globally after resolving every atom and
+bond material:
 
 ```python
 styles = StyleConfig(
     atom_size_scale=0.55,
     bond_size_scale=1.25,
+    ambient_scale=0.8,
 )
 ```
+
+Unlike the size scales, `ambient_scale=0.0` is valid and disables ambient
+lighting for all styled atoms and bonds.
 
 Generate bond rules explicitly before geometry construction. This makes the
 exact rule set inspectable and editable; `build_geometry()` never adds hidden
@@ -419,7 +424,19 @@ styles = StyleConfig()
 
 Override them independently with `default_atom_finish=` or
 `default_bond_finish=`. The compatibility argument `default_finish=` still sets
-a shared finish for both.
+a shared finish for both. Use `ambient_scale=` to multiply the ambient
+coefficient of every resolved atom and bond material, including explicit
+`Finish` and `Material` overrides:
+
+```python
+styles = StyleConfig(ambient_scale=0.5)
+```
+
+The scene-level `ambient_light` is a separate RGB multiplier in POV-Ray and
+defaults to white. In normal use, leave it at that default and control overall
+ambient strength with `StyleConfig.ambient_scale`; setting both to `0.5`
+would multiply the ambient contribution twice.
+
 Override only the finish while retaining the atom or bond color with
 `AtomStyle(..., finish=another_finish)` or
 `BondStyle(..., finish=another_finish)`. Supplying `material=Material(...)`
