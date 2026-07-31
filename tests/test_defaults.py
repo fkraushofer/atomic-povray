@@ -336,7 +336,7 @@ def test_default_bond_table_output_can_be_suppressed(capsys):
     assert "Pt-Pt" not in rules.format_table()
 
 
-def test_build_geometry_requires_explicit_bond_rules():
+def test_build_geometry_without_bond_rules_warns_and_builds_atom_only_geometry():
     atoms = Atoms(
         "FeO",
         positions=((0.0, 0.0, 0.0), (1.8, 0.0, 0.0)),
@@ -344,5 +344,10 @@ def test_build_geometry_requires_explicit_bond_rules():
         pbc=False,
     )
 
-    with pytest.raises(TypeError, match="bond_rules"):
-        build_geometry(StructureModel(atoms))
+    with pytest.warns(UserWarning) as warning_info:
+        geometry = build_geometry(StructureModel(atoms))
+
+    assert str(warning_info[0].message) == (
+        "No bond_rules were passed to build_geometry. Did you forget them? You can generate default bonds with bond_rules=get_default_bonds(structure)."
+    )
+    assert geometry.bonds == ()
