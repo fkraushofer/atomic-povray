@@ -301,3 +301,40 @@ def test_default_oh_rules_preserve_half_open_boundary():
 
     assert len(geometry.bonds) == 1
     assert geometry.bonds[0].rule_id == "default:hydrogen:O-H"
+
+
+def test_get_default_bonds_prints_editable_rule_table(capsys):
+    rules = get_default_bonds(Atoms("FeOH"))
+    output = capsys.readouterr().out
+
+    assert "Rule" in output
+    assert "Min (Å)" in output
+    assert "Max (Å)" in output
+    assert "Boundary extension" in output
+    assert "default:Fe-O" in output
+    assert "Fe → O" in output
+    assert "O ↔ O" in output
+    assert "default:hydrogen:O-H" in output
+    assert "none" in output
+    assert rules.format_table() in output
+
+
+def test_default_bond_table_output_can_be_suppressed(capsys):
+    rules = get_default_bonds(Atoms("Pt"), print_table=False)
+
+    assert capsys.readouterr().out == ""
+    assert "Rule" in rules.format_table()
+    assert "Pt-Pt" not in rules.format_table()
+
+
+def test_implicit_geometry_defaults_do_not_print_rule_table(capsys):
+    atoms = Atoms(
+        "FeO",
+        positions=((0.0, 0.0, 0.0), (1.8, 0.0, 0.0)),
+        cell=(10.0, 10.0, 10.0),
+        pbc=False,
+    )
+
+    build_geometry(StructureModel(atoms))
+
+    assert capsys.readouterr().out == ""
