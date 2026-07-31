@@ -262,6 +262,7 @@ class StyleConfig:
     preset_style: Literal["ball_and_stick", "space_filling"] = "ball_and_stick"
     atom_size_scale: float | None = None
     bond_size_scale: float = 1.0
+    ambient_scale: float = 1.0
     elements: dict[str, AtomStyle] = field(default_factory=dict)
     bonds: dict[str, BondStyle] = field(default_factory=dict)
     coordination_rules: tuple[CoordinationStyleRule, ...] = ()
@@ -296,8 +297,10 @@ class StyleConfig:
             atom_scale = preset_scale
         self._validate_size_scale("atom_size_scale", atom_scale)
         self._validate_size_scale("bond_size_scale", self.bond_size_scale)
+        self._validate_ambient_scale(self.ambient_scale)
         object.__setattr__(self, "atom_size_scale", float(atom_scale))
         object.__setattr__(self, "bond_size_scale", float(self.bond_size_scale))
+        object.__setattr__(self, "ambient_scale", float(self.ambient_scale))
 
     @staticmethod
     def _validate_size_scale(name: str, scale: float) -> None:
@@ -305,6 +308,13 @@ class StyleConfig:
             raise TypeError(f"{name} must be a real number")
         if not isfinite(scale) or scale <= 0:
             raise ValueError(f"{name} must be positive and finite")
+
+    @staticmethod
+    def _validate_ambient_scale(scale: float) -> None:
+        if isinstance(scale, bool) or not isinstance(scale, Real):
+            raise TypeError("ambient_scale must be a real number")
+        if not isfinite(scale) or scale < 0:
+            raise ValueError("ambient_scale must be non-negative and finite")
 
     @property
     def draw_bonds(self) -> bool:
@@ -469,6 +479,20 @@ def _primitive_position(primitive: Primitive) -> Vec3 | None:
     return None
 
 
+def _apply_ambient_scale(
+    primitives: list[Primitive],
+    scale: float,
+) -> None:
+    for index, primitive in enumerate(primitives):
+        primitives[index] = replace(
+            primitive,
+            material=replace(
+                primitive.material,
+                ambient=primitive.material.ambient * scale,
+            ),
+        )
+
+
 def _apply_depth_shading(
     primitives: list[Primitive],
     shading: DepthShading | None,
@@ -623,5 +647,6 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
         for atom in geometry.atoms
         if atom_styles[atom.key].visible
     )
+    _apply_ambient_scale(primitives, styles.ambient_scale)
     _apply_depth_shading(primitives, styles.depth_shading)
     return StyledGeometry(geometry, tuple(primitives))
