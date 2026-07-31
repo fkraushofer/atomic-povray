@@ -28,12 +28,15 @@ OUTPUT = ROOT / "hematite_prototype1.pov"
 def main(*, render: bool = False) -> None:
     structure = load_structure(INPUT)
 
+    bond_rules = get_default_bonds(structure)
+
     start = perf_counter()
     geometry = build_geometry(
         structure,
         bounds=DisplayBounds(
             fractional_ranges=((-2.0, 2.0), (-1.5, 1.5), (0.45, 0.75))
         ),
+        bond_rules=bond_rules,
     )
     geometry_seconds = perf_counter() - start
 

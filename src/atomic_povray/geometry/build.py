@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from itertools import product
+from warnings import warn
 
 import numpy as np
 from ase.neighborlist import neighbor_list
 
 from ..config import BondRule, DisplayBounds
-from ..defaults import get_default_bonds
 from ..model import (
     AtomInstance,
     AtomKey,
@@ -232,15 +232,21 @@ def build_geometry(
 ) -> GeometryModel:
     """Build geometry and complete source environments from matching bond rules.
 
-    When ``bond_rules`` is omitted, editable ASE-backed defaults are generated
-    for the elements in ``structure``. Pass an empty iterable to disable bonds
-    explicitly.
+    ``bond_rules`` is explicit so callers can inspect and edit the exact rules
+    used for geometry construction. If omitted, no bonds are generated and a
+    warning explains how to request defaults. Pass an empty iterable to disable
+    bonds intentionally without a warning.
     """
 
     bounds = bounds or DisplayBounds()
-    rules = tuple(
-        get_default_bonds(structure) if bond_rules is None else bond_rules
-    )
+    if bond_rules is None:
+        warn(
+            "No bond_rules were passed to build_geometry. Did you forget them? You can generate default bonds with bond_rules=get_default_bonds(structure).",
+            stacklevel=2,
+        )
+        rules = ()
+    else:
+        rules = tuple(bond_rules)
     primary_instances = _make_instances(structure, bounds)
     instances, bonds, environments = _make_bonds(
         structure,

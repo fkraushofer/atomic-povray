@@ -63,10 +63,12 @@ not need to install it. Point `RenderConfig.executable` at `pvengine64.exe`.
 from atomic_povray import *
 
 structure = load_structure("POSCAR")
+bond_rules = get_default_bonds(structure)  # Prints the generated rule table.
 
-# This is the expensive stage. Reuse `geometry` while changing appearance/camera.
+# Edit bond_rules here before the expensive geometry stage, if needed.
 geometry = build_geometry(
     structure,
+    bond_rules=bond_rules,
     bounds=DisplayBounds(
         fractional_ranges=((-2.0, 2.0), (-1.5, 1.5), (0.45, 0.75)),
         cutoff_planes=(
@@ -158,30 +160,59 @@ styles = StyleConfig(
 )
 ```
 
-`build_geometry()` automatically generates bond rules for the elements present,
-omitting noble-gas and metal-metal pairs by default. Pass an empty iterable to
-request an atom-only geometry explicitly:
+Generate bond rules explicitly before geometry construction. This makes the
+exact rule set inspectable and editable; `build_geometry()` never adds hidden
+rules. Pass an empty iterable to request an atom-only geometry intentionally
+and without a warning:
 
 ```python
-geometry = build_geometry(structure)
+bond_rules = get_default_bonds(structure)
+geometry = build_geometry(structure, bond_rules=bond_rules)
 geometry_without_bonds = build_geometry(structure, bond_rules=())
 ```
 
+If `bond_rules` is omitted, `build_geometry()` also produces atom-only
+geometry, but warns that default rules may have been forgotten. It never
+generates or adds bond rules implicitly.
+
 To inspect, edit, or delete the defaults before geometry construction, materialize
-an ordinary editable `BondRuleSet`:
+an ordinary editable `BondRuleSet`. The call prints a table containing each
+rule name, element pair, half-open distance range, and boundary-extension
+direction:
 
 ```python
+# Cell 1: load the structure and inspect the generated defaults.
+structure = load_structure("POSCAR")
 bond_rules = get_default_bonds(structure, bond_scale=1.2)
+```
 
+For a metal-metal bond such as Pt-Pt, add an explicit rule in the next cell
+because metal-metal pairs are deliberately excluded from the chemical defaults:
+
+```python
+# Cell 2: make any project-specific changes before geometry is built.
 bond_rules.remove("default:Fe-H")
 bond_rules.update("default:Fe-O", max_distance=2.45)
 bond_rules.remove_pair("H", "H")
 bond_rules.add(
-    BondRule("Fe", "Fe", 0.0, 2.8, name="custom:Fe-Fe")
+    BondRule(
+        "Pt",
+        "Pt",
+        0.0,
+        3.1,
+        name="custom:Pt-Pt",
+        extension_mode="symmetric",
+    )
 )
+bond_rules.print_table()  # Optional: inspect the modified rules.
 
+# Cell 3: this is the expensive stage.
 geometry = build_geometry(structure, bond_rules=bond_rules)
 ```
+
+The 3.1 Å Pt-Pt cutoff is only an example; choose it from the relevant
+nearest-neighbor distances in the structure. Pass `print_table=False` to
+`get_default_bonds` when the summary is not wanted.
 
 Ordinary cutoffs are `bond_scale` times the sum of the two ASE covalent
 radii. Heteronuclear metal/non-metal rules are oriented from metal to

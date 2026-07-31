@@ -47,7 +47,10 @@ def test_style_presets_control_rendered_atom_scale_and_bond_visibility():
         cell=(10.0, 10.0, 10.0),
         pbc=False,
     )
-    geometry = build_geometry(StructureModel(atoms))
+    geometry = build_geometry(
+        StructureModel(atoms),
+        bond_rules=get_default_bonds(atoms, print_table=False),
+    )
     ball_and_stick = apply_styles(geometry, StyleConfig())
     space_filling = apply_styles(
         geometry,
@@ -116,7 +119,10 @@ def test_bond_size_scale_scales_default_and_explicit_bond_radii():
         cell=(10.0, 10.0, 10.0),
         pbc=False,
     )
-    geometry = build_geometry(StructureModel(atoms))
+    geometry = build_geometry(
+        StructureModel(atoms),
+        bond_rules=get_default_bonds(atoms, print_table=False),
+    )
 
     default_styled = apply_styles(
         geometry,
@@ -199,7 +205,7 @@ def test_default_bonds_use_curated_pairs_and_metal_to_nonmetal_direction():
     assert rules["default:O-O"].allows_extension_from("O", "O")
 
 
-def test_build_geometry_uses_default_bonds_when_rules_are_omitted():
+def test_build_geometry_uses_explicit_default_bonds():
     atoms = Atoms(
         "FeO",
         positions=((0.0, 0.0, 0.0), (1.8, 0.0, 0.0)),
@@ -207,7 +213,10 @@ def test_build_geometry_uses_default_bonds_when_rules_are_omitted():
         pbc=False,
     )
 
-    automatic = build_geometry(StructureModel(atoms))
+    automatic = build_geometry(
+        StructureModel(atoms),
+        bond_rules=get_default_bonds(atoms, print_table=False),
+    )
     disabled = build_geometry(StructureModel(atoms), bond_rules=())
     styled = apply_styles(automatic, StyleConfig())
     cylinders = [
@@ -301,3 +310,44 @@ def test_default_oh_rules_preserve_half_open_boundary():
 
     assert len(geometry.bonds) == 1
     assert geometry.bonds[0].rule_id == "default:hydrogen:O-H"
+
+
+def test_get_default_bonds_prints_editable_rule_table(capsys):
+    rules = get_default_bonds(Atoms("FeOH"))
+    output = capsys.readouterr().out
+
+    assert "Rule" in output
+    assert "Min (Å)" in output
+    assert "Max (Å)" in output
+    assert "Boundary extension" in output
+    assert "default:Fe-O" in output
+    assert "Fe → O" in output
+    assert "O ↔ O" in output
+    assert "default:hydrogen:O-H" in output
+    assert "none" in output
+    assert rules.format_table() in output
+
+
+def test_default_bond_table_output_can_be_suppressed(capsys):
+    rules = get_default_bonds(Atoms("Pt"), print_table=False)
+
+    assert capsys.readouterr().out == ""
+    assert "Rule" in rules.format_table()
+    assert "Pt-Pt" not in rules.format_table()
+
+
+def test_build_geometry_without_bond_rules_warns_and_builds_atom_only_geometry():
+    atoms = Atoms(
+        "FeO",
+        positions=((0.0, 0.0, 0.0), (1.8, 0.0, 0.0)),
+        cell=(10.0, 10.0, 10.0),
+        pbc=False,
+    )
+
+    with pytest.warns(UserWarning) as warning_info:
+        geometry = build_geometry(StructureModel(atoms))
+
+    assert str(warning_info[0].message) == (
+        "No bond_rules were passed to build_geometry. Did you forget them? You can generate default bonds with bond_rules=get_default_bonds(structure)."
+    )
+    assert geometry.bonds == ()
