@@ -57,7 +57,7 @@ def main() -> None:
     )
     styles = StyleConfig(
         atom_size_scale=1.0,
-        elements=atom_styles(structure.get_chemical_symbols()),
+        elements=atom_styles(structure.atoms.get_chemical_symbols()),
         selection_rules=(
             AtomSelectionRule(
                 selector=select_top_surface_oxygen,
