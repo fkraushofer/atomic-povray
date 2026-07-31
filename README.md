@@ -54,8 +54,90 @@ conda activate atomic-povray
 python -m pip install -e ".[test,notebook]"
 ```
 
-If POV-Ray is already installed separately on Windows, the Python package does
-not need to install it. Point `RenderConfig.executable` at `pvengine64.exe`.
+The `povray` Conda package puts the executable on the active environment's
+`PATH`. A separate system installation works equally well.
+
+## Configure the POV-Ray executable
+
+Pass the command or full executable path to `RenderConfig.executable`. On
+Linux, and with the Conda package on any platform, the executable is normally:
+
+```python
+config = RenderConfig(executable="povray")
+```
+
+A typical standalone Windows installation uses one of these paths:
+
+```python
+config = RenderConfig(
+    executable=r"C:\\Program Files\\POV-Ray\\v3.7\\bin\\pvengine64.exe"
+)
+# POV-Ray 3.8 commonly installs under:
+# r"C:\\Program Files\\POV-Ray\\v3.8\\bin\\pvengine64.exe"
+```
+
+The exact version directory depends on the installed release. The examples also
+accept a `POVRAY` environment variable, which keeps machine-specific paths out
+of scripts and notebooks:
+
+```python
+import os
+
+config = RenderConfig(executable=os.environ.get("POVRAY", "povray"))
+```
+
+## Examples
+
+| Example | Purpose |
+| --- | --- |
+| `notebooks/prototype_workflow.ipynb` | Minimal notebook workflow with inline image display |
+| `examples/minimal_workflow.py` | The same minimal workflow as a regular Python script, with automatic executable lookup |
+| `examples/hematite_side_view.py` | Command-line rendering, executable resolution, and staged geometry timing |
+| `examples/rh_h2o_hematite.py` | Command-line hydrogen-bond and surface-color example with imported project defaults |
+| `examples/render_file.py` | Render any ASE-readable file with automatic orthographic framing |
+| `examples/render_batch.py` | Apply the same settings to files or wildcard patterns |
+| `examples/my_defaults.py` | Reusable legacy atom colors, radii, finish, ambient scale, and area light |
+
+Run the executable examples as modules from the repository root:
+
+```bash
+python -m examples.minimal_workflow
+python -m examples.hematite_side_view
+python -m examples.rh_h2o_hematite
+python -m examples.render_file POSCAR
+python -m examples.render_batch "*.vasp"
+```
+
+The minimal script deliberately has no argument parser. It resolves POV-Ray
+from the `POVRAY` environment variable or searches for `povray` on `PATH`;
+if neither succeeds, it skips rendering and prints how to configure the path.
+Commented Windows and Linux path examples near the top of the script can also
+be adapted directly.
+
+`examples/render_file.py` uses default unit-cell bounds (all fractional ranges 0–1),
+default ball-and-stick styling, an orthographic camera targeted at the average
+atomic position, and automatic framing from the projected atom coordinates.
+Select Cartesian or lattice-vector directions with `--view x|y|z|a|b|c` and
+`--up`; signed directions such as `--view -x` are also accepted. The batch
+script accepts both shell-expanded file lists and quoted wildcard patterns,
+skips matches that ASE cannot read with a warning, and writes each PNG beside
+its input unless `--output-dir` is supplied. Each skip warning includes the
+file name and ASE's original exception. Because
+`-m` takes a module name, use `python -m examples.render_file`, not
+`python -m examples.render_file.py`. These two general scripts are intended as
+starting points: copy both into a working directory outside the repository and
+adapt their shared settings there.
+
+The side-view and Rh/H₂O examples render by default. Pass `--no-render` to
+write only the POV-Ray scene, `--povray PATH` to select the executable, or
+`--output PATH` to choose the image location. Without `--povray`, they check
+the `POVRAY` environment variable and then search for `povray` on `PATH`.
+Inputs are located relative to the repository, while generated files default
+to the shell's current working directory.
+
+The Rh/H₂O example intentionally keeps reusable appearance choices separate
+from scene construction. Copy `my_defaults.py` into a project and adapt it when
+several figures should share the same atom palette, sizes, finish, and lighting.
 
 ## Staged notebook API
 
@@ -149,16 +231,21 @@ space_filling = StyleConfig(preset_style="space_filling")
 
 `space_filling` uses an atom scale of `1.0` and omits bond primitives. Bond
 geometry is retained, so coordination-dependent styles remain available and
-switching presets does not require rebuilding geometry. Override the global
-atom and bond scales independently when needed. Both are
-applied after resolving default or explicit per-style radii:
+switching presets does not require rebuilding geometry. Override the global atom and bond scales independently when needed. Both are
+applied after resolving default or explicit per-style radii. The ambient
+coefficient can likewise be scaled globally after resolving every atom and
+bond material:
 
 ```python
 styles = StyleConfig(
     atom_size_scale=0.55,
     bond_size_scale=1.25,
+    ambient_scale=0.8,
 )
 ```
+
+Unlike the size scales, `ambient_scale=0.0` is valid and disables ambient
+lighting for all styled atoms and bonds.
 
 Generate bond rules explicitly before geometry construction. This makes the
 exact rule set inspectable and editable; `build_geometry()` never adds hidden
@@ -357,7 +444,19 @@ styles = StyleConfig()
 
 Override them independently with `default_atom_finish=` or
 `default_bond_finish=`. The compatibility argument `default_finish=` still sets
-a shared finish for both.
+a shared finish for both. Use `ambient_scale=` to multiply the ambient
+coefficient of every resolved atom and bond material, including explicit
+`Finish` and `Material` overrides:
+
+```python
+styles = StyleConfig(ambient_scale=0.5)
+```
+
+The scene-level `ambient_light` is a separate RGB multiplier in POV-Ray and
+defaults to white. In normal use, leave it at that default and control overall
+ambient strength with `StyleConfig.ambient_scale`; setting both to `0.5`
+would multiply the ambient contribution twice.
+
 Override only the finish while retaining the atom or bond color with
 `AtomStyle(..., finish=another_finish)` or
 `BondStyle(..., finish=another_finish)`. Supplying `material=Material(...)`
@@ -514,8 +613,8 @@ bounds = DisplayBounds(
 The example above disables extensions through the upper face normal to the
 first lattice vector while retaining them at the other five faces.
 
-The `notebooks/prototype_workflow.ipynb` notebook and
-`examples/hematite_side_view.py` contain complete examples.
+The minimal notebook and script provide the shortest complete path through the
+pipeline. See the examples table above for feature-focused alternatives.
 
 ## Extra primitive hook
 
@@ -569,20 +668,10 @@ ini_path = write_ini(scene_path, "hematite.png", config)
 Open or render `hematite.ini`, rather than the `.pov` file alone, to retain
 the configured output gamma, antialiasing, transparency, quality, and size.
 
-Linux/macOS command-line builds normally use:
-
-```python
-RenderConfig(executable="povray")
-```
-
-Windows installations commonly use:
-
-```python
-RenderConfig(executable=r"C:\Program Files\POV-Ray\v3.7\bin\pvengine64.exe")
-```
-
-The package detects `pvengine*.exe` and uses `/RENDER ... /EXIT`; other
-executables are called with the generated INI filename.
+See [Configure the POV-Ray executable](#configure-the-pov-ray-executable) for
+Linux, Conda, and Windows examples. The package detects `pvengine*.exe` and
+uses `/RENDER ... /EXIT`; other executables are called with the generated INI
+filename.
 
 ## Tests
 

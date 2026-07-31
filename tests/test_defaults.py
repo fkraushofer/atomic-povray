@@ -11,6 +11,8 @@ from atomic_povray import (
     BondRuleSet,
     BondStyle,
     Color,
+    Finish,
+    Material,
     StructureModel,
     StyleConfig,
     apply_styles,
@@ -34,6 +36,7 @@ def test_empty_style_config_uses_ball_and_stick_defaults():
     assert styles.preset_style == "ball_and_stick"
     assert styles.atom_size_scale == pytest.approx(0.4)
     assert styles.bond_size_scale == pytest.approx(1.0)
+    assert styles.ambient_scale == pytest.approx(1.0)
     assert styles.draw_bonds
     assert styles.atom_finish.phong == pytest.approx(0.3)
     assert styles.bond_finish.phong == pytest.approx(0.0)
@@ -158,6 +161,70 @@ def test_bond_size_scale_scales_default_and_explicit_bond_radii():
     )
 
 
+def test_ambient_scale_applies_to_atom_and_bond_material_overrides():
+    atoms = Atoms(
+        "FeO",
+        positions=((0.0, 0.0, 0.0), (1.8, 0.0, 0.0)),
+        cell=(10.0, 10.0, 10.0),
+        pbc=False,
+    )
+    geometry = build_geometry(
+        StructureModel(atoms),
+        bond_rules=get_default_bonds(atoms, print_table=False),
+    )
+    styled = apply_styles(
+        geometry,
+        StyleConfig(
+            ambient_scale=0.5,
+            elements={
+                "Fe": AtomStyle(
+                    material=Material(Color(0.1, 0.2, 0.3), ambient=0.8),
+                ),
+                "O": AtomStyle(
+                    color=Color(0.4, 0.5, 0.6),
+                    finish=Finish(ambient=0.4),
+                ),
+            },
+            bonds={
+                "default:Fe-O": BondStyle(
+                    material=Material(Color(0.7, 0.7, 0.7), ambient=0.6),
+                ),
+            },
+        ),
+    )
+    sphere_ambient = sorted(
+        primitive.material.ambient
+        for primitive in styled.primitives
+        if isinstance(primitive, SpherePrimitive)
+    )
+    cylinder_ambient = [
+        primitive.material.ambient
+        for primitive in styled.primitives
+        if isinstance(primitive, CylinderPrimitive)
+    ]
+
+    assert sphere_ambient == pytest.approx([0.2, 0.4])
+    assert cylinder_ambient == pytest.approx([0.3])
+
+
+def test_zero_ambient_scale_disables_ambient_lighting():
+    atoms = Atoms(
+        "O",
+        positions=((0.0, 0.0, 0.0),),
+        cell=(10.0, 10.0, 10.0),
+        pbc=False,
+    )
+    styled = apply_styles(
+        build_geometry(StructureModel(atoms), bond_rules=()),
+        StyleConfig(ambient_scale=0.0),
+    )
+
+    assert all(
+        primitive.material.ambient == pytest.approx(0.0)
+        for primitive in styled.primitives
+    )
+
+
 @pytest.mark.parametrize(
     ("kwargs", "error"),
     [
@@ -168,6 +235,9 @@ def test_bond_size_scale_scales_default_and_explicit_bond_radii():
         ({"bond_size_scale": 0.0}, ValueError),
         ({"bond_size_scale": float("inf")}, ValueError),
         ({"bond_size_scale": True}, TypeError),
+        ({"ambient_scale": -0.1}, ValueError),
+        ({"ambient_scale": float("inf")}, ValueError),
+        ({"ambient_scale": True}, TypeError),
     ],
 )
 def test_style_preset_validation(kwargs, error):

@@ -1,8 +1,12 @@
-"""Render the hematite side-view example from the command line.
+"""Render hydrated Rh/hematite with custom defaults from the command line.
+
+This feature example demonstrates automatically generated covalent and dashed
+hydrogen bonds, selection-based surface-oxygen coloring, and reusable
+appearance settings.
 
 Run from the repository root:
 
-    python -m examples.hematite_side_view
+    python -m examples.rh_h2o_hematite
 
 Generated files are written to the current working directory by default. Use
 ``--output`` to choose another location and ``--no-render`` to write only the
@@ -13,15 +17,16 @@ from argparse import ArgumentParser
 from os import environ
 from pathlib import Path
 from shutil import which
-from time import perf_counter
+
+import numpy as np
 
 from atomic_povray import (
+    AtomSelectionRule,
+    AtomStyleOverride,
     Background,
     Camera,
     Color,
-    DepthShading,
     DisplayBounds,
-    PointLight,
     RenderConfig,
     StyleConfig,
     apply_styles,
@@ -33,9 +38,25 @@ from atomic_povray import (
     write_scene,
 )
 
+if __package__:
+    from .my_defaults import (
+        AMBIENT_SCALE,
+        SURFACE_OXYGEN_COLOR,
+        atom_styles,
+        legacy_light,
+    )
+else:
+    from my_defaults import (
+        AMBIENT_SCALE,
+        SURFACE_OXYGEN_COLOR,
+        atom_styles,
+        legacy_light,
+    )
+
+
 ROOT = Path(__file__).resolve().parents[1]
-INPUT = ROOT / "tests" / "data" / "fe2o3-012-1x1-relaxed.vasp"
-DEFAULT_OUTPUT = "hematite_side_view.png"
+INPUT = ROOT / "tests" / "data" / "rh-h2o-hematite.vasp"
+DEFAULT_OUTPUT = "rh_h2o_hematite.png"
 
 
 def resolve_povray_executable(povray: str | Path | None = None) -> str:
@@ -55,6 +76,13 @@ def resolve_povray_executable(povray: str | Path | None = None) -> str:
     return resolved
 
 
+def select_top_surface_oxygen(atoms):
+    """Select O atoms in the upper surface/adsorbate region."""
+
+    symbols = np.asarray(atoms.get_chemical_symbols())
+    return (symbols == "O") & (atoms.positions[:, 2] > 24.0)
+
+
 def main(
     *,
     render: bool = True,
@@ -67,43 +95,37 @@ def main(
     executable = resolve_povray_executable(povray) if render else None
     structure = load_structure(INPUT)
     bond_rules = get_default_bonds(structure)
-
-    start = perf_counter()
     geometry = build_geometry(
         structure,
-        bounds=DisplayBounds(
-            fractional_ranges=((-2.0, 2.0), (-1.5, 1.5), (0.45, 0.75))
-        ),
         bond_rules=bond_rules,
+        bounds=DisplayBounds(
+            fractional_ranges=((0.0, 1.0), (0.0, 1.0), (0.5, 0.8))
+        ),
     )
-    geometry_seconds = perf_counter() - start
-
     styles = StyleConfig(
-        depth_shading=DepthShading(
-            origin=(0.0, 0.0, 24.0),
-            direction=(0.0, 0.0, -1.0),
-            decay_length=30.0,
-            target=Color(1.0, 1.0, 1.0),
+        atom_size_scale=1.0,
+        elements=atom_styles(structure.atoms.get_chemical_symbols()),
+        ambient_scale=AMBIENT_SCALE,
+        selection_rules=(
+            AtomSelectionRule(
+                selector=select_top_surface_oxygen,
+                style=AtomStyleOverride(color=SURFACE_OXYGEN_COLOR),
+            ),
         ),
     )
     styled = apply_styles(geometry, styles)
+
     camera = Camera.orthographic(
-        direction=(0.0, 100.0, 0.0),
-        target=(0.0, 0.0, 21.0),
+        direction=(0.0, 100.0, -25.0),
+        target=(7.6, 7.0, 25.0),
         up=(0.0, 0.0, 1.0),
-        width=21.0,
+        width=20.0,
     )
     scene = make_scene(
         styled.primitives,
         camera=camera,
-        lights=(PointLight((15.0, -30.0, 55.0), intensity=1.15),),
+        lights=(legacy_light(camera),),
         background=Background(Color(1.0, 1.0, 1.0)),
-    )
-
-    print(
-        f"Geometry: {len(geometry.primary_atoms)} primary + "
-        f"{len(geometry.extension_atoms)} bond-extension atoms, "
-        f"{len(geometry.bonds)} bonds in {geometry_seconds:.3f} s"
     )
 
     if render:
@@ -114,7 +136,7 @@ def main(
             RenderConfig(
                 width=1200,
                 height=900,
-                quality=3,
+                quality=5,
                 executable=executable,
             ),
         )
