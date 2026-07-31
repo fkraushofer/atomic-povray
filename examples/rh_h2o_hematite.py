@@ -1,11 +1,22 @@
-"""Feature example: hydrated Rh/hematite with custom defaults.
+"""Render hydrated Rh/hematite with custom defaults from the command line.
 
-Demonstrates automatically generated covalent and dashed hydrogen bonds,
-selection-based surface-oxygen coloring, and reusable appearance settings.
+This feature example demonstrates automatically generated covalent and dashed
+hydrogen bonds, selection-based surface-oxygen coloring, and reusable
+appearance settings.
+
+Run from the repository root:
+
+    python -m examples.rh_h2o_hematite
+
+Generated files are written to the current working directory by default. Use
+``--output`` to choose another location and ``--no-render`` to write only the
+POV-Ray scene.
 """
 
+from argparse import ArgumentParser
 from os import environ
 from pathlib import Path
+from shutil import which
 
 import numpy as np
 
@@ -24,18 +35,45 @@ from atomic_povray import (
     load_structure,
     make_scene,
     render_scene,
+    write_scene,
 )
-from my_defaults import (
-    AMBIENT_SCALE,
-    SURFACE_OXYGEN_COLOR,
-    atom_styles,
-    legacy_light,
-)
+
+if __package__:
+    from .my_defaults import (
+        AMBIENT_SCALE,
+        SURFACE_OXYGEN_COLOR,
+        atom_styles,
+        legacy_light,
+    )
+else:
+    from my_defaults import (
+        AMBIENT_SCALE,
+        SURFACE_OXYGEN_COLOR,
+        atom_styles,
+        legacy_light,
+    )
 
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUT = ROOT / "tests" / "data" / "rh-h2o-hematite.vasp"
-OUTPUT = ROOT / "rh_h2o_hematite.png"
+DEFAULT_OUTPUT = "rh_h2o_hematite.png"
+
+
+def resolve_povray_executable(povray: str | Path | None = None) -> str:
+    """Resolve an explicit path, ``POVRAY``, or ``povray`` on ``PATH``."""
+
+    candidate = str(povray) if povray is not None else environ.get("POVRAY", "povray")
+    resolved = which(candidate)
+    if resolved is None:
+        raise RuntimeError(
+            f"Could not resolve the POV-Ray executable {candidate!r}. "
+            "Pass its path with --povray PATH (or povray=... when calling "
+            "main), or set the POVRAY environment variable. For example, "
+            "POVRAY=povray on Linux/Conda or "
+            r'POVRAY="C:\Program Files\POV-Ray\v3.7\bin\pvengine64.exe" '
+            "on Windows."
+        )
+    return resolved
 
 
 def select_top_surface_oxygen(atoms):
@@ -45,7 +83,16 @@ def select_top_surface_oxygen(atoms):
     return (symbols == "O") & (atoms.positions[:, 2] > 24.0)
 
 
-def main() -> None:
+def main(
+    *,
+    render: bool = True,
+    povray: str | Path | None = None,
+    output: str | Path | None = None,
+) -> None:
+    """Build the example and render it, or only write its POV-Ray scene."""
+
+    output_path = Path(output) if output is not None else Path.cwd() / DEFAULT_OUTPUT
+    executable = resolve_povray_executable(povray) if render else None
     structure = load_structure(INPUT)
     bond_rules = get_default_bonds(structure)
     geometry = build_geometry(
@@ -80,18 +127,58 @@ def main() -> None:
         lights=(legacy_light(camera),),
         background=Background(Color(1.0, 1.0, 1.0)),
     )
-    result = render_scene(
-        scene,
-        OUTPUT,
-        RenderConfig(
-            width=1200,
-            height=900,
-            quality=5,
-            executable=environ.get("POVRAY", "povray"),
-        ),
+
+    if render:
+        assert executable is not None
+        result = render_scene(
+            scene,
+            output_path,
+            RenderConfig(
+                width=1200,
+                height=900,
+                quality=5,
+                executable=executable,
+            ),
+        )
+        print(f"Rendered {result.image_path}")
+    else:
+        scene_path = output_path.with_suffix(".pov")
+        scene_path.parent.mkdir(parents=True, exist_ok=True)
+        write_scene(scene, scene_path, width=1200, height=900)
+        print(f"Wrote {scene_path}")
+
+
+def build_parser() -> ArgumentParser:
+    """Create the command-line parser for this example."""
+
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--povray",
+        metavar="PATH",
+        help="POV-Ray executable; overrides the POVRAY environment variable",
     )
-    print(f"Rendered {result.image_path}")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path.cwd() / DEFAULT_OUTPUT,
+        help=f"output image path (default: ./{DEFAULT_OUTPUT})",
+    )
+    parser.add_argument(
+        "--no-render",
+        action="store_true",
+        help="write the .pov scene without invoking POV-Ray",
+    )
+    return parser
 
 
 if __name__ == "__main__":
-    main()
+    argument_parser = build_parser()
+    arguments = argument_parser.parse_args()
+    try:
+        main(
+            render=not arguments.no_render,
+            povray=arguments.povray,
+            output=arguments.output,
+        )
+    except RuntimeError as error:
+        argument_parser.error(str(error))
