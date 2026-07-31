@@ -264,7 +264,7 @@ def write_scene(
 class RenderConfig:
     width: int = 800
     height: int = 600
-    quality: int = 3
+    quality: int = 5
     antialias: bool = True
     antialias_threshold: float | None = None
     sampling_method: int | None = None
