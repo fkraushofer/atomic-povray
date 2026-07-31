@@ -305,7 +305,7 @@ Use `source_atom_overrides={17: ...}` for ASE atom 17 in every displayed
 replication, or `atom_instance_overrides={AtomKey(17, (1, 0, 0)): ...}` for
 one particular periodic image. Later matching rules win within a category, and
 partial overrides retain properties they do not specify. Setting
-`visible=False` also removes bonds incident to that atom. Split-color solid bonds automatically use the final resolved endpoint colors.
+`visible=False` also removes bonds incident to that atom. Split-color solid\nbonds automatically use the final resolved endpoint colors.
 
 ## Bond styles and distance ranges
 
