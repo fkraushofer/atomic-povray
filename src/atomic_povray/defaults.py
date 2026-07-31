@@ -134,6 +134,40 @@ class BondRuleSet:
     def clear(self) -> None:
         self._rules.clear()
 
+    def format_table(self) -> str:
+        """Return a plain-text summary of the current bond rules."""
+
+        headers = ("Rule", "Pair", "Min (Å)", "Max (Å)", "Boundary extension")
+        rows = [
+            (
+                rule.rule_id,
+                f"{rule.element_a}-{rule.element_b}",
+                f"{rule.min_distance:.3f}",
+                f"{rule.max_distance:.3f}",
+                _extension_description(rule),
+            )
+            for rule in self._rules.values()
+        ]
+        widths = [
+            max(len(header), *(len(row[index]) for row in rows))
+            for index, header in enumerate(headers)
+        ]
+
+        def format_row(row: tuple[str, ...]) -> str:
+            return " | ".join(
+                value.ljust(width) for value, width in zip(row, widths)
+            )
+
+        separator = "-+-".join("-" * width for width in widths)
+        return "\n".join(
+            (format_row(headers), separator, *(format_row(row) for row in rows))
+        )
+
+    def print_table(self) -> None:
+        """Print a plain-text summary of the current bond rules."""
+
+        print(self.format_table())
+
 
 def get_default_bonds(
     structure: StructureModel | Any,
@@ -141,6 +175,7 @@ def get_default_bonds(
     bond_scale: float = 1.2,
     include_pairs: Iterable[tuple[str, str]] = (),
     exclude_pairs: Iterable[tuple[str, str]] = (),
+    print_table: bool = True,
 ) -> BondRuleSet:
     """Materialize editable default rules for the elements in a structure.
 
@@ -148,7 +183,8 @@ def get_default_bonds(
     covalent radii. Candidate pairs exclude noble gases and metal-metal pairs
     unless explicitly included. If O and H are present, a separate hydrogen
     bond rule extends from the covalent cutoff to a fixed 2.1 Å and never
-    searches beyond display boundaries.
+    searches beyond display boundaries. By default, the materialized rules are
+    printed as a compact table; pass ``print_table=False`` to suppress it.
     """
 
     if not isfinite(bond_scale) or bond_scale <= 0:
@@ -215,7 +251,17 @@ def get_default_bonds(
                     extension_mode="none",
                 )
             )
+    if print_table:
+        rules.print_table()
     return rules
+
+
+def _extension_description(rule: BondRule) -> str:
+    if rule.extension_mode == "none":
+        return "none"
+    if rule.extension_mode == "symmetric" or rule.element_a == rule.element_b:
+        return f"{rule.element_a} ↔ {rule.element_b}"
+    return f"{rule.element_a} → {rule.element_b}"
 
 
 def _atomic_number(symbol: str) -> int:
