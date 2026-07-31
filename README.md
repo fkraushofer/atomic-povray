@@ -121,7 +121,8 @@ Select Cartesian or lattice-vector directions with `--view x|y|z|a|b|c` and
 `--up`; signed directions such as `--view -x` are also accepted. The batch
 script accepts both shell-expanded file lists and quoted wildcard patterns,
 skips matches that ASE cannot read with a warning, and writes each PNG beside
-its input unless `--output-dir` is supplied. Because
+its input unless `--output-dir` is supplied. Each skip warning includes the
+file name and ASE's original exception. Because
 `-m` takes a module name, use `python -m examples.render_file`, not
 `python -m examples.render_file.py`. These two general scripts are intended as
 starting points: copy both into a working directory outside the repository and
