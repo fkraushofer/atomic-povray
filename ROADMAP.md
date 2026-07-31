@@ -67,7 +67,6 @@ global defaults
 - Transparent polyhedron materials
 - Robust face orientation and normals
 - Handling of coplanar and nearly coplanar neighbor sets
-- Disk/circle atom mode
 - Persistent content-addressed geometry cache
 - Stable export/import format for cached geometry
 - Timing benchmarks and larger realistic regression tests
