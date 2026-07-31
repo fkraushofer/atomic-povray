@@ -17,7 +17,7 @@ The initial structural and rendering pipeline is established:
 - single- or two-color cylindrical bonds
 - layered atom styling by coordination, ASE selection, source atom, or periodic
   display instance
-- solid, dashed, and dotted bond styles with configurable segment counts and radii
+- solid, dashed, and dotted bond styles with configurable segment counts and\n  radii
 - orthographic and perspective cameras
 - point and area lights
 - configurable background color and transparent output
