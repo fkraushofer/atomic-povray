@@ -149,7 +149,7 @@ class BondRuleSet:
             for rule in self._rules.values()
         ]
         widths = [
-            max(len(header), *(len(row[index]) for row in rows))
+            max([len(header), *(len(row[index]) for row in rows)])
             for index, header in enumerate(headers)
         ]
 
