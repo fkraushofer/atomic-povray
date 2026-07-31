@@ -27,8 +27,8 @@ file can be written and then rendered manually.
 - automatic, editable default bond rules for chemically plausible element pairs
 - layered atom-style overrides by coordination, ASE selection, source index, or
   displayed periodic instance
-- solid or dashed bonds, with configurable dash count and radius
-- single-color or two-color bonds (with the legacy equal-visible-length split)
+- solid, dashed, or dotted bonds, with configurable segment count and radius
+- single-color bonds, plus two-color solid bonds with equal visible lengths
 - distinct default atom and bond finishes, with per-style material or finish
   overrides
 - directional exponential depth shading with a configurable onset, direction,
@@ -305,8 +305,7 @@ Use `source_atom_overrides={17: ...}` for ASE atom 17 in every displayed
 replication, or `atom_instance_overrides={AtomKey(17, (1, 0, 0)): ...}` for
 one particular periodic image. Later matching rules win within a category, and
 partial overrides retain properties they do not specify. Setting
-`visible=False` also removes bonds incident to that atom. Split-color solid
-and dashed bonds automatically use the final resolved endpoint colors.
+`visible=False` also removes bonds incident to that atom. Split-color solid bonds automatically use the final resolved endpoint colors.
 
 ## Bond styles and distance ranges
 
@@ -330,7 +329,7 @@ styles = StyleConfig(
         "covalent-O-H": BondStyle(radius=0.07),
         "hydrogen-O-H": BondStyle(
             style="dashed",
-            dashes=4,
+            segments=4,
             radius=0.05,
             color=Color(0.7, 0.7, 0.7),
         ),
@@ -339,10 +338,15 @@ styles = StyleConfig(
 ```
 
 Dashed bonds divide the visible span between the atom surfaces into the
-requested number of equal dashes with equal-sized gaps. An explicit bond
-`color` or full `material` makes the complete bond single-color. When no color is
-supplied,
-solid and dashed bonds retain the default split based on their atom colors.
+requested number of equal cylinders with equal-sized gaps. Dotted bonds place
+the requested number of spheres along that span, with one dot radius of
+clearance from each atom surface. For both styles, `segments` is the number of
+visible pieces and `radius` is the cylinder or sphere radius.
+
+Dashed and dotted bonds must be single-color. Supply an explicit `color` or
+full `material`, or set `split_by_atom_color=False` to use the final resolved
+color of the bond rule's first endpoint. Solid bonds retain the default
+two-color split based on their atom colors.
 
 ## Finishes and overrides
 
