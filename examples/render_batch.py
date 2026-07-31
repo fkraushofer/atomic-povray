@@ -97,6 +97,7 @@ def main() -> None:
                     view=arguments.view,
                     up=arguments.up,
                     povray=executable,
+                    quality=arguments.quality,
                 )
             except StructureReadError as error:
                 warn(str(error), stacklevel=1)
