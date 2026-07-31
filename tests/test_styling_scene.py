@@ -152,12 +152,12 @@ def test_dotted_bond_becomes_requested_single_color_spheres():
         primitive
         for primitive in styled.primitives
         if isinstance(primitive, SpherePrimitive)
-        and primitive.radius == pytest.approx(0.1)
+        and primitive.material.color == color
     ]
 
     assert len(dots) == 3
     assert [item.center[0] for item in dots] == pytest.approx((0.7, 1.0, 1.3))
-    assert all(item.material.color == color for item in dots)
+    assert all(item.radius == pytest.approx(0.1) for item in dots)
 
 
 @pytest.mark.parametrize(
