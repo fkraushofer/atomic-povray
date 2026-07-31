@@ -33,6 +33,7 @@ from atomic_povray import (
 ROOT = Path(__file__).resolve().parents[1]
 INPUT = ROOT / "tests" / "data" / "fe2o3-012-1x1-relaxed.vasp"
 OUTPUT = Path.cwd() / "hematite_minimal.png"
+QUALITY = 5  # Use 3 for a quick preview.
 
 # Set the POVRAY environment variable to avoid keeping a machine-specific path
 # in this script, or uncomment and adapt the appropriate line:
@@ -80,7 +81,7 @@ def main() -> None:
         RenderConfig(
             width=1024,
             height=768,
-            quality=5,
+            quality=QUALITY,
             executable=povray_executable,
         ),
     )

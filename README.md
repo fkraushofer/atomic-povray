@@ -86,6 +86,26 @@ import os
 config = RenderConfig(executable=os.environ.get("POVRAY", "povray"))
 ```
 
+To store the executable path persistently in the active Conda environment, run:
+
+```bash
+conda env config vars set POVRAY=/path/to/povray
+conda deactivate
+conda activate atomic-povray
+```
+
+On Windows, quote the complete assignment when the path contains spaces, for
+example:
+
+```bat
+conda env config vars set "POVRAY=C:\Program Files\POV-Ray\v3.8\bin\pvengine64.exe"
+conda deactivate
+conda activate atomic-povray
+```
+
+Reactivating the environment makes the new variable available to Python and the
+example scripts. Use `conda env config vars unset POVRAY` to remove it again.
+
 ## Examples
 
 | Example | Purpose |
@@ -106,7 +126,14 @@ python -m examples.hematite_side_view
 python -m examples.rh_h2o_hematite
 python -m examples.render_file POSCAR
 python -m examples.render_batch "*.vasp"
+python -m examples.render_file POSCAR --quality 3
+python -m examples.render_batch "*.vasp" --quality 3
 ```
+
+Render quality defaults to `5` throughout the package and examples. For quick
+camera and styling previews, pass `--quality 3` to the single-file or batch
+renderer; the same value can be passed as `quality=3` when calling their Python
+functions.
 
 The minimal script deliberately has no argument parser. It resolves POV-Ray
 from the `POVRAY` environment variable or searches for `povray` on `PATH`;

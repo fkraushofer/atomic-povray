@@ -36,6 +36,7 @@ from atomic_povray import (
 ROOT = Path(__file__).resolve().parents[1]
 INPUT = ROOT / "tests" / "data" / "fe2o3-012-1x1-relaxed.vasp"
 DEFAULT_OUTPUT = "hematite_side_view.png"
+QUALITY = 5  # Use 3 for a quick preview.
 
 
 def resolve_povray_executable(povray: str | Path | None = None) -> str:
@@ -60,6 +61,7 @@ def main(
     render: bool = True,
     povray: str | Path | None = None,
     output: str | Path | None = None,
+    quality: int = QUALITY,
 ) -> None:
     """Build the example and render it, or only write its POV-Ray scene."""
 
@@ -114,7 +116,7 @@ def main(
             RenderConfig(
                 width=1200,
                 height=900,
-                quality=3,
+                quality=quality,
                 executable=executable,
             ),
         )
@@ -142,6 +144,12 @@ def build_parser() -> ArgumentParser:
         help=f"output image path (default: ./{DEFAULT_OUTPUT})",
     )
     parser.add_argument(
+        "--quality",
+        type=int,
+        default=QUALITY,
+        help=f"POV-Ray render quality (default: {QUALITY}; use 3 for previews)",
+    )
+    parser.add_argument(
         "--no-render",
         action="store_true",
         help="write the .pov scene without invoking POV-Ray",
@@ -157,6 +165,7 @@ if __name__ == "__main__":
             render=not arguments.no_render,
             povray=arguments.povray,
             output=arguments.output,
+            quality=arguments.quality,
         )
     except RuntimeError as error:
         argument_parser.error(str(error))
