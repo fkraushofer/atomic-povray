@@ -14,6 +14,7 @@ from atomic_povray import (
     StyleConfig,
     apply_styles,
     build_geometry,
+    get_default_bonds,
     load_structure,
     make_scene,
     render_scene,

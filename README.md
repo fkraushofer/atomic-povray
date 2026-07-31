@@ -54,8 +54,57 @@ conda activate atomic-povray
 python -m pip install -e ".[test,notebook]"
 ```
 
-If POV-Ray is already installed separately on Windows, the Python package does
-not need to install it. Point `RenderConfig.executable` at `pvengine64.exe`.
+The `povray` Conda package puts the executable on the active environment's
+`PATH`. A separate system installation works equally well.
+
+## Configure the POV-Ray executable
+
+Pass the command or full executable path to `RenderConfig.executable`. On
+Linux, and with the Conda package on any platform, the executable is normally:
+
+```python
+config = RenderConfig(executable="povray")
+```
+
+A typical standalone Windows installation uses one of these paths:
+
+```python
+config = RenderConfig(
+    executable=r"C:\\Program Files\\POV-Ray\\v3.7\\bin\\pvengine64.exe"
+)
+# POV-Ray 3.8 commonly installs under:
+# r"C:\\Program Files\\POV-Ray\\v3.8\\bin\\pvengine64.exe"
+```
+
+The exact version directory depends on the installed release. The examples also
+accept a `POVRAY` environment variable, which keeps machine-specific paths out
+of scripts and notebooks:
+
+```python
+import os
+
+config = RenderConfig(executable=os.environ.get("POVRAY", "povray"))
+```
+
+## Examples
+
+| Example | Purpose |
+| --- | --- |
+| `notebooks/prototype_workflow.ipynb` | Minimal notebook workflow with inline image display |
+| `examples/minimal_workflow.py` | The same minimal workflow as a regular Python script |
+| `examples/hematite_side_view.py` | Staged geometry timing and standalone POV export |
+| `examples/rh_h2o_hematite.py` | Hydrogen bonds, surface-oxygen selection, and imported project defaults |
+| `examples/my_defaults.py` | Reusable legacy atom colors, radii, finish, ambient light, and area light |
+
+Run a script from the repository root, for example:
+
+```bash
+python examples/minimal_workflow.py
+```
+
+The Rh/H₂O example intentionally keeps reusable appearance choices separate
+from scene construction. Copy `my_defaults.py` into a project and adapt it when
+several figures should share the same atom palette, sizes, finish, and lighting.
 
 ## Staged notebook API
 
@@ -514,8 +563,8 @@ bounds = DisplayBounds(
 The example above disables extensions through the upper face normal to the
 first lattice vector while retaining them at the other five faces.
 
-The `notebooks/prototype_workflow.ipynb` notebook and
-`examples/hematite_side_view.py` contain complete examples.
+The minimal notebook and script provide the shortest complete path through the
+pipeline. See the examples table above for feature-focused alternatives.
 
 ## Extra primitive hook
 
@@ -569,20 +618,10 @@ ini_path = write_ini(scene_path, "hematite.png", config)
 Open or render `hematite.ini`, rather than the `.pov` file alone, to retain
 the configured output gamma, antialiasing, transparency, quality, and size.
 
-Linux/macOS command-line builds normally use:
-
-```python
-RenderConfig(executable="povray")
-```
-
-Windows installations commonly use:
-
-```python
-RenderConfig(executable=r"C:\Program Files\POV-Ray\v3.7\bin\pvengine64.exe")
-```
-
-The package detects `pvengine*.exe` and uses `/RENDER ... /EXIT`; other
-executables are called with the generated INI filename.
+See [Configure the POV-Ray executable](#configure-the-pov-ray-executable) for
+Linux, Conda, and Windows examples. The package detects `pvengine*.exe` and
+uses `/RENDER ... /EXIT`; other executables are called with the generated INI
+filename.
 
 ## Tests
 
