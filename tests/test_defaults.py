@@ -47,7 +47,10 @@ def test_style_presets_control_rendered_atom_scale_and_bond_visibility():
         cell=(10.0, 10.0, 10.0),
         pbc=False,
     )
-    geometry = build_geometry(StructureModel(atoms))
+    geometry = build_geometry(
+        StructureModel(atoms),
+        bond_rules=get_default_bonds(atoms, print_table=False),
+    )
     ball_and_stick = apply_styles(geometry, StyleConfig())
     space_filling = apply_styles(
         geometry,
@@ -116,7 +119,10 @@ def test_bond_size_scale_scales_default_and_explicit_bond_radii():
         cell=(10.0, 10.0, 10.0),
         pbc=False,
     )
-    geometry = build_geometry(StructureModel(atoms))
+    geometry = build_geometry(
+        StructureModel(atoms),
+        bond_rules=get_default_bonds(atoms, print_table=False),
+    )
 
     default_styled = apply_styles(
         geometry,
@@ -199,7 +205,7 @@ def test_default_bonds_use_curated_pairs_and_metal_to_nonmetal_direction():
     assert rules["default:O-O"].allows_extension_from("O", "O")
 
 
-def test_build_geometry_uses_default_bonds_when_rules_are_omitted():
+def test_build_geometry_uses_explicit_default_bonds():
     atoms = Atoms(
         "FeO",
         positions=((0.0, 0.0, 0.0), (1.8, 0.0, 0.0)),
@@ -207,7 +213,10 @@ def test_build_geometry_uses_default_bonds_when_rules_are_omitted():
         pbc=False,
     )
 
-    automatic = build_geometry(StructureModel(atoms))
+    automatic = build_geometry(
+        StructureModel(atoms),
+        bond_rules=get_default_bonds(atoms, print_table=False),
+    )
     disabled = build_geometry(StructureModel(atoms), bond_rules=())
     styled = apply_styles(automatic, StyleConfig())
     cylinders = [
@@ -327,7 +336,7 @@ def test_default_bond_table_output_can_be_suppressed(capsys):
     assert "Pt-Pt" not in rules.format_table()
 
 
-def test_implicit_geometry_defaults_do_not_print_rule_table(capsys):
+def test_build_geometry_requires_explicit_bond_rules():
     atoms = Atoms(
         "FeO",
         positions=((0.0, 0.0, 0.0), (1.8, 0.0, 0.0)),
@@ -335,6 +344,5 @@ def test_implicit_geometry_defaults_do_not_print_rule_table(capsys):
         pbc=False,
     )
 
-    build_geometry(StructureModel(atoms))
-
-    assert capsys.readouterr().out == ""
+    with pytest.raises(TypeError, match="bond_rules"):
+        build_geometry(StructureModel(atoms))
