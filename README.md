@@ -94,8 +94,8 @@ config = RenderConfig(executable=os.environ.get("POVRAY", "povray"))
 | `examples/minimal_workflow.py` | The same minimal workflow as a regular Python script, with automatic executable lookup |
 | `examples/hematite_side_view.py` | Command-line rendering, executable resolution, and staged geometry timing |
 | `examples/rh_h2o_hematite.py` | Command-line hydrogen-bond and surface-color example with imported project defaults |
-| `render_file.py` | Render any ASE-readable file with automatic orthographic framing |
-| `render_batch.py` | Apply the same settings to files or wildcard patterns |
+| `examples/render_file.py` | Render any ASE-readable file with automatic orthographic framing |
+| `examples/render_batch.py` | Apply the same settings to files or wildcard patterns |
 | `examples/my_defaults.py` | Reusable legacy atom colors, radii, finish, ambient scale, and area light |
 
 Run the executable examples as modules from the repository root:
@@ -104,8 +104,8 @@ Run the executable examples as modules from the repository root:
 python -m examples.minimal_workflow
 python -m examples.hematite_side_view
 python -m examples.rh_h2o_hematite
-python -m render_file POSCAR
-python -m render_batch "*.vasp"
+python -m examples.render_file POSCAR
+python -m examples.render_batch "*.vasp"
 ```
 
 The minimal script deliberately has no argument parser. It resolves POV-Ray
@@ -114,15 +114,18 @@ if neither succeeds, it skips rendering and prints how to configure the path.
 Commented Windows and Linux path examples near the top of the script can also
 be adapted directly.
 
-`render_file.py` uses default unit-cell bounds (all fractional ranges 0–1),
+`examples/render_file.py` uses default unit-cell bounds (all fractional ranges 0–1),
 default ball-and-stick styling, an orthographic camera targeted at the average
 atomic position, and automatic framing from the projected atom coordinates.
 Select Cartesian or lattice-vector directions with `--view x|y|z|a|b|c` and
 `--up`; signed directions such as `--view -x` are also accepted. The batch
-script accepts both shell-expanded file lists and quoted wildcard patterns and
-writes each PNG beside its input unless `--output-dir` is supplied. Because
-`-m` takes a module name, use `python -m render_file`, not
-`python -m render_file.py`.
+script accepts both shell-expanded file lists and quoted wildcard patterns,
+skips matches that ASE cannot read with a warning, and writes each PNG beside
+its input unless `--output-dir` is supplied. Because
+`-m` takes a module name, use `python -m examples.render_file`, not
+`python -m examples.render_file.py`. These two general scripts are intended as
+starting points: copy both into a working directory outside the repository and
+adapt their shared settings there.
 
 The side-view and Rh/H₂O examples render by default. Pass `--no-render` to
 write only the POV-Ray scene, `--povray PATH` to select the executable, or
