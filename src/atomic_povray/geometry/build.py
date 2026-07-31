@@ -239,7 +239,9 @@ def build_geometry(
 
     bounds = bounds or DisplayBounds()
     rules = tuple(
-        get_default_bonds(structure) if bond_rules is None else bond_rules
+        get_default_bonds(structure, print_table=False)
+        if bond_rules is None
+        else bond_rules
     )
     primary_instances = _make_instances(structure, bounds)
     instances, bonds, environments = _make_bonds(
