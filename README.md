@@ -92,15 +92,28 @@ config = RenderConfig(executable=os.environ.get("POVRAY", "povray"))
 | --- | --- |
 | `notebooks/prototype_workflow.ipynb` | Minimal notebook workflow with inline image display |
 | `examples/minimal_workflow.py` | The same minimal workflow as a regular Python script |
-| `examples/hematite_side_view.py` | Staged geometry timing and standalone POV export |
+| `examples/hematite_side_view.py` | Command-line rendering, executable resolution, and staged geometry timing |
 | `examples/rh_h2o_hematite.py` | Hydrogen bonds, surface-oxygen selection, and imported project defaults |
 | `examples/my_defaults.py` | Reusable legacy atom colors, radii, finish, ambient light, and area light |
 
-Run a script from the repository root, for example:
+Run scripts from the repository root, for example:
 
 ```bash
 python examples/minimal_workflow.py
 ```
+
+The side-view example can also be executed as a module:
+
+```bash
+python -m examples.hematite_side_view
+```
+
+It renders by default. Pass `--no-render` to write only the POV-Ray scene,
+`--povray PATH` to select the executable, or `--output PATH` to choose the
+image location. Without `--povray`, it checks the `POVRAY` environment
+variable and then searches for `povray` on `PATH`. Its input is located
+relative to the repository, while generated files default to the shell's
+current working directory.
 
 The Rh/H₂O example intentionally keeps reusable appearance choices separate
 from scene construction. Copy `my_defaults.py` into a project and adapt it when
