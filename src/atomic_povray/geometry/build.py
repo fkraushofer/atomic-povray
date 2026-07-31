@@ -9,7 +9,6 @@ import numpy as np
 from ase.neighborlist import neighbor_list
 
 from ..config import BondRule, DisplayBounds
-from ..defaults import get_default_bonds
 from ..model import (
     AtomInstance,
     AtomKey,
@@ -228,21 +227,16 @@ def build_geometry(
     structure: StructureModel,
     *,
     bounds: DisplayBounds | None = None,
-    bond_rules: Iterable[BondRule] | None = None,
+    bond_rules: Iterable[BondRule],
 ) -> GeometryModel:
     """Build geometry and complete source environments from matching bond rules.
 
-    When ``bond_rules`` is omitted, editable ASE-backed defaults are generated
-    for the elements in ``structure``. Pass an empty iterable to disable bonds
-    explicitly.
+    ``bond_rules`` is explicit so callers can inspect and edit the exact rules
+    used for geometry construction. Pass an empty iterable to disable bonds.
     """
 
     bounds = bounds or DisplayBounds()
-    rules = tuple(
-        get_default_bonds(structure, print_table=False)
-        if bond_rules is None
-        else bond_rules
-    )
+    rules = tuple(bond_rules)
     primary_instances = _make_instances(structure, bounds)
     instances, bonds, environments = _make_bonds(
         structure,
