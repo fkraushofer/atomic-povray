@@ -50,6 +50,7 @@ def test_cartesian_cutoff_plane_uses_normal_and_origin_distance():
         bounds=DisplayBounds(
             cutoff_planes=(CutoffPlane(normal=(2.0, 0.0, 0.0), distance=1.0),)
         ),
+        bond_rules=(),
     )
 
     assert [atom.symbol for atom in geometry.primary_atoms] == ["Fe"]
