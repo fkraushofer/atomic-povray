@@ -1,11 +1,17 @@
 """Minimal end-to-end atomic-povray example.
 
 This is the script counterpart of ``notebooks/prototype_workflow.ipynb``.
-Set the POVRAY environment variable when the executable is not on PATH.
+Run it from the repository root with:
+
+    python -m examples.minimal_workflow
+
+POV-Ray is found through the ``POVRAY`` environment variable or on ``PATH``.
+If neither works, uncomment and adapt one of the example paths below.
 """
 
 from os import environ
 from pathlib import Path
+from shutil import which
 
 from atomic_povray import (
     Background,
@@ -26,10 +32,25 @@ from atomic_povray import (
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUT = ROOT / "tests" / "data" / "fe2o3-012-1x1-relaxed.vasp"
-OUTPUT = ROOT / "hematite_minimal.png"
+OUTPUT = Path.cwd() / "hematite_minimal.png"
+
+# Set the POVRAY environment variable to avoid keeping a machine-specific path
+# in this script, or uncomment and adapt the appropriate line:
+# POVRAY = r"C:\Program Files\POV-Ray\v3.7\bin\pvengine64.exe"  # Windows
+# POVRAY = "/usr/bin/povray"  # Linux (often simply "povray" on PATH)
+POVRAY = environ.get("POVRAY", "povray")
 
 
 def main() -> None:
+    povray_executable = which(POVRAY)
+    if povray_executable is None:
+        print(
+            f"Could not resolve the POV-Ray executable {POVRAY!r}; "
+            "skipping the render. Set the POVRAY environment variable to its "
+            "full path, or edit POVRAY near the top of this script."
+        )
+        return
+
     structure = load_structure(INPUT)
     bond_rules = get_default_bonds(structure)
     geometry = build_geometry(
@@ -60,7 +81,7 @@ def main() -> None:
             width=1024,
             height=768,
             quality=5,
-            executable=environ.get("POVRAY", "povray"),
+            executable=povray_executable,
         ),
     )
     print(f"Rendered {result.image_path}")
