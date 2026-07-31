@@ -50,8 +50,9 @@ SIGNED_AXES = tuple(
 FRACTIONAL_RANGES = ((0.0, 1.0), (0.0, 1.0), (0.0, 1.0))
 CAMERA_DISTANCE = 100.0
 CAMERA_MARGIN = 1.0
+QUALITY = 5
 STYLE_CONFIG = StyleConfig()
-RENDER_CONFIG = RenderConfig()
+RENDER_CONFIG = RenderConfig(quality=QUALITY)
 BACKGROUND = Background(Color(1.0, 1.0, 1.0))
 
 
@@ -192,6 +193,7 @@ def render_file(
     view: str = "x",
     up: str | None = None,
     povray: str | Path | None = None,
+    quality: int = QUALITY,
 ) -> Path:
     """Render one structure and return the output image path."""
 
@@ -199,7 +201,7 @@ def render_file(
     output_path = Path(output) if output is not None else input_path.with_suffix(".png")
     executable = resolve_povray_executable(povray)
     scene, camera_width = make_default_scene(input_path, view=view, up=up)
-    config = replace(RENDER_CONFIG, executable=executable)
+    config = replace(RENDER_CONFIG, executable=executable, quality=quality)
     result = render_scene(scene, output_path, config)
     print(f"Rendered {result.image_path} (orthographic width {camera_width:.2f} Å)")
     return result.image_path
@@ -224,6 +226,12 @@ def add_camera_arguments(parser: ArgumentParser) -> None:
         "--povray",
         metavar="PATH",
         help="POV-Ray executable; overrides the POVRAY environment variable",
+    )
+    parser.add_argument(
+        "--quality",
+        type=int,
+        default=QUALITY,
+        help=f"POV-Ray render quality (default: {QUALITY}; use 3 for previews)",
     )
 
 
@@ -278,6 +286,7 @@ def main() -> None:
             view=arguments.view,
             up=arguments.up,
             povray=arguments.povray,
+            quality=arguments.quality,
         )
     except (RuntimeError, ValueError, OSError) as error:
         parser.error(str(error))
