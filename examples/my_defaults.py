@@ -28,7 +28,7 @@ RADII = {
     "Pt": 0.75 * SIZE_FACTOR,
 }
 ATOM_FINISH = Finish(ambient=0.10, diffuse=0.60, phong=0.30, phong_size=10)
-AMBIENT_LIGHT = Color(0.10, 0.10, 0.10)
+AMBIENT_SCALE = 1.0
 
 
 def atom_styles(symbols: Iterable[str]) -> dict[str, AtomStyle]:
