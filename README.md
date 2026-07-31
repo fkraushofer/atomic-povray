@@ -91,29 +91,31 @@ config = RenderConfig(executable=os.environ.get("POVRAY", "povray"))
 | Example | Purpose |
 | --- | --- |
 | `notebooks/prototype_workflow.ipynb` | Minimal notebook workflow with inline image display |
-| `examples/minimal_workflow.py` | The same minimal workflow as a regular Python script |
+| `examples/minimal_workflow.py` | The same minimal workflow as a regular Python script, with automatic executable lookup |
 | `examples/hematite_side_view.py` | Command-line rendering, executable resolution, and staged geometry timing |
-| `examples/rh_h2o_hematite.py` | Hydrogen bonds, surface-oxygen selection, and imported project defaults |
+| `examples/rh_h2o_hematite.py` | Command-line hydrogen-bond and surface-color example with imported project defaults |
 | `examples/my_defaults.py` | Reusable legacy atom colors, radii, finish, ambient scale, and area light |
 
-Run scripts from the repository root, for example:
+Run the executable examples as modules from the repository root:
 
 ```bash
-python examples/minimal_workflow.py
-```
-
-The side-view example can also be executed as a module:
-
-```bash
+python -m examples.minimal_workflow
 python -m examples.hematite_side_view
+python -m examples.rh_h2o_hematite
 ```
 
-It renders by default. Pass `--no-render` to write only the POV-Ray scene,
-`--povray PATH` to select the executable, or `--output PATH` to choose the
-image location. Without `--povray`, it checks the `POVRAY` environment
-variable and then searches for `povray` on `PATH`. Its input is located
-relative to the repository, while generated files default to the shell's
-current working directory.
+The minimal script deliberately has no argument parser. It resolves POV-Ray
+from the `POVRAY` environment variable or searches for `povray` on `PATH`;
+if neither succeeds, it skips rendering and prints how to configure the path.
+Commented Windows and Linux path examples near the top of the script can also
+be adapted directly.
+
+The side-view and Rh/H₂O examples render by default. Pass `--no-render` to
+write only the POV-Ray scene, `--povray PATH` to select the executable, or
+`--output PATH` to choose the image location. Without `--povray`, they check
+the `POVRAY` environment variable and then search for `povray` on `PATH`.
+Inputs are located relative to the repository, while generated files default
+to the shell's current working directory.
 
 The Rh/H₂O example intentionally keeps reusable appearance choices separate
 from scene construction. Copy `my_defaults.py` into a project and adapt it when
