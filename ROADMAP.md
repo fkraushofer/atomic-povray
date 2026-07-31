@@ -17,7 +17,7 @@ The initial structural and rendering pipeline is established:
 - single- or two-color cylindrical bonds
 - layered atom styling by coordination, ASE selection, source atom, or periodic
   display instance
-- solid and dashed bond styles with configurable dash counts and radii
+- solid, dashed, and dotted bond styles with configurable segment counts and radii
 - orthographic and perspective cameras
 - point and area lights
 - configurable background color and transparent output
@@ -45,9 +45,8 @@ Whether that background appears in the PNG still depends on `RenderConfig.transp
 
 The next milestone should complete the important appearance controls without changing structural geometry.
 
-- Extend the general bond-style property to dotted or custom segmented styles
 - Atom labels represented as text primitives
-- Tests for depth mapping, segmented bonds, and labels
+- Tests for depth mapping and labels
 
 The atom-style resolution order should be:
 
