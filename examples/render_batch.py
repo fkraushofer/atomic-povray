@@ -15,7 +15,7 @@ from glob import glob
 from pathlib import Path
 from warnings import warn
 
-try:
+if __package__:
     from .render_file import (
         StructureReadError,
         add_camera_arguments,
@@ -23,7 +23,7 @@ try:
         render_file,
         resolve_povray_executable,
     )
-except ImportError:  # Support copying both scripts elsewhere and running directly.
+else:  # Support copying both scripts elsewhere and running directly.
     from render_file import (
         StructureReadError,
         add_camera_arguments,
