@@ -162,13 +162,18 @@ styles = StyleConfig(
 
 Generate bond rules explicitly before geometry construction. This makes the
 exact rule set inspectable and editable; `build_geometry()` never adds hidden
-rules. Pass an empty iterable to request an atom-only geometry:
+rules. Pass an empty iterable to request an atom-only geometry intentionally
+and without a warning:
 
 ```python
 bond_rules = get_default_bonds(structure)
 geometry = build_geometry(structure, bond_rules=bond_rules)
 geometry_without_bonds = build_geometry(structure, bond_rules=())
 ```
+
+If `bond_rules` is omitted, `build_geometry()` also produces atom-only
+geometry, but warns that default rules may have been forgotten. It never
+generates or adds bond rules implicitly.
 
 To inspect, edit, or delete the defaults before geometry construction, materialize
 an ordinary editable `BondRuleSet`. The call prints a table containing each
