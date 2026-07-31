@@ -160,12 +160,13 @@ styles = StyleConfig(
 )
 ```
 
-`build_geometry()` automatically generates bond rules for the elements present,
-omitting noble-gas and metal-metal pairs by default. Pass an empty iterable to
-request an atom-only geometry explicitly:
+Generate bond rules explicitly before geometry construction. This makes the
+exact rule set inspectable and editable; `build_geometry()` never adds hidden
+rules. Pass an empty iterable to request an atom-only geometry:
 
 ```python
-geometry = build_geometry(structure)
+bond_rules = get_default_bonds(structure)
+geometry = build_geometry(structure, bond_rules=bond_rules)
 geometry_without_bonds = build_geometry(structure, bond_rules=())
 ```
 
