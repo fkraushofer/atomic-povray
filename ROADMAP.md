@@ -25,7 +25,8 @@ The initial structural and rendering pipeline is established:
 - directional exponential depth shading resolved per primitive
 - native POV-Ray constant fog for continuous camera-distance fading
 - POV-Ray 3.7 SDL and INI export, plus direct rendering
-- generic extra-primitives insertion for future arrows, cells, isosurfaces, and similar objects
+- generic extra-primitives insertion for arrows, cells, isosurfaces, labels, and similar objects
+- camera-facing POV-Ray text primitives and a basic atom-label helper
 - compact 1×1 hematite notebook example and focused regression tests
 
 A background color is set when constructing the scene, for example:
@@ -46,8 +47,9 @@ Whether that background appears in the PNG still depends on `RenderConfig.transp
 The next milestone should complete the important appearance controls without changing structural geometry.
 
 - Extend the general bond-style property to dotted or custom segmented styles
-- Atom labels represented as text primitives
-- Tests for depth mapping, segmented bonds, and labels
+- Tests for depth mapping and segmented bonds
+- Consider collision avoidance, leader lines, and fixed-screen placement only
+  if basic diagnostic labels prove insufficient
 
 The atom-style resolution order should be:
 
