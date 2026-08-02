@@ -5,7 +5,8 @@ from ase import Atoms
 
 from atomic_povray import (
     AtomInstance, AtomKey, AtomStyle, Camera, Color, GeometryModel, Material,
-    StructureModel, StyledGeometry, TextPrimitive, label_atoms, make_scene,
+    StructureModel, StyledGeometry, TextPrimitive, element_labels, label_atoms,
+    make_scene,
     scene_to_sdl,
 )
 
@@ -35,11 +36,17 @@ def _camera() -> Camera:
     )
 
 
+def test_element_labels_numbers_each_element_separately_in_ase_order():
+    atoms = Atoms("OFeOFe")
+    assert element_labels(atoms) == ("O1", "Fe1", "O2", "Fe2")
+
+
 def test_label_atoms_uses_surface_radius_and_camera_relative_offset():
     labels = label_atoms(
         _styled_geometry(), camera=_camera(), offset=(0.2, 0.3, 0.4)
     )
     assert labels[0].text == "Fe1"
+    assert labels[1].text == "O1"
     assert labels[0].position == pytest.approx((1.2, 2.3, 3.9))
     assert labels[0].right == pytest.approx((1.0, 0.0, 0.0))
     assert labels[0].up == pytest.approx((0.0, 1.0, 0.0))
