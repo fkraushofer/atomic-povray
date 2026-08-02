@@ -3,6 +3,7 @@ import pytest
 from ase import Atoms
 
 from atomic_povray import (
+    AtomStyle,
     BondRule,
     Color,
     CoordinationPolyhedronRule,
@@ -10,6 +11,7 @@ from atomic_povray import (
     DepthShading,
     PolyhedronEdgeStyle,
     PolyhedronStyle,
+    PolyhedronStyleOverride,
     StructureModel,
     StyleConfig,
     TriangleMeshPrimitive,
@@ -167,6 +169,31 @@ def test_color_alpha_alias_and_povray_transparency_serialization():
     assert "rgbt" in _pigment(Color(1, 0, 0, transmit=0.5))
     with pytest.raises(ValueError, match="only one"):
         Color(1, 0, 0, alpha=0.5, transmit=0.5)
+
+
+def test_polyhedron_transparency_overrides_inherited_center_color():
+    geometry = _geometry(
+        [(6, 5, 5), (5, 6, 5), (4, 5, 5), (5, 4, 5)]
+    )
+    styled = apply_styles(
+        geometry,
+        StyleConfig(
+            draw_atoms=False,
+            draw_bonds=False,
+            elements={"Fe": AtomStyle(color=Color(0.7, 0.2, 0.1, filter=0.1))},
+            default_polyhedron=PolyhedronStyle(filter=0.3, alpha=0.6),
+        ),
+    )
+
+    mesh = next(p for p in styled.primitives if isinstance(p, TriangleMeshPrimitive))
+    assert mesh.material.color == Color(0.7, 0.2, 0.1, filter=0.3, alpha=0.6)
+
+
+def test_polyhedron_alpha_and_transmit_are_mutually_exclusive():
+    with pytest.raises(ValueError, match="only one"):
+        PolyhedronStyle(alpha=0.5, transmit=0.5)
+    with pytest.raises(ValueError, match="only one"):
+        PolyhedronStyleOverride(alpha=0.5, transmit=0.5)
 
 
 def test_depth_shading_uses_polyhedron_center_reference():
