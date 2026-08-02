@@ -25,7 +25,8 @@ The initial structural and rendering pipeline is established:
 - directional exponential depth shading resolved per primitive
 - native POV-Ray constant fog for continuous camera-distance fading
 - POV-Ray 3.7 SDL and INI export, plus direct rendering
-- generic extra-primitives insertion for future arrows, cells, isosurfaces, and similar objects
+- generic extra-primitives insertion for arrows, cells, isosurfaces, labels, and similar objects
+- camera-facing POV-Ray text primitives and a basic atom-label helper
 - compact 1×1 hematite notebook example and focused regression tests
 
 A background color is set when constructing the scene, for example:
@@ -40,25 +41,6 @@ scene = make_scene(
 ```
 
 Whether that background appears in the PNG still depends on `RenderConfig.transparent`. With transparency enabled, POV-Ray preserves alpha; disable it when an opaque background color is desired.
-
-## Milestone 2: styling and annotations
-
-The next milestone should complete the important appearance controls without changing structural geometry.
-
-- Atom labels represented as text primitives
-- Tests for depth mapping and labels
-
-The atom-style resolution order should be:
-
-```text
-global defaults
-→ element style
-→ coordination rule
-→ selection rule
-→ individual atom override
-```
-
-“Special atoms” and coordination coloring should therefore share one rule-based mechanism rather than become separate hard-coded subsystems.
 
 ## Milestone 3: polyhedra, alternate atoms, and persistent geometry
 

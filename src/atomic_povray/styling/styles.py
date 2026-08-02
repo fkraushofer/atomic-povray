@@ -389,6 +389,7 @@ class StyleConfig:
 class StyledGeometry:
     geometry: GeometryModel
     primitives: tuple[Primitive, ...]
+    atom_styles: dict[AtomKey, AtomStyle] = field(default_factory=dict)
 
 
 def _selected_source_indices(
@@ -711,4 +712,4 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
     )
     _apply_ambient_scale(primitives, styles.ambient_scale)
     _apply_depth_shading(primitives, styles.depth_shading)
-    return StyledGeometry(geometry, tuple(primitives))
+    return StyledGeometry(geometry, tuple(primitives), atom_styles)
