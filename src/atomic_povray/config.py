@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Callable, Sequence
 from typing import Literal
 
 import numpy as np
@@ -10,6 +11,8 @@ import numpy as np
 from .model import Vec3
 
 BondExtensionMode = Literal["asymmetric", "symmetric", "none"]
+AtomSelection = int | Sequence[int] | np.ndarray
+AtomSelector = Callable[[object], AtomSelection]
 
 
 @dataclass(frozen=True)
@@ -67,6 +70,48 @@ class BondRule:
             or anchor == self.element_a
             or self.element_a == self.element_b
         )
+
+
+@dataclass(frozen=True)
+class CoordinationPolyhedronRule:
+    """Select ligand environments from existing bond-rule matches."""
+
+    center_element: str
+    name: str | None = None
+    ligand_elements: frozenset[str] | None = None
+    bond_rules: frozenset[str] | None = None
+    center_selector: AtomSelector | None = None
+    boundary_mode: Literal["complete", "visible"] = "complete"
+    expansion: float = 0.0
+    position_tolerance: float = 1e-7
+    rank_tolerance: float = 1e-7
+    coplanar_angle_tolerance: float = 1e-6
+    on_degenerate: Literal["warn", "error", "ignore"] = "warn"
+
+    def __post_init__(self) -> None:
+        if not self.center_element:
+            raise ValueError("center_element must not be empty")
+        if self.boundary_mode not in ("complete", "visible"):
+            raise ValueError("boundary_mode must be 'complete' or 'visible'")
+        if self.on_degenerate not in ("warn", "error", "ignore"):
+            raise ValueError("on_degenerate must be 'warn', 'error', or 'ignore'")
+        if self.center_selector is not None and not callable(self.center_selector):
+            raise TypeError("center_selector must be callable")
+        for name in ("position_tolerance", "rank_tolerance"):
+            if not np.isfinite(getattr(self, name)) or getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive and finite")
+        if not np.isfinite(self.coplanar_angle_tolerance) or not 0 <= self.coplanar_angle_tolerance <= np.pi:
+            raise ValueError("coplanar_angle_tolerance must lie between 0 and pi")
+        if not np.isfinite(self.expansion):
+            raise ValueError("expansion must be finite")
+        if self.ligand_elements is not None:
+            object.__setattr__(self, "ligand_elements", frozenset(self.ligand_elements))
+        if self.bond_rules is not None:
+            object.__setattr__(self, "bond_rules", frozenset(self.bond_rules))
+
+    @property
+    def rule_id(self) -> str:
+        return self.name or f"{self.center_element}-polyhedron"
 
 
 @dataclass(frozen=True)
