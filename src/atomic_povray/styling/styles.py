@@ -261,7 +261,7 @@ class BondStyle:
 
 DEFAULT_HYDROGEN_BOND_STYLE = BondStyle(
     radius=0.05,
-    color=Color(0.7, 0.7, 0.7),
+    color=Color(0.5, 0.5, 0.5),
     style="dashed",
     segments=4,
 )
