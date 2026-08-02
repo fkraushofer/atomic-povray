@@ -8,18 +8,53 @@ from typing import TypeAlias
 from .model import Vec3
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class Color:
     red: float
     green: float
     blue: float
-    alpha: float = 1.0
+    filter: float
+    transmit: float
 
-    def __post_init__(self) -> None:
+    def __init__(
+        self,
+        red: float,
+        green: float,
+        blue: float,
+        alpha: float | None = None,
+        *,
+        filter: float = 0.0,
+        transmit: float | None = None,
+    ) -> None:
+        if alpha is not None and transmit is not None:
+            raise ValueError("alpha and transmit are aliases; pass only one")
+        if alpha is not None and not 0 <= alpha <= 1:
+            raise ValueError("Alpha must lie between 0 and 1")
+        resolved_transmit = (
+            0.0 if alpha is None and transmit is None
+            else 1.0 - alpha if alpha is not None
+            else transmit
+        )
+        object.__setattr__(self, "red", red)
+        object.__setattr__(self, "green", green)
+        object.__setattr__(self, "blue", blue)
+        object.__setattr__(self, "filter", filter)
+        object.__setattr__(self, "transmit", resolved_transmit)
+        self._validate()
+
+    def _validate(self) -> None:
         if any(value < 0 for value in (self.red, self.green, self.blue)):
             raise ValueError("RGB color channels must be non-negative")
-        if not 0 <= self.alpha <= 1:
-            raise ValueError("Alpha must lie between 0 and 1")
+        if not 0 <= self.filter <= 1:
+            raise ValueError("filter must lie between 0 and 1")
+        if not 0 <= self.transmit <= 1:
+            raise ValueError("transmit must lie between 0 and 1")
+
+    @property
+    def alpha(self) -> float:
+        """Conventional opacity, retained as an alias of 1 - transmit."""
+
+        return 1.0 - self.transmit
 
     def as_tuple(self) -> tuple[float, float, float, float]:
         return self.red, self.green, self.blue, self.alpha
@@ -109,6 +144,7 @@ class TriangleMeshPrimitive:
     faces: tuple[tuple[int, int, int], ...]
     material: Material
     normals: tuple[Vec3, ...] | None = None
+    reference_position: Vec3 | None = None
 
     def __post_init__(self) -> None:
         if self.normals is not None and len(self.normals) != len(self.vertices):

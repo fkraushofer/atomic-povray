@@ -88,11 +88,17 @@ class DepthShading:
                 original_fraction * color.blue
                 + target_fraction * self.target.blue
             ),
-            alpha=(
-                original_fraction * color.alpha
-                + target_fraction * self.target.alpha
+            filter=(
+                original_fraction * color.filter
+                + target_fraction * self.target.filter
                 if self.shade_alpha
-                else color.alpha
+                else color.filter
+            ),
+            transmit=(
+                original_fraction * color.transmit
+                + target_fraction * self.target.transmit
+                if self.shade_alpha
+                else color.transmit
             ),
         )
 
@@ -259,6 +265,108 @@ class BondStyle:
         return (default_finish or Finish()).material(self.color or fallback)
 
 
+@dataclass(frozen=True)
+class PolyhedronEdgeStyle:
+    visible: bool = False
+    radius: float = 0.025
+    color: Color | None = None
+    material: Material | None = None
+    finish: Finish | None = None
+
+    def __post_init__(self) -> None:
+        if not isfinite(self.radius) or self.radius <= 0:
+            raise ValueError("Polyhedron edge radius must be positive and finite")
+
+    def material_for(self, fallback: Color, default_finish: Finish) -> Material:
+        if self.material is not None:
+            return self.material
+        return (self.finish or default_finish).material(self.color or fallback)
+
+
+@dataclass(frozen=True)
+class PolyhedronStyle:
+    visible: bool = True
+    color: Color | None = None
+    material: Material | None = None
+    finish: Finish | None = None
+    filter: float | None = None
+    transmit: float | None = None
+    alpha: float | None = None
+    edges: PolyhedronEdgeStyle = PolyhedronEdgeStyle()
+
+    def __post_init__(self) -> None:
+        if self.alpha is not None and self.transmit is not None:
+            raise ValueError("alpha and transmit are aliases; pass only one")
+        for name, value in (
+            ("filter", self.filter),
+            ("transmit", self.transmit),
+            ("alpha", self.alpha),
+        ):
+            if value is not None and not 0 <= value <= 1:
+                raise ValueError(f"Polyhedron {name} must lie between 0 and 1")
+
+    def material_for(self, fallback: Color, default_finish: Finish) -> Material:
+        if self.material is not None:
+            return self.material
+        color = self.color or fallback
+        if self.filter is not None or self.transmit is not None or self.alpha is not None:
+            transmit = self.transmit
+            if self.alpha is not None:
+                transmit = 1.0 - self.alpha
+            color = Color(
+                color.red,
+                color.green,
+                color.blue,
+                filter=color.filter if self.filter is None else self.filter,
+                transmit=color.transmit if transmit is None else transmit,
+            )
+        return (self.finish or default_finish).material(color)
+
+
+@dataclass(frozen=True)
+class PolyhedronStyleOverride:
+    visible: bool | None = None
+    color: Color | None = None
+    material: Material | None = None
+    finish: Finish | None = None
+    filter: float | None = None
+    transmit: float | None = None
+    alpha: float | None = None
+    edges: PolyhedronEdgeStyle | None = None
+
+    def __post_init__(self) -> None:
+        if self.alpha is not None and self.transmit is not None:
+            raise ValueError("alpha and transmit are aliases; pass only one")
+        for name, value in (
+            ("filter", self.filter),
+            ("transmit", self.transmit),
+            ("alpha", self.alpha),
+        ):
+            if value is not None and not 0 <= value <= 1:
+                raise ValueError(f"Polyhedron {name} must lie between 0 and 1")
+
+    def apply(self, style: PolyhedronStyle) -> PolyhedronStyle:
+        changes = {
+                name: value
+                for name, value in (
+                    ("visible", self.visible),
+                    ("color", self.color),
+                    ("material", self.material),
+                    ("finish", self.finish),
+                    ("filter", self.filter),
+                    ("transmit", self.transmit),
+                    ("alpha", self.alpha),
+                    ("edges", self.edges),
+                )
+                if value is not None
+            }
+        if self.alpha is not None:
+            changes["transmit"] = None
+        elif self.transmit is not None:
+            changes["alpha"] = None
+        return replace(style, **changes)
+
+
 DEFAULT_HYDROGEN_BOND_STYLE = BondStyle(
     radius=0.05,
     color=Color(0.5, 0.5, 0.5),
@@ -269,12 +377,18 @@ DEFAULT_HYDROGEN_BOND_STYLE = BondStyle(
 
 @dataclass(frozen=True)
 class StyleConfig:
-    preset_style: Literal["ball_and_stick", "space_filling"] = "ball_and_stick"
+    preset_style: Literal[
+        "ball_and_stick", "space_filling", "polyhedral"
+    ] = "ball_and_stick"
     atom_size_scale: float | None = None
     bond_size_scale: float = 1.0
+    draw_atoms: bool = True
+    draw_bonds: bool | None = None
+    draw_polyhedra: bool = True
     ambient_scale: float = 1.0
     elements: dict[str, AtomStyle] = field(default_factory=dict)
     bonds: dict[str, BondStyle] = field(default_factory=dict)
+    polyhedra: dict[str, PolyhedronStyle] = field(default_factory=dict)
     coordination_rules: tuple[CoordinationStyleRule, ...] = ()
     selection_rules: tuple[AtomSelectionRule, ...] = ()
     source_atom_overrides: dict[int, AtomStyleOverride] = field(
@@ -283,10 +397,21 @@ class StyleConfig:
     atom_instance_overrides: dict[AtomKey, AtomStyleOverride] = field(
         default_factory=dict
     )
+    polyhedron_source_overrides: dict[int, PolyhedronStyleOverride] = field(
+        default_factory=dict
+    )
+    polyhedron_instance_overrides: dict[AtomKey, PolyhedronStyleOverride] = field(
+        default_factory=dict
+    )
     default_atom: AtomStyle = AtomStyle()
     default_bond: BondStyle = BondStyle()
+    default_polyhedron: PolyhedronStyle = PolyhedronStyle(
+        filter=0.05,
+        transmit=0.3,
+    )
     default_atom_finish: Finish = Finish(phong=0.3)
     default_bond_finish: Finish = Finish()
+    default_polyhedron_finish: Finish = Finish(phong=0.15)
     default_finish: Finish | None = None
     depth_shading: DepthShading | None = None
 
@@ -294,12 +419,14 @@ class StyleConfig:
         scales = {
             "ball_and_stick": 0.4,
             "space_filling": 1.0,
+            "polyhedral": 0.4,
         }
         try:
             preset_scale = scales[self.preset_style]
         except KeyError:
             raise ValueError(
-                "preset_style must be 'ball_and_stick' or 'space_filling'"
+                "preset_style must be 'ball_and_stick', 'space_filling', or "
+                "'polyhedral'"
             ) from None
 
         atom_scale = self.atom_size_scale
@@ -311,6 +438,12 @@ class StyleConfig:
         object.__setattr__(self, "atom_size_scale", float(atom_scale))
         object.__setattr__(self, "bond_size_scale", float(self.bond_size_scale))
         object.__setattr__(self, "ambient_scale", float(self.ambient_scale))
+        if self.draw_bonds is None:
+            object.__setattr__(
+                self,
+                "draw_bonds",
+                self.preset_style in ("ball_and_stick", "polyhedral"),
+            )
 
     @staticmethod
     def _validate_size_scale(name: str, scale: float) -> None:
@@ -327,12 +460,6 @@ class StyleConfig:
             raise ValueError("ambient_scale must be non-negative and finite")
 
     @property
-    def draw_bonds(self) -> bool:
-        """Return whether the selected preset draws bond primitives."""
-
-        return self.preset_style == "ball_and_stick"
-
-    @property
     def atom_finish(self) -> Finish:
         """Return the atom finish, honoring the legacy shared override."""
 
@@ -343,6 +470,10 @@ class StyleConfig:
         """Return the bond finish, honoring the legacy shared override."""
 
         return self.default_finish or self.default_bond_finish
+
+    @property
+    def polyhedron_finish(self) -> Finish:
+        return self.default_finish or self.default_polyhedron_finish
 
     def atom_style(self, symbol: str) -> AtomStyle:
         """Resolve built-in, global, and element radius/color defaults."""
@@ -383,6 +514,18 @@ class StyleConfig:
         if rule_id == DEFAULT_HYDROGEN_BOND_RULE_ID:
             return DEFAULT_HYDROGEN_BOND_STYLE
         return self.default_bond
+
+    def polyhedron_style(
+        self, rule_id: str, center: AtomKey
+    ) -> PolyhedronStyle:
+        style = self.polyhedra.get(rule_id, self.default_polyhedron)
+        source_override = self.polyhedron_source_overrides.get(center.source_index)
+        if source_override is not None:
+            style = source_override.apply(style)
+        instance_override = self.polyhedron_instance_overrides.get(center)
+        if instance_override is not None:
+            style = instance_override.apply(style)
+        return style
 
 
 @dataclass(frozen=True)
@@ -483,6 +626,8 @@ def _primitive_position(primitive: Primitive) -> Vec3 | None:
             for start, end in zip(primitive.start, primitive.end)
         )
     if isinstance(primitive, TriangleMeshPrimitive) and primitive.vertices:
+        if primitive.reference_position is not None:
+            return primitive.reference_position
         return tuple(
             float(value)
             for value in np.mean(np.asarray(primitive.vertices, dtype=float), axis=0)
@@ -670,7 +815,7 @@ def _bond_primitives(
 
 
 def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry:
-    """Resolve atom rules, then create atom and bond primitives."""
+    """Resolve atom rules, then create bond, polyhedron, and atom primitives."""
 
     primitives: list[Primitive] = []
     atom_by_key = {atom.key: atom for atom in geometry.atoms}
@@ -701,15 +846,51 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
             )
         )
 
-    primitives.extend(
-        SpherePrimitive(
-            atom.position,
-            atom_styles[atom.key].radius,
-            atom_styles[atom.key].resolved_material(styles.atom_finish),
+    if styles.draw_polyhedra:
+        for polyhedron in geometry.polyhedra:
+            center = atom_by_key[polyhedron.center]
+            center_style = atom_styles[polyhedron.center]
+            polyhedron_style = styles.polyhedron_style(
+                polyhedron.rule_id, polyhedron.center
+            )
+            if not polyhedron_style.visible:
+                continue
+            material = polyhedron_style.material_for(
+                center_style.color, styles.polyhedron_finish
+            )
+            primitives.append(
+                TriangleMeshPrimitive(
+                    vertices=polyhedron.vertices,
+                    faces=polyhedron.faces,
+                    material=material,
+                    reference_position=center.position,
+                )
+            )
+            edge_style = polyhedron_style.edges
+            if edge_style.visible:
+                edge_material = edge_style.material_for(
+                    material.color, styles.polyhedron_finish
+                )
+                primitives.extend(
+                    CylinderPrimitive(
+                        start=polyhedron.vertices[start],
+                        end=polyhedron.vertices[end],
+                        radius=edge_style.radius,
+                        material=edge_material,
+                    )
+                    for start, end in polyhedron.edges
+                )
+
+    if styles.draw_atoms:
+        primitives.extend(
+            SpherePrimitive(
+                atom.position,
+                atom_styles[atom.key].radius,
+                atom_styles[atom.key].resolved_material(styles.atom_finish),
+            )
+            for atom in geometry.atoms
+            if atom_styles[atom.key].visible
         )
-        for atom in geometry.atoms
-        if atom_styles[atom.key].visible
-    )
     _apply_ambient_scale(primitives, styles.ambient_scale)
     _apply_depth_shading(primitives, styles.depth_shading)
     return StyledGeometry(geometry, tuple(primitives), atom_styles)

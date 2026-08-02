@@ -9,15 +9,17 @@ from warnings import warn
 import numpy as np
 from ase.neighborlist import neighbor_list
 
-from ..config import BondRule, DisplayBounds
+from ..config import BondRule, CoordinationPolyhedronRule, DisplayBounds
 from ..model import (
     AtomInstance,
     AtomKey,
     Bond,
     BondNeighbor,
+    CoordinationPolyhedron,
     GeometryModel,
     StructureModel,
 )
+from .polyhedra import make_polyhedra
 
 
 def _make_instances(
@@ -224,11 +226,48 @@ def _make_adjacency(
     return tuple(tuple(items) for items in adjacency)
 
 
+def _add_polyhedron_extensions(
+    structure: StructureModel,
+    instances: tuple[AtomInstance, ...],
+    polyhedra: tuple[CoordinationPolyhedron, ...],
+) -> tuple[AtomInstance, ...]:
+    """Register complete-shell ligands that ordinary bond policy did not add."""
+
+    known = {atom.key for atom in instances}
+    needed = {
+        key
+        for polyhedron in polyhedra
+        for key in polyhedron.ligand_keys
+        if key not in known
+    }
+    if not needed:
+        return instances
+    scaled = np.asarray(
+        structure.atoms.get_scaled_positions(wrap=False), dtype=float
+    )
+    symbols = structure.atoms.get_chemical_symbols()
+    extensions = []
+    for key in sorted(needed):
+        fractional = scaled[key.source_index] + np.asarray(key.image_shift)
+        position = fractional @ structure.cell
+        extensions.append(
+            AtomInstance(
+                key=key,
+                symbol=symbols[key.source_index],
+                fractional_position=tuple(float(value) for value in fractional),
+                position=tuple(float(value) for value in position),
+                is_extension=True,
+            )
+        )
+    return instances + tuple(extensions)
+
+
 def build_geometry(
     structure: StructureModel,
     *,
     bounds: DisplayBounds | None = None,
     bond_rules: Iterable[BondRule] | None = None,
+    polyhedron_rules: Iterable[CoordinationPolyhedronRule] = (),
 ) -> GeometryModel:
     """Build geometry and complete source environments from matching bond rules.
 
@@ -254,5 +293,15 @@ def build_geometry(
         rules,
         bounds,
     )
+    polyhedra = make_polyhedra(
+        structure,
+        primary_instances,
+        instances,
+        environments,
+        tuple(polyhedron_rules),
+    )
+    instances = _add_polyhedron_extensions(structure, instances, polyhedra)
     adjacency = _make_adjacency(instances, bonds)
-    return GeometryModel(structure, instances, bonds, adjacency, environments)
+    return GeometryModel(
+        structure, instances, bonds, adjacency, environments, polyhedra
+    )

@@ -15,6 +15,7 @@ from atomic_povray import (
     load_structure,
     render_scene,
     scene_to_sdl,
+    write_ini,
     write_scene,
 )
 
@@ -62,6 +63,44 @@ def test_camera_location_follows_target_with_fixed_direction():
 def test_render_quality_is_validated(quality: int):
     with pytest.raises(ValueError, match="quality"):
         RenderConfig(quality=quality)
+
+
+@pytest.mark.parametrize("max_trace_level", (0, -1))
+def test_max_trace_level_must_be_positive(max_trace_level: int):
+    with pytest.raises(ValueError, match="max_trace_level"):
+        RenderConfig(max_trace_level=max_trace_level)
+
+
+def test_max_trace_level_and_additional_pov_are_written_to_sdl():
+    scene = make_scene(
+        (),
+        camera=Camera.perspective(
+            direction=(0.0, 10.0, 0.0),
+            target=(0.0, 0.0, 0.0),
+            up=(0.0, 0.0, 1.0),
+        ),
+    )
+
+    text = scene_to_sdl(
+        scene,
+        max_trace_level=20,
+        additional_pov="#declare Custom_Value = 3;\n",
+    )
+
+    assert "  max_trace_level 20\n}" in text
+    assert "}\n\n#declare Custom_Value = 3;\n\ncamera {" in text
+
+
+def test_additional_ini_is_appended(tmp_path: Path):
+    ini = write_ini(
+        tmp_path / "scene.pov",
+        tmp_path / "scene.png",
+        RenderConfig(additional_ini="Max_Image_Buffer_Memory=1024\n"),
+    )
+
+    assert ini.read_text(encoding="utf-8").endswith(
+        "Output_Alpha=Off\nMax_Image_Buffer_Memory=1024\n"
+    )
 
 
 def test_constant_fog_is_written_to_sdl():

@@ -27,6 +27,8 @@ The initial structural and rendering pipeline is established:
 - POV-Ray 3.7 SDL and INI export, plus direct rendering
 - generic extra-primitives insertion for arrows, cells, isosurfaces, labels, and similar objects
 - camera-facing POV-Ray text primitives and a basic atom-label helper
+- coordination polyhedra with complete periodic shells, planar handling,
+  transparent faces, and optional true-edge cylinders
 - compact 1×1 hematite notebook example and focused regression tests
 
 A background color is set when constructing the scene, for example:
@@ -42,12 +44,8 @@ scene = make_scene(
 
 Whether that background appears in the PNG still depends on `RenderConfig.transparent`. With transparency enabled, POV-Ray preserves alpha; disable it when an opaque background color is desired.
 
-## Milestone 3: polyhedra, alternate atoms, and persistent geometry
+## Milestone 3: alternate atoms and persistent geometry
 
-- Coordination polyhedra constructed with SciPy
-- Transparent polyhedron materials
-- Robust face orientation and normals
-- Handling of coplanar and nearly coplanar neighbor sets
 - Persistent content-addressed geometry cache
 - Stable export/import format for cached geometry
 - Timing benchmarks and larger realistic regression tests

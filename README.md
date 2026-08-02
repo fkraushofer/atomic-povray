@@ -43,7 +43,7 @@ file can be written and then rendered manually.
 - optional per-vertex normals for smooth externally generated triangle meshes
 - notebook-friendly, explicitly staged API
 
-Collision avoidance, leader lines, fixed-screen label placement, polyhedra,
+Collision avoidance, leader lines, and fixed-screen label placement
 persistent disk caching, and an interactive preview are intentionally deferred.
 
 ## Installation
@@ -356,6 +356,145 @@ covalent radii are based on Cordero *et al.*, “Covalent radii revisited”
 Jmol color table. VESTA inspired the conservative candidate-pair policy and
 editable workflow, but no VESTA data files are redistributed.
 
+## Coordination polyhedra
+
+Polyhedra reuse the complete periodic environments produced by the bond rules,
+then calculate the ligand hull with SciPy. Define them during geometry
+construction and style them independently:
+
+```python
+polyhedron_rules = (
+    CoordinationPolyhedronRule(
+        center_element="Fe",
+        name="Fe-O",
+        ligand_elements={"O"},
+        bond_rules={"default:Fe-O"},
+        boundary_mode="complete",
+    ),
+)
+geometry = build_geometry(
+    structure,
+    bond_rules=bond_rules,
+    polyhedron_rules=polyhedron_rules,
+)
+
+styles = StyleConfig(
+    preset_style="polyhedral",
+    polyhedra={
+        "Fe-O": PolyhedronStyle(
+            # Inherit the resolved Fe color, changing only transparency.
+            alpha=0.55,
+            filter=0.15,
+            edges=PolyhedronEdgeStyle(
+                visible=True,
+                radius=0.025,
+                color=Color(0.25, 0.08, 0.05),
+            ),
+        ),
+    },
+)
+```
+
+The default `boundary_mode="complete"` builds the full one-hop ligand shell
+around every in-bounds center, including ligands outside the display region.
+Use `"visible"` to restrict hull vertices to displayed atom instances.
+`center_selector` accepts the same integer-index, integer-sequence, or
+Boolean-mask results as atom selection rules. Ligands can be filtered by
+element and bond-rule ID. `expansion` moves every vertex radially by an
+absolute distance in Å.
+
+Three-dimensional environments use a convex hull with outward-oriented
+triangles. Coplanar environments use a deterministic projected polygon, so
+square-planar coordination is supported. Optional edge cylinders contain only
+true polyhedron edges, not triangulation diagonals across flat faces.
+
+`draw_atoms`, `draw_bonds`, and `draw_polyhedra` are independent
+`StyleConfig` controls. Face colors inherit the resolved central-atom color
+unless the polyhedron style supplies a color or material.
+
+Use `polyhedron_source_overrides` to change every displayed periodic image of
+a polyhedron centered on a particular ASE source atom. Keys are zero-based ASE
+atom indices:
+
+```python
+styles = StyleConfig(
+    polyhedron_source_overrides={
+        # Make source atom 12's polyhedra more transparent in every replication.
+        12: PolyhedronStyleOverride(transmit=0.7),
+        # Do not render any polyhedron centered on source atom 17.
+        17: PolyhedronStyleOverride(visible=False),
+    },
+)
+```
+
+Use `polyhedron_instance_overrides` when only one displayed periodic image
+should change. `AtomKey(source_index, image_shift)` identifies the source atom
+and its lattice translation:
+
+```python
+styles = StyleConfig(
+    polyhedron_instance_overrides={
+        AtomKey(12, (1, 0, 0)): PolyhedronStyleOverride(visible=False),
+    },
+)
+```
+
+The same visibility mechanism is available for atoms through
+`source_atom_overrides={17: AtomStyleOverride(visible=False)}` and
+`atom_instance_overrides={AtomKey(17, (1, 0, 0)):
+AtomStyleOverride(visible=False)}`. Hiding an atom also suppresses bonds that
+terminate at it; hiding a polyhedron affects only that polyhedron.
+
+When the desired subset is already known before geometry construction, prefer
+a polyhedron rule's `center_selector`. For example, this builds and renders
+Fe-centered polyhedra only above a Cartesian z coordinate of 20 Å:
+
+```python
+polyhedron_rules = (
+    CoordinationPolyhedronRule(
+        center_element="Fe",
+        name="Fe-O",
+        ligand_elements={"O"},
+        bond_rules={"default:Fe-O"},
+        center_selector=lambda atoms: atoms.positions[:, 2] > 20.0,
+    ),
+)
+```
+
+For interactive styling without rebuilding geometry, generate equivalent
+visibility overrides instead:
+
+```python
+z_min = 20.0
+hide_below = {
+    index: PolyhedronStyleOverride(visible=False)
+    for index, (symbol, position) in enumerate(
+        zip(structure.atoms.get_chemical_symbols(), structure.atoms.positions)
+    )
+    if symbol == "Fe" and position[2] <= z_min
+}
+styles = StyleConfig(polyhedron_source_overrides=hide_below)
+```
+
+Set `filter`, `transmit`, or `alpha` directly on `PolyhedronStyle` to retain
+the inherited RGB components while overriding only transparency. These fields
+also work in `PolyhedronStyleOverride`. If `color` is supplied, they modify
+that color instead. A full `material` remains the highest-precedence override.
+
+By default, polyhedron faces inherit the resolved center-atom RGB color and use `filter=0.05, transmit=0.3`. Override either component in `default_polyhedron`, a named polyhedron style, or a source/instance override when a different transparency is desired.
+
+POV-Ray distinguishes neutral transmission from colored filtering:
+
+```python
+Color(0.8, 0.2, 0.1, alpha=0.6)               # transmit=0.4
+Color(0.8, 0.2, 0.1, filter=0.3)              # tinted transmission
+Color(0.8, 0.2, 0.1, filter=0.2, transmit=0.3)
+```
+
+`alpha` is exactly an opacity alias for `1 - transmit`; passing both
+`alpha` and `transmit` raises an error. `filter` may be combined with
+either form. All transparency components must lie between 0 and 1.
+
 ## Atom style rules
 
 Atom appearance resolves from the general element style through increasingly
@@ -523,13 +662,15 @@ styles = StyleConfig(
 The origin defines the onset plane perpendicular to `direction`. Colors before
 that plane are unchanged. Beyond it, the original color contribution decays
 exponentially and is `1/e` after `decay_length`. Spheres use their centers,
-cylinders their midpoints, and meshes the mean of their vertices. To reproduce
+cylinders their midpoints, and meshes their optional `reference_position` or
+otherwise the mean of their vertices. Coordination polyhedra set this reference
+to their central atom. To reproduce
 the fog-like appearance of the legacy renderer, diffuse and Phong lighting decay
 as the square of the color factor, specular highlights decay as its cube, and
 ambient lighting rises toward `1` so distant primitives flatten into the target
-color. Alpha is preserved by default.
+color. Filter and transmission are preserved by default.
 
-Set `shade_alpha=True` to blend opacity toward `target.alpha` as well:
+Set `shade_alpha=True` to blend both transparency components toward the target:
 
 ```python
 DepthShading(
@@ -738,8 +879,24 @@ scene_path = write_scene(
 ini_path = write_ini(scene_path, "hematite.png", config)
 ```
 
+Transparent or multiply reflected scenes can look slightly better with a larger POV-Ray ray-depth limit, especially where several closed polyhedra overlap. This is an optional quality refinement rather than a prerequisite for ordinary transparency. Configure it directly rather than editing the generated scene:
+
+```python
+config = RenderConfig(max_trace_level=20)
+```
+
+For advanced POV-Ray features not yet represented by the Python API,
+`RenderConfig` also accepts raw `additional_pov` and `additional_ini` text.
+The former is inserted after `global_settings` and before the generated camera;
+the latter is appended to the generated INI file. These are deliberately raw
+escape hatches, so their syntax is passed to POV-Ray without validation.
+
 Open or render `hematite.ini`, rather than the `.pov` file alone, to retain
 the configured output gamma, antialiasing, transparency, quality, and size.
+POV-Ray transparency/refraction requires quality 9 or higher. When using the
+POV-Ray editor, also check its command-line or extra render options: an option
+such as `+Q5` overrides the quality from the generated INI and makes transparent
+polyhedra render opaque.
 
 See [Configure the POV-Ray executable](#configure-the-pov-ray-executable) for
 Linux, Conda, and Windows examples. The package detects `pvengine*.exe` and
