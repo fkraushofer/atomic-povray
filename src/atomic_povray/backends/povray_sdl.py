@@ -72,12 +72,7 @@ def _text_matrix(primitive: TextPrimitive) -> str:
     up = primitive.up
     normal = primitive.normal
     position = primitive.position
-    values = (
-        right[0], up[0], normal[0],
-        right[1], up[1], normal[1],
-        right[2], up[2], normal[2],
-        *position,
-    )
+    values = (*right, *up, *normal, *position)
     return "<" + ", ".join(_number(value) for value in values) + ">"
 
 
@@ -99,7 +94,7 @@ def _primitive_to_sdl(primitive: Primitive) -> str:
             f'{_number(primitive.thickness)}, 0 '
             f'{_material(primitive.material)} '
             f'scale {_number(primitive.size)} '
-            f'matrix {_text_matrix(primitive)} }'
+            f'matrix {_text_matrix(primitive)} }}'
         )
     if isinstance(primitive, TriangleMeshPrimitive):
         lines = ["mesh2 {"]
