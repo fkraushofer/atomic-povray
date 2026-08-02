@@ -16,6 +16,7 @@ from .config import (
 from .defaults import BondRuleSet, get_default_bonds
 from .geometry import build_geometry
 from .io import load_structure
+from .labels import label_atoms
 from .model import AtomInstance, AtomKey, Bond, GeometryModel, StructureModel
 from .primitives import (
     Color,
@@ -24,6 +25,7 @@ from .primitives import (
     Material,
     Primitive,
     SpherePrimitive,
+    TextPrimitive,
     TriangleMeshPrimitive,
 )
 from .scene import (
@@ -81,11 +83,13 @@ __all__ = [
     "StructureModel",
     "StyleConfig",
     "StyledGeometry",
+    "TextPrimitive",
     "TriangleMeshPrimitive",
     "apply_styles",
     "build_geometry",
     "get_default_bonds",
     "get_default_light",
+    "label_atoms",
     "load_structure",
     "make_scene",
     "render_scene",
