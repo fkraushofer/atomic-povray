@@ -236,6 +236,8 @@ def scene_to_sdl(
     *,
     aspect_ratio: float = 4 / 3,
     povray_version: str = "3.7",
+    max_trace_level: int | None = None,
+    additional_pov: str | None = None,
 ) -> str:
     ambient = scene.ambient_light
     povray_version = _validate_povray_version(povray_version)
@@ -245,15 +247,26 @@ def scene_to_sdl(
         "  assumed_gamma 1.0",
         f"  ambient_light rgb <{_number(ambient.red)}, "
         f"{_number(ambient.green)}, {_number(ambient.blue)}>",
-        "}",
-        "",
-        _camera_to_sdl(scene.camera, aspect_ratio),
-        "",
-        f"background {{ color rgbf <{_number(scene.background.color.red)}, "
+    ]
+    if max_trace_level is not None:
+        if not isinstance(max_trace_level, int) or isinstance(max_trace_level, bool):
+            raise TypeError("max_trace_level must be an integer")
+        if max_trace_level < 1:
+            raise ValueError("max_trace_level must be positive")
+        lines.append(f"  max_trace_level {max_trace_level}")
+    lines.extend(("}", ""))
+    if additional_pov:
+        lines.extend((additional_pov.rstrip("\n"), ""))
+    lines.extend(
+        (
+            _camera_to_sdl(scene.camera, aspect_ratio),
+            "",
+            f"background {{ color rgbf <{_number(scene.background.color.red)}, "
         f"{_number(scene.background.color.green)}, "
         f"{_number(scene.background.color.blue)}, "
-        f"{_number(1.0 - scene.background.color.alpha)}> }}",
-    ]
+            f"{_number(1.0 - scene.background.color.alpha)}> }}",
+        )
+    )
     if scene.fog is not None:
         fog = scene.fog
         lines.extend(
@@ -282,6 +295,8 @@ def write_scene(
     width: int = 800,
     height: int = 600,
     povray_version: str = "3.7",
+    max_trace_level: int | None = None,
+    additional_pov: str | None = None,
 ) -> Path:
     path = Path(filename)
     path.write_text(
@@ -289,6 +304,8 @@ def write_scene(
             scene,
             aspect_ratio=width / height,
             povray_version=povray_version,
+            max_trace_level=max_trace_level,
+            additional_pov=additional_pov,
         ),
         encoding="utf-8",
     )
@@ -309,6 +326,9 @@ class RenderConfig:
     display: bool = False
     executable: str = "povray"
     povray_version: str = "3.7"
+    max_trace_level: int | None = None
+    additional_pov: str | None = None
+    additional_ini: str | None = None
 
     def __post_init__(self) -> None:
         if self.width < 1 or self.height < 1:
@@ -323,6 +343,13 @@ class RenderConfig:
             raise ValueError("display_gamma must be positive")
         if self.file_gamma is not None and self.file_gamma <= 0:
             raise ValueError("file_gamma must be positive")
+        if self.max_trace_level is not None:
+            if not isinstance(self.max_trace_level, int) or isinstance(
+                self.max_trace_level, bool
+            ):
+                raise TypeError("max_trace_level must be an integer")
+            if self.max_trace_level < 1:
+                raise ValueError("max_trace_level must be positive")
         _validate_povray_version(self.povray_version)
 
 
@@ -370,10 +397,10 @@ def write_ini(
     values.update(
         (key, value) for key, value in optional_values.items() if value is not None
     )
-    ini_path.write_text(
-        "\n".join(f"{key}={value}" for key, value in values.items()) + "\n",
-        encoding="utf-8",
-    )
+    lines = [f"{key}={value}" for key, value in values.items()]
+    if config.additional_ini:
+        lines.append(config.additional_ini.rstrip("\n"))
+    ini_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return ini_path
 
 
@@ -402,6 +429,8 @@ def render_scene(
         width=config.width,
         height=config.height,
         povray_version=config.povray_version,
+        max_trace_level=config.max_trace_level,
+        additional_pov=config.additional_pov,
     )
     ini_path = write_ini(scene_path, image_path, config)
 
