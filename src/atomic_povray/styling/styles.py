@@ -405,7 +405,10 @@ class StyleConfig:
     )
     default_atom: AtomStyle = AtomStyle()
     default_bond: BondStyle = BondStyle()
-    default_polyhedron: PolyhedronStyle = PolyhedronStyle()
+    default_polyhedron: PolyhedronStyle = PolyhedronStyle(
+        filter=0.05,
+        transmit=0.3,
+    )
     default_atom_finish: Finish = Finish(phong=0.3)
     default_bond_finish: Finish = Finish()
     default_polyhedron_finish: Finish = Finish(phong=0.15)
