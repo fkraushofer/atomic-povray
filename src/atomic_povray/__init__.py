@@ -10,6 +10,7 @@ from .backends import (
 )
 from .config import (
     BondRule,
+    CoordinationPolyhedronRule,
     CutoffPlane,
     DisplayBounds,
 )
@@ -17,7 +18,14 @@ from .defaults import BondRuleSet, get_default_bonds
 from .geometry import build_geometry
 from .io import load_structure
 from .labels import element_labels, label_atoms
-from .model import AtomInstance, AtomKey, Bond, GeometryModel, StructureModel
+from .model import (
+    AtomInstance,
+    AtomKey,
+    Bond,
+    CoordinationPolyhedron,
+    GeometryModel,
+    StructureModel,
+)
 from .primitives import (
     Color,
     CylinderPrimitive,
@@ -45,6 +53,9 @@ from .styling import (
     BondStyle,
     CoordinationStyleRule,
     DepthShading,
+    PolyhedronEdgeStyle,
+    PolyhedronStyle,
+    PolyhedronStyleOverride,
     StyleConfig,
     StyledGeometry,
     apply_styles,
@@ -66,6 +77,8 @@ __all__ = [
     "Camera",
     "Color",
     "CoordinationStyleRule",
+    "CoordinationPolyhedron",
+    "CoordinationPolyhedronRule",
     "CutoffPlane",
     "CylinderPrimitive",
     "DepthShading",
@@ -75,6 +88,9 @@ __all__ = [
     "GeometryModel",
     "Material",
     "PointLight",
+    "PolyhedronEdgeStyle",
+    "PolyhedronStyle",
+    "PolyhedronStyleOverride",
     "Primitive",
     "RenderConfig",
     "RenderResult",
