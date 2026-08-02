@@ -33,6 +33,7 @@ def element_labels(atoms: Atoms) -> tuple[str, ...]:
         labels.append(f"{symbol}{counts[symbol]}")
     return tuple(labels)
 
+
 def _camera_basis(camera: Camera) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return unit vectors for image-right, image-up, and toward-camera."""
 
@@ -104,7 +105,9 @@ def label_atoms(
     )
     if labels is None:
         labels_by_source = element_labels(styled.geometry.structure.atoms)
-        labeler = lambda atom: labels_by_source[atom.key.source_index]
+
+        def labeler(atom: AtomInstance) -> str:
+            return labels_by_source[atom.key.source_index]
     else:
         labeler = labels
     text_material = material or Finish().material(color)
