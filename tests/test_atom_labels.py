@@ -61,9 +61,9 @@ def test_povray_text_serialization_escapes_strings_and_writes_transform():
     primitive = TextPrimitive(
         text='O "top"\\line\n2',
         position=(1.0, 2.0, 3.0),
-        right=(1.0, 0.0, 0.0),
-        up=(0.0, 1.0, 0.0),
-        normal=(0.0, 0.0, 1.0),
+        right=(0.0, 1.0, 0.0),
+        up=(0.0, 0.0, 1.0),
+        normal=(1.0, 0.0, 0.0),
         material=Material(Color(0.0, 0.0, 0.0)),
         font='my"font.ttf',
         size=0.5,
@@ -74,7 +74,7 @@ def test_povray_text_serialization_escapes_strings_and_writes_transform():
     assert '"O \\"top\\"\\\\line\\n2"' in sdl
     assert "0.03, 0" in sdl
     assert "scale 0.5" in sdl
-    assert "matrix <1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 2, 3>" in sdl
+    assert "matrix <0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 2, 3>" in sdl
 
 
 @pytest.mark.parametrize("argument", ({"size": 0.0}, {"thickness": -0.1}, {"font": ""}))
