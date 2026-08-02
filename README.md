@@ -815,6 +815,19 @@ scene_path = write_scene(
 ini_path = write_ini(scene_path, "hematite.png", config)
 ```
 
+Transparent or multiply reflected scenes may require a larger POV-Ray ray-depth
+limit. Configure it directly rather than editing the generated scene:
+
+```python
+config = RenderConfig(max_trace_level=20)
+```
+
+For advanced POV-Ray features not yet represented by the Python API,
+`RenderConfig` also accepts raw `additional_pov` and `additional_ini` text.
+The former is inserted after `global_settings` and before the generated camera;
+the latter is appended to the generated INI file. These are deliberately raw
+escape hatches, so their syntax is passed to POV-Ray without validation.
+
 Open or render `hematite.ini`, rather than the `.pov` file alone, to retain
 the configured output gamma, antialiasing, transparency, quality, and size.
 
