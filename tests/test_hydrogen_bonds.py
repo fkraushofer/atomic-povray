@@ -76,7 +76,7 @@ def test_hydrogen_bonds_resolve_to_single_color_dashes(
                     radius=0.04,
                     color=hydrogen_bond_color,
                     style="dashed",
-                    dashes=4,
+                    segments=4,
                 ),
             },
         ),

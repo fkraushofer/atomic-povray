@@ -106,7 +106,7 @@ def test_dashed_bond_becomes_requested_visible_segments():
                     radius=0.1,
                     color=color,
                     style="dashed",
-                    dashes=3,
+                    segments=3,
                 )
             },
         ),
@@ -128,7 +128,8 @@ def test_dashed_bond_becomes_requested_visible_segments():
     assert all(item.material.color == color for item in cylinders)
 
 
-def test_dashed_bond_retains_default_split_atom_colors():
+def test_dotted_bond_becomes_requested_single_color_spheres():
+    color = Color(0.7, 0.7, 0.7)
     styled = apply_styles(
         simple_geometry(),
         StyleConfig(
@@ -137,25 +138,36 @@ def test_dashed_bond_retains_default_split_atom_colors():
                 "Fe": AtomStyle(0.6, Color(0.5, 0.1, 0.1)),
                 "O": AtomStyle(0.4, Color(1.0, 0.8, 0.0)),
             },
-            bonds={"Fe-O": BondStyle(style="dashed", dashes=2)},
+            bonds={
+                "Fe-O": BondStyle(
+                    radius=0.1,
+                    color=color,
+                    style="dotted",
+                    segments=3,
+                )
+            },
         ),
     )
-    cylinders = [
+    dots = [
         primitive
         for primitive in styled.primitives
-        if isinstance(primitive, CylinderPrimitive)
+        if isinstance(primitive, SpherePrimitive)
+        and primitive.material.color == color
     ]
 
-    assert len(cylinders) == 2
-    assert cylinders[0].material.color != cylinders[1].material.color
+    assert len(dots) == 3
+    assert [item.center[0] for item in dots] == pytest.approx((0.7, 1.0, 1.3))
+    assert all(item.radius == pytest.approx(0.1) for item in dots)
 
 
 @pytest.mark.parametrize(
     ("kwargs", "exception", "message"),
     (
-        ({"style": "dots"}, ValueError, "style"),
-        ({"dashes": 0}, ValueError, "dashes"),
-        ({"dashes": 2.5}, TypeError, "dashes"),
+        ({"style": "custom"}, ValueError, "style"),
+        ({"segments": 0}, ValueError, "segments"),
+        ({"segments": 2.5}, TypeError, "segments"),
+        ({"style": "dashed"}, ValueError, "single-color"),
+        ({"style": "dotted"}, ValueError, "single-color"),
     ),
 )
 def test_bond_style_validates_segment_configuration(kwargs, exception, message):

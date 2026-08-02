@@ -17,7 +17,7 @@ The initial structural and rendering pipeline is established:
 - single- or two-color cylindrical bonds
 - layered atom styling by coordination, ASE selection, source atom, or periodic
   display instance
-- solid and dashed bond styles with configurable dash counts and radii
+- solid, dashed, and dotted bond styles with configurable segment counts and\n  radii
 - orthographic and perspective cameras
 - point and area lights
 - configurable background color and transparent output
@@ -41,27 +41,6 @@ scene = make_scene(
 ```
 
 Whether that background appears in the PNG still depends on `RenderConfig.transparent`. With transparency enabled, POV-Ray preserves alpha; disable it when an opaque background color is desired.
-
-## Milestone 2: styling and annotations
-
-The next milestone should complete the important appearance controls without changing structural geometry.
-
-- Extend the general bond-style property to dotted or custom segmented styles
-- Tests for depth mapping and segmented bonds
-- Consider collision avoidance, leader lines, and fixed-screen placement only
-  if basic diagnostic labels prove insufficient
-
-The atom-style resolution order should be:
-
-```text
-global defaults
-→ element style
-→ coordination rule
-→ selection rule
-→ individual atom override
-```
-
-“Special atoms” and coordination coloring should therefore share one rule-based mechanism rather than become separate hard-coded subsystems.
 
 ## Milestone 3: polyhedra, alternate atoms, and persistent geometry
 
