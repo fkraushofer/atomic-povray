@@ -16,7 +16,7 @@ from .config import (
 from .defaults import BondRuleSet, get_default_bonds
 from .geometry import build_geometry
 from .io import load_structure
-from .labels import label_atoms
+from .labels import element_labels, label_atoms
 from .model import AtomInstance, AtomKey, Bond, GeometryModel, StructureModel
 from .primitives import (
     Color,
@@ -87,6 +87,7 @@ __all__ = [
     "TriangleMeshPrimitive",
     "apply_styles",
     "build_geometry",
+    "element_labels",
     "get_default_bonds",
     "get_default_light",
     "label_atoms",
