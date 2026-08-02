@@ -171,6 +171,25 @@ def test_color_alpha_alias_and_povray_transparency_serialization():
         Color(1, 0, 0, alpha=0.5, transmit=0.5)
 
 
+
+def test_default_polyhedron_inherits_rgb_with_transparency():
+    geometry = _geometry(
+        [(6, 5, 5), (5, 6, 5), (4, 5, 5), (5, 4, 5)]
+    )
+    styled = apply_styles(
+        geometry,
+        StyleConfig(
+            draw_atoms=False,
+            draw_bonds=False,
+            elements={"Fe": AtomStyle(color=Color(0.7, 0.2, 0.1))},
+        ),
+    )
+
+    mesh = next(p for p in styled.primitives if isinstance(p, TriangleMeshPrimitive))
+    assert mesh.material.color == Color(
+        0.7, 0.2, 0.1, filter=0.05, transmit=0.3
+    )
+
 def test_polyhedron_transparency_overrides_inherited_center_color():
     geometry = _geometry(
         [(6, 5, 5), (5, 6, 5), (4, 5, 5), (5, 4, 5)]
