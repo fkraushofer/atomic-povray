@@ -1,4 +1,4 @@
-# atomic-povray — Prototype 1
+# atomic-povray
 
 This package provides a pipeline to render atomic structures from the
 Atomic Simulation Environment (ASE) in POV-Ray. It reads any
