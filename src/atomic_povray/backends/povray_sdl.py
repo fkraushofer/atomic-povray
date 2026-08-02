@@ -32,12 +32,18 @@ def _vector(vector: Vec3) -> str:
 
 
 def _pigment(color: Color) -> str:
-    # POV-Ray filter 0 is opaque; our alpha 1 is opaque.
-    return (
-        "pigment { color rgbf <"
-        f"{_number(color.red)}, {_number(color.green)}, {_number(color.blue)}, "
-        f"{_number(1.0 - color.alpha)}> }}"
+    channels = (
+        f"{_number(color.red)}, {_number(color.green)}, {_number(color.blue)}"
     )
+    if color.filter and color.transmit:
+        value = f"rgbft <{channels}, {_number(color.filter)}, {_number(color.transmit)}>"
+    elif color.filter:
+        value = f"rgbf <{channels}, {_number(color.filter)}>"
+    elif color.transmit:
+        value = f"rgbt <{channels}, {_number(color.transmit)}>"
+    else:
+        value = f"rgb <{channels}>"
+    return f"pigment {{ color {value} }}"
 
 
 def _finish(material: Material) -> str:
