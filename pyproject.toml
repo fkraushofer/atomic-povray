@@ -12,6 +12,7 @@ license = {text = "GPL-3.0-or-later"}
 dependencies = [
     "ase>=3.23",
     "numpy>=1.26",
+    "scipy>=1.11",
 ]
 
 [project.optional-dependencies]
