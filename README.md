@@ -410,9 +410,71 @@ true polyhedron edges, not triangulation diagonals across flat faces.
 
 `draw_atoms`, `draw_bonds`, and `draw_polyhedra` are independent
 `StyleConfig` controls. Face colors inherit the resolved central-atom color
-unless the polyhedron style supplies a color or material. Source-atom and
-displayed-instance polyhedron overrides are available through
-`polyhedron_source_overrides` and `polyhedron_instance_overrides`.
+unless the polyhedron style supplies a color or material.
+
+Use `polyhedron_source_overrides` to change every displayed periodic image of
+a polyhedron centered on a particular ASE source atom. Keys are zero-based ASE
+atom indices:
+
+```python
+styles = StyleConfig(
+    polyhedron_source_overrides={
+        # Make source atom 12's polyhedra more transparent in every replication.
+        12: PolyhedronStyleOverride(transmit=0.7),
+        # Do not render any polyhedron centered on source atom 17.
+        17: PolyhedronStyleOverride(visible=False),
+    },
+)
+```
+
+Use `polyhedron_instance_overrides` when only one displayed periodic image
+should change. `AtomKey(source_index, image_shift)` identifies the source atom
+and its lattice translation:
+
+```python
+styles = StyleConfig(
+    polyhedron_instance_overrides={
+        AtomKey(12, (1, 0, 0)): PolyhedronStyleOverride(visible=False),
+    },
+)
+```
+
+The same visibility mechanism is available for atoms through
+`source_atom_overrides={17: AtomStyleOverride(visible=False)}` and
+`atom_instance_overrides={AtomKey(17, (1, 0, 0)):
+AtomStyleOverride(visible=False)}`. Hiding an atom also suppresses bonds that
+terminate at it; hiding a polyhedron affects only that polyhedron.
+
+When the desired subset is already known before geometry construction, prefer
+a polyhedron rule's `center_selector`. For example, this builds and renders
+Fe-centered polyhedra only above a Cartesian z coordinate of 20 Å:
+
+```python
+polyhedron_rules = (
+    CoordinationPolyhedronRule(
+        center_element="Fe",
+        name="Fe-O",
+        ligand_elements={"O"},
+        bond_rules={"default:Fe-O"},
+        center_selector=lambda atoms: atoms.positions[:, 2] > 20.0,
+    ),
+)
+```
+
+For interactive styling without rebuilding geometry, generate equivalent
+visibility overrides instead:
+
+```python
+z_min = 20.0
+hide_below = {
+    index: PolyhedronStyleOverride(visible=False)
+    for index, (symbol, position) in enumerate(
+        zip(structure.atoms.get_chemical_symbols(), structure.atoms.positions)
+    )
+    if symbol == "Fe" and position[2] <= z_min
+}
+styles = StyleConfig(polyhedron_source_overrides=hide_below)
+```
 
 Set `filter`, `transmit`, or `alpha` directly on `PolyhedronStyle` to retain
 the inherited RGB components while overriding only transparency. These fields
