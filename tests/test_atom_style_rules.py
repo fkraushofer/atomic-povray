@@ -192,7 +192,7 @@ def test_visibility_removes_atom_and_incident_bond_primitives():
     )
 
 
-def test_selected_endpoint_colors_split_dashed_bonds():
+def test_selected_endpoint_color_can_set_single_color_dashed_bond():
     atoms = Atoms(
         "OH",
         positions=((0.0, 0.0, 0.0), (1.8, 0.0, 0.0)),
@@ -217,7 +217,13 @@ def test_selected_endpoint_colors_split_dashed_bonds():
                     AtomStyleOverride(color=selected_color),
                 ),
             ),
-            bonds={"O-H": BondStyle(style="dashed", dashes=2)},
+            bonds={
+                "O-H": BondStyle(
+                    style="dashed",
+                    segments=2,
+                    split_by_atom_color=False,
+                )
+            },
         ),
     )
     cylinders = [
@@ -225,7 +231,7 @@ def test_selected_endpoint_colors_split_dashed_bonds():
     ]
 
     assert cylinders
-    assert cylinders[0].material.color == selected_color
+    assert all(item.material.color == selected_color for item in cylinders)
 
 
 def test_real_structure_selects_twelve_oxygen_atoms_above_z_26():

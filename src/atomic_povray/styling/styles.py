@@ -221,16 +221,26 @@ class BondStyle:
     finish: Finish | None = None
     material_template: Material | None = None
     split_by_atom_color: bool = True
-    style: Literal["solid", "dashed"] = "solid"
-    dashes: int = 4
+    style: Literal["solid", "dashed", "dotted"] = "solid"
+    segments: int = 4
 
     def __post_init__(self) -> None:
-        if self.style not in ("solid", "dashed"):
-            raise ValueError("style must be 'solid' or 'dashed'")
-        if isinstance(self.dashes, bool) or not isinstance(self.dashes, int):
-            raise TypeError("dashes must be an integer")
-        if self.dashes < 1:
-            raise ValueError("dashes must be at least 1")
+        if self.style not in ("solid", "dashed", "dotted"):
+            raise ValueError("style must be 'solid', 'dashed', or 'dotted'")
+        if isinstance(self.segments, bool) or not isinstance(self.segments, int):
+            raise TypeError("segments must be an integer")
+        if self.segments < 1:
+            raise ValueError("segments must be at least 1")
+        if (
+            self.style != "solid"
+            and self.split_by_atom_color
+            and self.color is None
+            and self.material is None
+        ):
+            raise ValueError(
+                "dashed and dotted bonds must be single-color; set color or "
+                "material, or set split_by_atom_color=False"
+            )
 
     def material_for(
         self,
@@ -253,7 +263,7 @@ DEFAULT_HYDROGEN_BOND_STYLE = BondStyle(
     radius=0.05,
     color=Color(0.7, 0.7, 0.7),
     style="dashed",
-    dashes=4,
+    segments=4,
 )
 
 
@@ -527,13 +537,54 @@ def _bond_spans(
 
     direction = vector / length
     visible_start = position_a + style_a.radius * direction
-    dash_length = visible_length / (2 * bond_style.dashes - 1)
+    dash_length = visible_length / (2 * bond_style.segments - 1)
     return tuple(
         (
             visible_start + 2 * index * dash_length * direction,
             visible_start + (2 * index + 1) * dash_length * direction,
         )
-        for index in range(bond_style.dashes)
+        for index in range(bond_style.segments)
+    )
+
+
+def _dotted_bond_primitives(
+    start: Vec3,
+    end: Vec3,
+    style_a: AtomStyle,
+    style_b: AtomStyle,
+    bond_style: BondStyle,
+    default_finish: Finish,
+) -> tuple[SpherePrimitive, ...]:
+    position_a = np.asarray(start, dtype=float)
+    position_b = np.asarray(end, dtype=float)
+    vector = position_b - position_a
+    length = float(np.linalg.norm(vector))
+    if length == 0.0:
+        return ()
+
+    first_distance = style_a.radius + bond_style.radius
+    last_distance = length - style_b.radius - bond_style.radius
+    if first_distance > last_distance:
+        return ()
+
+    if bond_style.segments == 1:
+        distances = np.asarray([(first_distance + last_distance) / 2])
+    else:
+        distances = np.linspace(
+            first_distance,
+            last_distance,
+            bond_style.segments,
+        )
+
+    direction = vector / length
+    material = bond_style.material_for(style_a.color, default_finish)
+    return tuple(
+        SpherePrimitive(
+            tuple(float(value) for value in position_a + distance * direction),
+            bond_style.radius,
+            material,
+        )
+        for distance in distances
     )
 
 
@@ -544,10 +595,21 @@ def _bond_primitives(
     style_b: AtomStyle,
     bond_style: BondStyle,
     default_finish: Finish,
-) -> tuple[CylinderPrimitive, ...]:
+) -> tuple[Primitive, ...]:
+    if bond_style.style == "dotted":
+        return _dotted_bond_primitives(
+            start,
+            end,
+            style_a,
+            style_b,
+            bond_style,
+            default_finish,
+        )
+
     spans = _bond_spans(start, end, style_a, style_b, bond_style)
     if (
-        bond_style.color is not None
+        bond_style.style == "dashed"
+        or bond_style.color is not None
         or bond_style.material is not None
         or not bond_style.split_by_atom_color
     ):
@@ -607,13 +669,13 @@ def _bond_primitives(
 
 
 def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry:
-    """Resolve atom rules, then create spheres and bond cylinders."""
+    """Resolve atom rules, then create atom and bond primitives."""
 
     primitives: list[Primitive] = []
     atom_by_key = {atom.key: atom for atom in geometry.atoms}
     atom_styles = resolve_atom_styles(geometry, styles)
 
-    # Bonds first so spheres naturally hide cylinder ends.
+    # Bonds first so atom spheres naturally hide solid-cylinder ends.
     for bond in (geometry.bonds if styles.draw_bonds else ()):
         atom_a = atom_by_key[bond.atom_a]
         atom_b = atom_by_key[bond.atom_b]
