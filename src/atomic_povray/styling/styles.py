@@ -289,8 +289,8 @@ class PolyhedronStyle:
     color: Color | None = None
     material: Material | None = None
     finish: Finish | None = None
-    filter: float | None = None
-    transmit: float | None = None
+    filter: float | None = 0.05
+    transmit: float | None = 0.3
     alpha: float | None = None
     edges: PolyhedronEdgeStyle = PolyhedronEdgeStyle()
 
@@ -405,10 +405,7 @@ class StyleConfig:
     )
     default_atom: AtomStyle = AtomStyle()
     default_bond: BondStyle = BondStyle()
-    default_polyhedron: PolyhedronStyle = PolyhedronStyle(
-        filter=0.05,
-        transmit=0.3,
-    )
+    default_polyhedron: PolyhedronStyle = PolyhedronStyle()
     default_atom_finish: Finish = Finish(phong=0.3)
     default_bond_finish: Finish = Finish()
     default_polyhedron_finish: Finish = Finish(phong=0.15)
