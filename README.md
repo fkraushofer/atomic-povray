@@ -37,12 +37,14 @@ file can be written and then rendered manually.
 - perspective and orthographic cameras
 - point lights, backgrounds, transparent output
 - direct POV-Ray SDL and INI generation
-- an `extra_primitives=` scene hook for later unit cells, arrows, isosurfaces, etc.
+- an `extra_primitives=` scene hook for unit cells, arrows, isosurfaces, labels, etc.
+- camera-facing atom labels with configurable text, selection, font, size, offset,
+  thickness, color, or material
 - optional per-vertex normals for smooth externally generated triangle meshes
 - notebook-friendly, explicitly staged API
 
-Labels, polyhedra, persistent disk caching, and an interactive preview are
-intentionally deferred.
+Collision avoidance, leader lines, fixed-screen label placement, polyhedra,
+persistent disk caching, and an interactive preview are intentionally deferred.
 
 ## Installation
 
@@ -642,6 +644,45 @@ first lattice vector while retaining them at the other five faces.
 
 The minimal notebook and script provide the shortest complete path through the
 pipeline. See the examples table above for feature-focused alternatives.
+
+## Atom labels
+
+Labels are ordinary renderer-independent `TextPrimitive` objects and are added
+through the existing `extra_primitives` scene hook. `label_atoms()` consumes
+`StyledGeometry` so it can place each label just in front of the atom surface
+using the final resolved radius:
+
+```python
+labels = label_atoms(
+    styled,
+    camera=camera,
+    labels=lambda atom: f"{atom.symbol}{atom.key.source_index + 1}",
+    selection=lambda atom: not atom.is_extension,
+    offset=(0.15, 0.10, 0.02),
+    size=0.4,
+    font="timrom.ttf",
+    color=Color(0.05, 0.05, 0.05),
+)
+
+scene = make_scene(
+    styled.primitives,
+    camera=camera,
+    lights=(get_default_light(camera),),
+    extra_primitives=labels,
+)
+```
+
+The three `offset` components mean image-right, image-up, and toward-camera,
+respectively, and the same offset is applied to every selected atom. Labels
+face the camera in both orthographic and perspective scenes. If `labels` is
+omitted, the default text is the element symbol plus the one-based ASE source
+index, such as `Fe17`. Empty strings suppress individual labels.
+
+This first implementation uses POV-Ray TrueType text with left alignment.
+The default `timrom.ttf` is normally bundled with POV-Ray; pass another font
+name or path when needed. `material=` can replace the simple `color=` setting.
+Collision avoidance, leader lines, fixed-screen positioning, and label rules
+inside `StyleConfig` are deliberately outside this basic layer.
 
 ## Extra primitive hook
 
