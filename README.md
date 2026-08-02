@@ -660,7 +660,6 @@ using the final resolved radius:
 labels = label_atoms(
     styled,
     camera=camera,
-    labels=lambda atom: f"{atom.symbol}{atom.key.source_index + 1}",
     selection=lambda atom: not atom.is_extension,
     offset=(0.15, 0.10, 0.02),
     size=0.4,
@@ -678,9 +677,11 @@ scene = make_scene(
 
 The three `offset` components mean image-right, image-up, and toward-camera,
 respectively, and the same offset is applied to every selected atom. Labels
-face the camera in both orthographic and perspective scenes. If `labels` is
-omitted, the default text is the element symbol plus the one-based ASE source
-index, such as `Fe17`. Empty strings suppress individual labels.
+face the camera in both orthographic and perspective scenes. If `labels` is omitted, the default uses VESTA-style per-element numbering:
+`O1`, `O2`, … and independently `Fe1`, `Fe2`, …. Numbering follows the original
+ASE atom order even when elements are interleaved. The same convention is
+available separately as `element_labels(structure.atoms)`. Pass a `labels=`
+callable to use another convention; empty strings suppress individual labels.
 
 This first implementation uses POV-Ray TrueType text with left alignment.
 The default `timrom.ttf` is normally bundled with POV-Ray; pass another font
