@@ -87,6 +87,21 @@ class CylinderPrimitive:
 
 
 @dataclass(frozen=True)
+class TextPrimitive:
+    """Camera-oriented TrueType text in world coordinates."""
+
+    text: str
+    position: Vec3
+    right: Vec3
+    up: Vec3
+    normal: Vec3
+    material: Material
+    font: str = "timrom.ttf"
+    size: float = 0.4
+    thickness: float = 0.02
+
+
+@dataclass(frozen=True)
 class TriangleMeshPrimitive:
     """Generic triangle mesh hook for external hull/isosurface modules."""
 
@@ -100,4 +115,6 @@ class TriangleMeshPrimitive:
             raise ValueError("Triangle mesh normals must match the vertex count")
 
 
-Primitive: TypeAlias = SpherePrimitive | CylinderPrimitive | TriangleMeshPrimitive
+Primitive: TypeAlias = (
+    SpherePrimitive | CylinderPrimitive | TextPrimitive | TriangleMeshPrimitive
+)
