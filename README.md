@@ -419,6 +419,8 @@ the inherited RGB components while overriding only transparency. These fields
 also work in `PolyhedronStyleOverride`. If `color` is supplied, they modify
 that color instead. A full `material` remains the highest-precedence override.
 
+By default, polyhedron faces inherit the resolved center-atom RGB color and use `filter=0.05, transmit=0.3`. Override either component in `default_polyhedron`, a named polyhedron style, or a source/instance override when a different transparency is desired.
+
 POV-Ray distinguishes neutral transmission from colored filtering:
 
 ```python
@@ -815,8 +817,7 @@ scene_path = write_scene(
 ini_path = write_ini(scene_path, "hematite.png", config)
 ```
 
-Transparent or multiply reflected scenes may require a larger POV-Ray ray-depth
-limit. Configure it directly rather than editing the generated scene:
+Transparent or multiply reflected scenes can look slightly better with a larger POV-Ray ray-depth limit, especially where several closed polyhedra overlap. This is an optional quality refinement rather than a prerequisite for ordinary transparency. Configure it directly rather than editing the generated scene:
 
 ```python
 config = RenderConfig(max_trace_level=20)
@@ -830,6 +831,10 @@ escape hatches, so their syntax is passed to POV-Ray without validation.
 
 Open or render `hematite.ini`, rather than the `.pov` file alone, to retain
 the configured output gamma, antialiasing, transparency, quality, and size.
+POV-Ray transparency/refraction requires quality 9 or higher. When using the
+POV-Ray editor, also check its command-line or extra render options: an option
+such as `+Q5` overrides the quality from the generated INI and makes transparent
+polyhedra render opaque.
 
 See [Configure the POV-Ray executable](#configure-the-pov-ray-executable) for
 Linux, Conda, and Windows examples. The package detects `pvengine*.exe` and
