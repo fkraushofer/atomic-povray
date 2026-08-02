@@ -182,6 +182,9 @@ def test_default_polyhedron_inherits_rgb_with_transparency():
             draw_atoms=False,
             draw_bonds=False,
             elements={"Fe": AtomStyle(color=Color(0.7, 0.2, 0.1))},
+            polyhedra={
+                "Fe-polyhedron": PolyhedronStyle(finish=Finish(phong=0.2)),
+            },
         ),
     )
 
