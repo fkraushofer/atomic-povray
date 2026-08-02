@@ -7,6 +7,7 @@ from numbers import Real
 from typing import Callable
 
 import numpy as np
+from ase import Atoms
 
 from .model import AtomInstance, Vec3
 from .primitives import Color, Finish, Material, TextPrimitive
@@ -16,6 +17,21 @@ from .styling import StyledGeometry
 AtomLabeler = Callable[[AtomInstance], str]
 AtomLabelSelection = Callable[[AtomInstance], bool]
 
+
+def element_labels(atoms: Atoms) -> tuple[str, ...]:
+    """Return VESTA-style labels numbered separately for each element.
+
+    Numbering follows the ASE atom order, including when atoms of the same
+    element are not contiguous. For example, ``O Fe O Fe`` becomes
+    ``O1 Fe1 O2 Fe2``.
+    """
+
+    counts: dict[str, int] = {}
+    labels: list[str] = []
+    for symbol in atoms.get_chemical_symbols():
+        counts[symbol] = counts.get(symbol, 0) + 1
+        labels.append(f"{symbol}{counts[symbol]}")
+    return tuple(labels)
 
 def _camera_basis(camera: Camera) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return unit vectors for image-right, image-up, and toward-camera."""
@@ -86,7 +102,11 @@ def label_atoms(
         + float(offset[1]) * up
         + float(offset[2]) * toward_camera
     )
-    labeler = labels or (lambda atom: f"{atom.symbol}{atom.key.source_index + 1}")
+    if labels is None:
+        labels_by_source = element_labels(styled.geometry.structure.atoms)
+        labeler = lambda atom: labels_by_source[atom.key.source_index]
+    else:
+        labeler = labels
     text_material = material or Finish().material(color)
 
     primitives: list[TextPrimitive] = []
