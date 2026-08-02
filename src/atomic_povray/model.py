@@ -52,6 +52,19 @@ class BondNeighbor:
 
 
 @dataclass(frozen=True)
+class CoordinationPolyhedron:
+    """Convex ligand hull around one displayed central atom."""
+
+    center: AtomKey
+    rule_id: str
+    ligand_keys: tuple[AtomKey, ...]
+    vertices: tuple[Vec3, ...]
+    faces: tuple[tuple[int, int, int], ...]
+    edges: tuple[tuple[int, int], ...]
+    dimension: int
+
+
+@dataclass(frozen=True)
 class StructureModel:
     """ASE structure kept by composition rather than inheritance."""
 
@@ -72,6 +85,7 @@ class GeometryModel:
     bonds: tuple[Bond, ...]
     adjacency: tuple[tuple[int, ...], ...]
     source_environments: tuple[tuple[BondNeighbor, ...], ...] = ()
+    polyhedra: tuple[CoordinationPolyhedron, ...] = ()
 
     def atom_index(self) -> dict[AtomKey, int]:
         return {atom.key: index for index, atom in enumerate(self.atoms)}
