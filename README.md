@@ -43,7 +43,7 @@ file can be written and then rendered manually.
 - optional per-vertex normals for smooth externally generated triangle meshes
 - notebook-friendly, explicitly staged API
 
-Collision avoidance, leader lines, fixed-screen label placement, polyhedra,
+Collision avoidance, leader lines, and fixed-screen label placement
 persistent disk caching, and an interactive preview are intentionally deferred.
 
 ## Installation
@@ -356,6 +356,74 @@ covalent radii are based on Cordero *et al.*, “Covalent radii revisited”
 Jmol color table. VESTA inspired the conservative candidate-pair policy and
 editable workflow, but no VESTA data files are redistributed.
 
+## Coordination polyhedra
+
+Polyhedra reuse the complete periodic environments produced by the bond rules,
+then calculate the ligand hull with SciPy. Define them during geometry
+construction and style them independently:
+
+```python
+polyhedron_rules = (
+    CoordinationPolyhedronRule(
+        center_element="Fe",
+        name="Fe-O",
+        ligand_elements={"O"},
+        bond_rules={"default:Fe-O"},
+        boundary_mode="complete",
+    ),
+)
+geometry = build_geometry(
+    structure,
+    bond_rules=bond_rules,
+    polyhedron_rules=polyhedron_rules,
+)
+
+styles = StyleConfig(
+    preset_style="polyhedral",
+    polyhedra={
+        "Fe-O": PolyhedronStyle(
+            color=Color(0.8, 0.2, 0.1, alpha=0.55),
+            edges=PolyhedronEdgeStyle(
+                visible=True,
+                radius=0.025,
+                color=Color(0.25, 0.08, 0.05),
+            ),
+        ),
+    },
+)
+```
+
+The default `boundary_mode="complete"` builds the full one-hop ligand shell
+around every in-bounds center, including ligands outside the display region.
+Use `"visible"` to restrict hull vertices to displayed atom instances.
+`center_selector` accepts the same integer-index, integer-sequence, or
+Boolean-mask results as atom selection rules. Ligands can be filtered by
+element and bond-rule ID. `expansion` moves every vertex radially by an
+absolute distance in Å.
+
+Three-dimensional environments use a convex hull with outward-oriented
+triangles. Coplanar environments use a deterministic projected polygon, so
+square-planar coordination is supported. Optional edge cylinders contain only
+true polyhedron edges, not triangulation diagonals across flat faces.
+
+`draw_atoms`, `draw_bonds`, and `draw_polyhedra` are independent
+`StyleConfig` controls. Face colors inherit the resolved central-atom color
+unless the polyhedron style supplies a color or material. Source-atom and
+displayed-instance polyhedron overrides are available through
+`polyhedron_source_overrides` and `polyhedron_instance_overrides`.
+
+POV-Ray distinguishes neutral transmission from colored filtering:
+
+```python
+Color(0.8, 0.2, 0.1, alpha=0.6)               # transmit=0.4
+Color(0.8, 0.2, 0.1, filter=0.3)              # tinted transmission
+Color(0.8, 0.2, 0.1, filter=0.2, transmit=0.3)
+```
+
+`alpha` is exactly an opacity alias for `1 - transmit`; passing both
+`alpha` and `transmit` raises an error. `filter` may be combined with
+either form. All transparency components must lie between 0 and 1.
+
 ## Atom style rules
 
 Atom appearance resolves from the general element style through increasingly
@@ -523,13 +591,15 @@ styles = StyleConfig(
 The origin defines the onset plane perpendicular to `direction`. Colors before
 that plane are unchanged. Beyond it, the original color contribution decays
 exponentially and is `1/e` after `decay_length`. Spheres use their centers,
-cylinders their midpoints, and meshes the mean of their vertices. To reproduce
+cylinders their midpoints, and meshes their optional `reference_position` or
+otherwise the mean of their vertices. Coordination polyhedra set this reference
+to their central atom. To reproduce
 the fog-like appearance of the legacy renderer, diffuse and Phong lighting decay
 as the square of the color factor, specular highlights decay as its cube, and
 ambient lighting rises toward `1` so distant primitives flatten into the target
-color. Alpha is preserved by default.
+color. Filter and transmission are preserved by default.
 
-Set `shade_alpha=True` to blend opacity toward `target.alpha` as well:
+Set `shade_alpha=True` to blend both transparency components toward the target:
 
 ```python
 DepthShading(
