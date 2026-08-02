@@ -382,7 +382,9 @@ styles = StyleConfig(
     preset_style="polyhedral",
     polyhedra={
         "Fe-O": PolyhedronStyle(
-            color=Color(0.8, 0.2, 0.1, alpha=0.55),
+            # Inherit the resolved Fe color, changing only transparency.
+            alpha=0.55,
+            filter=0.15,
             edges=PolyhedronEdgeStyle(
                 visible=True,
                 radius=0.025,
@@ -411,6 +413,11 @@ true polyhedron edges, not triangulation diagonals across flat faces.
 unless the polyhedron style supplies a color or material. Source-atom and
 displayed-instance polyhedron overrides are available through
 `polyhedron_source_overrides` and `polyhedron_instance_overrides`.
+
+Set `filter`, `transmit`, or `alpha` directly on `PolyhedronStyle` to retain
+the inherited RGB components while overriding only transparency. These fields
+also work in `PolyhedronStyleOverride`. If `color` is supplied, they modify
+that color instead. A full `material` remains the highest-precedence override.
 
 POV-Ray distinguishes neutral transmission from colored filtering:
 
