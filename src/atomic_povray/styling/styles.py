@@ -289,12 +289,38 @@ class PolyhedronStyle:
     color: Color | None = None
     material: Material | None = None
     finish: Finish | None = None
+    filter: float | None = None
+    transmit: float | None = None
+    alpha: float | None = None
     edges: PolyhedronEdgeStyle = PolyhedronEdgeStyle()
+
+    def __post_init__(self) -> None:
+        if self.alpha is not None and self.transmit is not None:
+            raise ValueError("alpha and transmit are aliases; pass only one")
+        for name, value in (
+            ("filter", self.filter),
+            ("transmit", self.transmit),
+            ("alpha", self.alpha),
+        ):
+            if value is not None and not 0 <= value <= 1:
+                raise ValueError(f"Polyhedron {name} must lie between 0 and 1")
 
     def material_for(self, fallback: Color, default_finish: Finish) -> Material:
         if self.material is not None:
             return self.material
-        return (self.finish or default_finish).material(self.color or fallback)
+        color = self.color or fallback
+        if self.filter is not None or self.transmit is not None or self.alpha is not None:
+            transmit = self.transmit
+            if self.alpha is not None:
+                transmit = 1.0 - self.alpha
+            color = Color(
+                color.red,
+                color.green,
+                color.blue,
+                filter=color.filter if self.filter is None else self.filter,
+                transmit=color.transmit if transmit is None else transmit,
+            )
+        return (self.finish or default_finish).material(color)
 
 
 @dataclass(frozen=True)
@@ -303,23 +329,42 @@ class PolyhedronStyleOverride:
     color: Color | None = None
     material: Material | None = None
     finish: Finish | None = None
+    filter: float | None = None
+    transmit: float | None = None
+    alpha: float | None = None
     edges: PolyhedronEdgeStyle | None = None
 
+    def __post_init__(self) -> None:
+        if self.alpha is not None and self.transmit is not None:
+            raise ValueError("alpha and transmit are aliases; pass only one")
+        for name, value in (
+            ("filter", self.filter),
+            ("transmit", self.transmit),
+            ("alpha", self.alpha),
+        ):
+            if value is not None and not 0 <= value <= 1:
+                raise ValueError(f"Polyhedron {name} must lie between 0 and 1")
+
     def apply(self, style: PolyhedronStyle) -> PolyhedronStyle:
-        return replace(
-            style,
-            **{
+        changes = {
                 name: value
                 for name, value in (
                     ("visible", self.visible),
                     ("color", self.color),
                     ("material", self.material),
                     ("finish", self.finish),
+                    ("filter", self.filter),
+                    ("transmit", self.transmit),
+                    ("alpha", self.alpha),
                     ("edges", self.edges),
                 )
                 if value is not None
-            },
-        )
+            }
+        if self.alpha is not None:
+            changes["transmit"] = None
+        elif self.transmit is not None:
+            changes["alpha"] = None
+        return replace(style, **changes)
 
 
 DEFAULT_HYDROGEN_BOND_STYLE = BondStyle(
