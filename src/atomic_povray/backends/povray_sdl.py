@@ -17,6 +17,7 @@ from ..primitives import (
     Material,
     Primitive,
     SpherePrimitive,
+    TextPrimitive,
     TriangleMeshPrimitive,
 )
 from ..scene import AreaLight, Camera, PointLight, Scene
@@ -56,6 +57,30 @@ def _material(material: Material) -> str:
     return f"{_pigment(material.color)} {_finish(material)}"
 
 
+def _quoted(value: str) -> str:
+    return (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
+
+
+def _text_matrix(primitive: TextPrimitive) -> str:
+    right = primitive.right
+    up = primitive.up
+    normal = primitive.normal
+    position = primitive.position
+    values = (
+        right[0], up[0], normal[0],
+        right[1], up[1], normal[1],
+        right[2], up[2], normal[2],
+        *position,
+    )
+    return "<" + ", ".join(_number(value) for value in values) + ">"
+
+
 def _primitive_to_sdl(primitive: Primitive) -> str:
     if isinstance(primitive, SpherePrimitive):
         return (
@@ -66,6 +91,15 @@ def _primitive_to_sdl(primitive: Primitive) -> str:
         return (
             f"cylinder {{ {_vector(primitive.start)}, {_vector(primitive.end)}, "
             f"{_number(primitive.radius)} {_material(primitive.material)} }}"
+        )
+    if isinstance(primitive, TextPrimitive):
+        return (
+            'text { ttf '
+            f'"{_quoted(primitive.font)}" "{_quoted(primitive.text)}" '
+            f'{_number(primitive.thickness)}, 0 '
+            f'{_material(primitive.material)} '
+            f'scale {_number(primitive.size)} '
+            f'matrix {_text_matrix(primitive)} }'
         )
     if isinstance(primitive, TriangleMeshPrimitive):
         lines = ["mesh2 {"]
