@@ -166,8 +166,8 @@ Inputs are located relative to the repository, while generated files default
 to the shell's current working directory.
 
 The Rh/H₂O example intentionally keeps reusable choices separate from scene
-construction. Copy `hematite_profile.py` into a project's own `render` package and adapt
-it there; an installed atomic-povray package never needs to be edited.
+construction. Copy `hematite_profile.py` into a project's own `render` package
+and adapt it there; an installed atomic-povray package never needs to be edited.
 
 ## Staged notebook API
 
@@ -987,9 +987,8 @@ PERSPECTIVE_PROFILE = replace(
 )
 ```
 
-See `examples/hematite_profile.py` for a complete project-owned profile and side, top,
-and perspective variants. The notebook example keeps its tailored preferences
-in `notebooks/hematite_profile.py`.
+See `examples/hematite_profile.py` and `notebooks/hematite_profile.py` for
+matching project-owned profiles used by the two hematite workflows.
 
 ## Tests
 
