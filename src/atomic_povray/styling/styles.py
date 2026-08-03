@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Literal, TypeAlias
 import numpy as np
 
 from .._defaults import (
-    DEFAULT_AMBIENT_SCALE,
     DEFAULT_ATOM_FINISH,
     DEFAULT_BOND_FINISH,
     DEFAULT_BOND_RADIUS,
@@ -401,7 +400,6 @@ class StyleConfig:
     draw_atoms: bool = True
     draw_bonds: bool | None = None
     draw_polyhedra: bool = True
-    ambient_scale: float = DEFAULT_AMBIENT_SCALE
     elements: dict[str, AtomStyle] = field(default_factory=dict)
     bonds: dict[str, BondStyle] = field(default_factory=dict)
     polyhedra: dict[str, PolyhedronStyle] = field(default_factory=dict)
@@ -445,10 +443,8 @@ class StyleConfig:
             atom_scale = preset_scale
         self._validate_size_scale("atom_size_scale", atom_scale)
         self._validate_size_scale("bond_size_scale", self.bond_size_scale)
-        self._validate_ambient_scale(self.ambient_scale)
         object.__setattr__(self, "atom_size_scale", float(atom_scale))
         object.__setattr__(self, "bond_size_scale", float(self.bond_size_scale))
-        object.__setattr__(self, "ambient_scale", float(self.ambient_scale))
         if self.draw_bonds is None:
             object.__setattr__(
                 self,
@@ -462,13 +458,6 @@ class StyleConfig:
             raise TypeError(f"{name} must be a real number")
         if not isfinite(scale) or scale <= 0:
             raise ValueError(f"{name} must be positive and finite")
-
-    @staticmethod
-    def _validate_ambient_scale(scale: float) -> None:
-        if isinstance(scale, bool) or not isinstance(scale, Real):
-            raise TypeError("ambient_scale must be a real number")
-        if not isfinite(scale) or scale < 0:
-            raise ValueError("ambient_scale must be non-negative and finite")
 
     @property
     def atom_finish(self) -> Finish:
@@ -644,20 +633,6 @@ def _primitive_position(primitive: Primitive) -> Vec3 | None:
             for value in np.mean(np.asarray(primitive.vertices, dtype=float), axis=0)
         )
     return None
-
-
-def _apply_ambient_scale(
-    primitives: list[Primitive],
-    scale: float,
-) -> None:
-    for index, primitive in enumerate(primitives):
-        primitives[index] = replace(
-            primitive,
-            material=replace(
-                primitive.material,
-                ambient=primitive.material.ambient * scale,
-            ),
-        )
 
 
 def _apply_depth_shading(
@@ -902,6 +877,5 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
             for atom in geometry.atoms
             if atom_styles[atom.key].visible
         )
-    _apply_ambient_scale(primitives, styles.ambient_scale)
     _apply_depth_shading(primitives, styles.depth_shading)
     return StyledGeometry(geometry, tuple(primitives), atom_styles)
