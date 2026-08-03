@@ -851,6 +851,30 @@ scene = make_scene(
 )
 ```
 
+
+Use `primitive_images()` to repeat any generic extra primitive over integer unit-cell images without rebuilding it. The three ranges use the same lattice-vector order, signs, and half-open convention as `DisplayBounds.fractional_ranges`; fractional endpoints are deliberately not accepted:
+
+```python
+positive_images = primitive_images(
+    positive_iso,
+    structure,
+    ranges=((-1, 2), (0, 1), (0, 1)),
+)
+negative_images = primitive_images(
+    negative_iso,
+    structure,
+    ranges=((-1, 2), (0, 1), (0, 1)),
+)
+
+scene = make_scene(
+    styled.primitives,
+    camera=camera,
+    extra_primitives=positive_images + negative_images,
+)
+```
+
+The example produces the original primitive and its neighboring images along both −a and +a. Translations always use `structure.atoms.cell`; mesh faces, normals, materials, and text orientation are reused unchanged.
+
 `TriangleMeshPrimitive` is part of the generic primitive model so external
 charge-density or convex-hull modules can insert triangle meshes. Set its
 optional `normals` field to one normal per vertex for smooth POV-Ray
@@ -1000,3 +1024,4 @@ The tests cover ordinary and boundary-crossing bonds, skewed cells, clipping
 planes, asymmetric and symmetric one-hop extensions, non-recursion, per-plane
 extension control, replication identities, bicolored styling, extra
 primitives, shared and overridden finishes, gamma settings, and SDL output.
+
