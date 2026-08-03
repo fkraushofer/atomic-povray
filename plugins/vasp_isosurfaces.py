@@ -51,10 +51,10 @@ if TYPE_CHECKING:
 
 
 DEFAULT_POSITIVE_MATERIAL = Material(
-    Color(1, 1, 0, transmit=0.3, filter=0.1)
+    Color(1, 1, 0, transmit=0.4, filter=0.1)
 )
 DEFAULT_NEGATIVE_MATERIAL = Material(
-    Color(0, 1, 1, transmit=0.3, filter=0.1)
+    Color(0, 1, 1, transmit=0.4, filter=0.1)
 )
 
 _CACHE_FORMAT = "atomic-povray-vasp-isosurfaces"
