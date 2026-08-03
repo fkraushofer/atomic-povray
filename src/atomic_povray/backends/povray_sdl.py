@@ -442,8 +442,14 @@ def render_scene(
     scene: Scene,
     output: str | Path,
     config: RenderConfig | None = None,
+    *,
+    cleanup: bool = False,
 ) -> RenderResult:
-    """Write and render a scene with POV-Ray."""
+    """Write and render a scene with POV-Ray.
+
+    When ``cleanup`` is true, remove the generated scene and INI files after a
+    successful render. Failed renders retain both files for inspection.
+    """
 
     config = config or RenderConfig()
     if scene.fog is not None and config.quality < 9:
@@ -470,16 +476,17 @@ def render_scene(
 
     executable_name = Path(config.executable).name.lower()
     if executable_name.startswith(("pvengine", "povwin")):
-        command = (config.executable, "/RENDER", str(ini_path), "/EXIT")
+        command = (config.executable, "/RENDER", ini_path.name, "/EXIT")
     else:
-        command = (config.executable, str(ini_path))
+        command = (config.executable, ini_path.name)
     completed = subprocess.run(
         command,
         check=True,
         capture_output=True,
         text=True,
+        cwd=image_path.parent.resolve(),
     )
-    return RenderResult(
+    result = RenderResult(
         image_path,
         scene_path,
         ini_path,
@@ -487,3 +494,7 @@ def render_scene(
         completed.stdout,
         completed.stderr,
     )
+    if cleanup:
+        scene_path.unlink()
+        ini_path.unlink()
+    return result

@@ -885,7 +885,20 @@ preserved.
 
 `write_scene` and `write_ini` only need Python. `render_scene` additionally
 needs POV-Ray. It writes a `.pov` scene and `.ini` render file beside the
-requested image.
+requested image and runs POV-Ray in that directory, so the output may be placed
+in a relative or absolute subdirectory. Pass `cleanup=True` to remove the
+generated `.pov` and `.ini` files after a successful render; both files are
+retained when rendering fails so that the error can be diagnosed:
+
+```python
+result = render_scene(
+    scene,
+    "output/Rh+H2O_side.png",
+    config,
+    cleanup=True,
+)
+```
+
 Generated scenes explicitly include `global_settings { assumed_gamma 1.0 }`.
 The generated SDL and `RenderConfig` default to POV-Ray 3.7. Use
 `povray_version="3.8"` only when 3.8-specific SDL compatibility is needed.

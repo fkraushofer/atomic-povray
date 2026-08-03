@@ -148,6 +148,70 @@ def test_render_warns_when_quality_disables_fog(tmp_path: Path, monkeypatch):
         )
 
 
+def test_render_runs_in_output_directory_and_can_clean_up(
+    tmp_path: Path, monkeypatch
+):
+    scene = make_scene(
+        (),
+        camera=Camera.perspective(
+            direction=(0.0, 10.0, 0.0),
+            target=(0.0, 0.0, 0.0),
+            up=(0.0, 0.0, 1.0),
+        ),
+    )
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        return SimpleNamespace(stdout="done", stderr="")
+
+    monkeypatch.setattr(
+        "atomic_povray.backends.povray_sdl.subprocess.run",
+        fake_run,
+    )
+    output = tmp_path / "output" / "scene.png"
+
+    result = render_scene(
+        scene,
+        output,
+        RenderConfig(executable="pvengine64.exe"),
+        cleanup=True,
+    )
+
+    command, kwargs = calls[0]
+    assert command == ("pvengine64.exe", "/RENDER", "scene.ini", "/EXIT")
+    assert kwargs["cwd"] == output.parent.resolve()
+    assert result.image_path == output
+    assert not result.scene_path.exists()
+    assert not result.ini_path.exists()
+
+
+def test_render_keeps_intermediate_files_after_failure(tmp_path: Path, monkeypatch):
+    scene = make_scene(
+        (),
+        camera=Camera.perspective(
+            direction=(0.0, 10.0, 0.0),
+            target=(0.0, 0.0, 0.0),
+            up=(0.0, 0.0, 1.0),
+        ),
+    )
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("render failed")
+
+    monkeypatch.setattr(
+        "atomic_povray.backends.povray_sdl.subprocess.run",
+        fail,
+    )
+    output = tmp_path / "output" / "scene.png"
+
+    with pytest.raises(RuntimeError, match="render failed"):
+        render_scene(scene, output, RenderConfig(), cleanup=True)
+
+    assert output.with_suffix(".pov").exists()
+    assert output.with_suffix(".ini").exists()
+
+
 @pytest.mark.parametrize("distance", (0.0, -1.0, float("inf"), float("nan")))
 def test_fog_distance_is_positive_and_finite(distance):
     with pytest.raises(ValueError, match="fog distance"):
