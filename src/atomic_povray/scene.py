@@ -41,13 +41,17 @@ class Camera:
     def perspective(
         cls,
         *,
-        direction: Vec3,
+        direction: Vec3 | None = None,
         target: Vec3,
         up: Vec3 | None = None,
         angle: float | None = None,
         profile: AtomicPovrayProfile = DEFAULT_PROFILE,
     ) -> "Camera":
         defaults = profile.scene
+        if direction is None:
+            direction = defaults.camera_direction
+        if direction is None:
+            raise ValueError("direction must be passed or defined by the profile")
         return cls(
             direction,
             target,
@@ -60,13 +64,17 @@ class Camera:
     def orthographic(
         cls,
         *,
-        direction: Vec3,
+        direction: Vec3 | None = None,
         target: Vec3,
         up: Vec3 | None = None,
         width: float | None = None,
         profile: AtomicPovrayProfile = DEFAULT_PROFILE,
     ) -> "Camera":
         defaults = profile.scene
+        if direction is None:
+            direction = defaults.camera_direction
+        if direction is None:
+            raise ValueError("direction must be passed or defined by the profile")
         return cls(
             direction,
             target,
