@@ -910,6 +910,30 @@ Transparent or multiply reflected scenes can look slightly better with a larger 
 config = RenderConfig(max_trace_level=20)
 ```
 
+POV-Ray radiosity provides indirect illumination and can produce much more
+natural-looking shadows and surfaces, but it is substantially slower. It is
+disabled by default. Enable the conservative general-purpose preset with:
+
+```python
+from atomic_povray import Radiosity, RenderConfig
+
+config = RenderConfig(radiosity=Radiosity())
+```
+
+The preset corresponds to `pretrace_start=0.08`, `pretrace_end=0.01`,
+`count=100`, `error_bound=0.5`, and `recursion_limit=2`; pass different
+values to `Radiosity` when tuning a final render. Radiosity supplies indirect
+illumination, so materials normally look best with `ambient=0`. If any scene
+primitive retains a nonzero material ambient coefficient, SDL generation emits
+a warning but continues normally. A quick way to set the shared atom, bond, and
+polyhedron finishes is:
+
+```python
+from atomic_povray import Finish, StyleConfig
+
+styles = StyleConfig(default_finish=Finish(ambient=0))
+```
+
 For advanced POV-Ray features not yet represented by the Python API,
 `RenderConfig` also accepts raw `additional_pov` and `additional_ini` text.
 The former is inserted after `global_settings` and before the generated camera;
