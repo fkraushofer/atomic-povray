@@ -39,6 +39,7 @@ class StyleDefaults:
     preset_atom_size_scales: Mapping[str, float] = field(
         default_factory=lambda: _defaults.DEFAULT_PRESET_ATOM_SIZE_SCALES
     )
+    atom_size_scale: float = _defaults.DEFAULT_ATOM_SIZE_SCALE
     bond_size_scale: float = _defaults.DEFAULT_BOND_SIZE_SCALE
     bond_radius: float = _defaults.DEFAULT_BOND_RADIUS
     hydrogen_bond_radius: float = _defaults.DEFAULT_HYDROGEN_BOND_RADIUS
@@ -71,6 +72,7 @@ class StyleDefaults:
 
 @dataclass(frozen=True)
 class SceneDefaults:
+    camera_direction: Vec3 | None = None
     camera_up: Vec3 = _defaults.DEFAULT_CAMERA_UP
     camera_angle: float = _defaults.DEFAULT_CAMERA_ANGLE
     camera_width: float = _defaults.DEFAULT_CAMERA_WIDTH
