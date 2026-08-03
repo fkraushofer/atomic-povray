@@ -119,7 +119,7 @@ example scripts. Use `conda env config vars unset POVRAY` to remove it again.
 | `examples/rh_h2o_hematite.py` | Command-line hydrogen-bond and surface-color example with imported project defaults |
 | `examples/render_file.py` | Render any ASE-readable file with automatic orthographic framing |
 | `examples/render_batch.py` | Apply the same settings to files or wildcard patterns |
-| `examples/profile.py` | Copyable project profiles with element, view, lighting, and render defaults |
+| `examples/hematite_profile.py` | Copyable project profiles with element, view, lighting, and render defaults |
 
 Run the executable examples as modules from the repository root:
 
@@ -166,7 +166,7 @@ Inputs are located relative to the repository, while generated files default
 to the shell's current working directory.
 
 The Rh/H₂O example intentionally keeps reusable choices separate from scene
-construction. Copy `profile.py` into a project's own `render` package and adapt
+construction. Copy `hematite_profile.py` into a project's own `render` package and adapt
 it there; an installed atomic-povray package never needs to be edited.
 
 ## Staged notebook API
@@ -987,7 +987,7 @@ PERSPECTIVE_PROFILE = replace(
 )
 ```
 
-See `examples/profile.py` for a complete project-owned profile and side, top,
+See `examples/hematite_profile.py` for a complete project-owned profile and side, top,
 and perspective variants. The notebook example keeps its tailored preferences
 in `notebooks/hematite_profile.py`.
 
