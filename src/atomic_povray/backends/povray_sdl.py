@@ -351,10 +351,17 @@ class RenderConfig:
             "height",
             "quality",
             "antialias",
+            "antialias_threshold",
+            "sampling_method",
+            "display_gamma",
+            "file_gamma",
             "transparent",
             "display",
             "executable",
             "povray_version",
+            "max_trace_level",
+            "additional_pov",
+            "additional_ini",
         ):
             if getattr(self, name) is None:
                 object.__setattr__(self, name, getattr(defaults, name))
