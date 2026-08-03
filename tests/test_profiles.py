@@ -92,10 +92,7 @@ def test_style_profile_controls_presets_finishes_and_hydrogen_bonds():
         DEFAULT_PROFILE,
         style=replace(
             DEFAULT_PROFILE.style,
-            preset_atom_size_scales={
-                **DEFAULT_PROFILE.style.preset_atom_size_scales,
-                "ball_and_stick": 0.55,
-            },
+            atom_size_scale=0.55,
             bond_radius=0.12,
             hydrogen_bond_radius=0.07,
             hydrogen_bond_segments=6,
@@ -118,11 +115,25 @@ def test_style_profile_controls_presets_finishes_and_hydrogen_bonds():
     assert explicit.default_bond.radius == pytest.approx(0.2)
 
 
+def test_style_profile_has_independent_default_atom_size_scale():
+    profile = replace(
+        DEFAULT_PROFILE,
+        style=replace(DEFAULT_PROFILE.style, atom_size_scale=0.7),
+    )
+
+    assert StyleConfig(profile=profile).atom_size_scale == pytest.approx(0.7)
+    assert StyleConfig(
+        profile=profile, preset_style="space_filling"
+    ).atom_size_scale == pytest.approx(1.0)
+
+
 def test_scene_and_render_profile_defaults_with_explicit_precedence():
     profile = replace(
         DEFAULT_PROFILE,
         scene=replace(
             DEFAULT_PROFILE.scene,
+            camera_direction=(0.0, 10.0, 0.0),
+            camera_up=(0.0, 0.0, 1.0),
             camera_width=31.0,
             light_intensity=2.5,
             background_color=Color(0.2, 0.3, 0.4),
@@ -136,7 +147,6 @@ def test_scene_and_render_profile_defaults_with_explicit_precedence():
         ),
     )
     camera = Camera.orthographic(
-        direction=(0.0, 0.0, 10.0),
         target=(0.0, 0.0, 0.0),
         profile=profile,
     )
@@ -145,6 +155,7 @@ def test_scene_and_render_profile_defaults_with_explicit_precedence():
     render = RenderConfig(profile=profile)
 
     assert camera.width == pytest.approx(31.0)
+    assert camera.direction == (0.0, 10.0, 0.0)
     assert light.intensity == pytest.approx(2.5)
     assert scene.background == Background(Color(0.2, 0.3, 0.4))
     assert scene.ambient_light == Color(0.6, 0.6, 0.6)
