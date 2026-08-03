@@ -6,6 +6,17 @@ from dataclasses import dataclass
 from math import isfinite, sqrt
 from typing import Literal
 
+from ._defaults import (
+    DEFAULT_AMBIENT_LIGHT,
+    DEFAULT_BACKGROUND_COLOR,
+    DEFAULT_CAMERA_ANGLE,
+    DEFAULT_CAMERA_UP,
+    DEFAULT_CAMERA_WIDTH,
+    DEFAULT_LIGHT_ADAPTIVE,
+    DEFAULT_LIGHT_ANGULAR_DIAMETER,
+    DEFAULT_LIGHT_INTENSITY,
+    DEFAULT_LIGHT_SAMPLES,
+)
 from .model import Vec3
 from .primitives import Color, Primitive
 
@@ -14,10 +25,10 @@ from .primitives import Color, Primitive
 class Camera:
     direction: Vec3
     target: Vec3
-    up: Vec3 = (0.0, 1.0, 0.0)
+    up: Vec3 = DEFAULT_CAMERA_UP
     projection: Literal["perspective", "orthographic"] = "perspective"
-    angle: float = 35.0
-    width: float = 20.0
+    angle: float = DEFAULT_CAMERA_ANGLE
+    width: float = DEFAULT_CAMERA_WIDTH
 
     @property
     def location(self) -> Vec3:
@@ -34,8 +45,8 @@ class Camera:
         *,
         direction: Vec3,
         target: Vec3,
-        up: Vec3 = (0.0, 1.0, 0.0),
-        angle: float = 35.0,
+        up: Vec3 = DEFAULT_CAMERA_UP,
+        angle: float = DEFAULT_CAMERA_ANGLE,
     ) -> "Camera":
         return cls(direction, target, up, "perspective", angle=angle)
 
@@ -45,8 +56,8 @@ class Camera:
         *,
         direction: Vec3,
         target: Vec3,
-        up: Vec3 = (0.0, 1.0, 0.0),
-        width: float = 20.0,
+        up: Vec3 = DEFAULT_CAMERA_UP,
+        width: float = DEFAULT_CAMERA_WIDTH,
     ) -> "Camera":
         return cls(direction, target, up, "orthographic", width=width)
 
@@ -86,10 +97,10 @@ class AreaLight:
 def get_default_light(
     camera: Camera,
     *,
-    intensity: float = 1.8,
-    angular_diameter: float = 35.0,
-    samples: tuple[int, int] = (9, 9),
-    adaptive: int = 3,
+    intensity: float = DEFAULT_LIGHT_INTENSITY,
+    angular_diameter: float = DEFAULT_LIGHT_ANGULAR_DIAMETER,
+    samples: tuple[int, int] = DEFAULT_LIGHT_SAMPLES,
+    adaptive: int = DEFAULT_LIGHT_ADAPTIVE,
 ) -> AreaLight:
     """Return a soft key light positioned above and right of the camera.
 
@@ -141,7 +152,7 @@ Light = PointLight | AreaLight
 
 @dataclass(frozen=True)
 class Background:
-    color: Color = Color(1.0, 1.0, 1.0)
+    color: Color = DEFAULT_BACKGROUND_COLOR
 
 
 @dataclass(frozen=True)
@@ -162,7 +173,7 @@ class Scene:
     camera: Camera
     lights: tuple[Light, ...]
     background: Background
-    ambient_light: Color = Color(1.0, 1.0, 1.0)
+    ambient_light: Color = DEFAULT_AMBIENT_LIGHT
     fog: Fog | None = None
 
 
@@ -172,7 +183,7 @@ def make_scene(
     camera: Camera,
     lights: tuple[Light, ...] = (),
     background: Background | None = None,
-    ambient_light: Color = Color(1.0, 1.0, 1.0),
+    ambient_light: Color = DEFAULT_AMBIENT_LIGHT,
     fog: Fog | None = None,
     extra_primitives: tuple[Primitive, ...] = (),
 ) -> Scene:
