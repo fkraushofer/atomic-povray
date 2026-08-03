@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import isfinite, sqrt
+from numbers import Real
 from typing import Literal
 
 from ._defaults import (
@@ -183,11 +184,23 @@ def make_scene(
     camera: Camera,
     lights: tuple[Light, ...] = (),
     background: Background | None = None,
-    ambient_light: Color = DEFAULT_AMBIENT_LIGHT,
+    ambient_light: Color | float = DEFAULT_AMBIENT_LIGHT,
     fog: Fog | None = None,
     extra_primitives: tuple[Primitive, ...] = (),
 ) -> Scene:
-    """Assemble a scene; extras are a public extension point."""
+    """Assemble a scene; extras are a public extension point.
+
+    A scalar ``ambient_light`` is shorthand for a neutral grey color.
+    """
+
+    if isinstance(ambient_light, bool) or not isinstance(
+        ambient_light, (Color, Real)
+    ):
+        raise TypeError("ambient_light must be a Color or a real number")
+    if isinstance(ambient_light, Real):
+        if not isfinite(ambient_light) or ambient_light < 0:
+            raise ValueError("scalar ambient_light must be non-negative and finite")
+        ambient_light = Color(*(float(ambient_light),) * 3)
 
     return Scene(
         primitives=(*primitives, *extra_primitives),
