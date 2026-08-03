@@ -11,13 +11,13 @@ from typing import Any
 from ase.data import atomic_numbers, covalent_radii
 from ase.data.colors import jmol_colors
 
+from ._defaults import DEFAULT_BOND_SCALE, DEFAULT_HYDROGEN_BOND_MAX
 from .config import BondRule
 from .model import StructureModel
 from .primitives import Color
 
 
 DEFAULT_HYDROGEN_BOND_RULE_ID = "default:hydrogen:O-H"
-_HYDROGEN_BOND_MAX = 2.1
 
 # Candidate pairs follow the broad chemical policy used by VESTA without
 # redistributing its style.ini table: noble gases and metal-metal pairs are
@@ -172,7 +172,7 @@ class BondRuleSet:
 def get_default_bonds(
     structure: StructureModel | Any,
     *,
-    bond_scale: float = 1.2,
+    bond_scale: float = DEFAULT_BOND_SCALE,
     include_pairs: Iterable[tuple[str, str]] = (),
     exclude_pairs: Iterable[tuple[str, str]] = (),
     print_table: bool = True,
@@ -236,17 +236,17 @@ def get_default_bonds(
             )
         )
         if is_oh:
-            if maximum >= _HYDROGEN_BOND_MAX:
+            if maximum >= DEFAULT_HYDROGEN_BOND_MAX:
                 raise ValueError(
                     "bond_scale makes the covalent O-H cutoff reach or exceed "
-                    f"the fixed {_HYDROGEN_BOND_MAX} Å hydrogen-bond limit"
+                    f"the fixed {DEFAULT_HYDROGEN_BOND_MAX} Å hydrogen-bond limit"
                 )
             rules.add(
                 BondRule(
                     "O",
                     "H",
                     maximum,
-                    _HYDROGEN_BOND_MAX,
+                    DEFAULT_HYDROGEN_BOND_MAX,
                     name=DEFAULT_HYDROGEN_BOND_RULE_ID,
                     extension_mode="none",
                 )
