@@ -10,6 +10,21 @@ from typing import TYPE_CHECKING, Literal, TypeAlias
 
 import numpy as np
 
+from .._defaults import (
+    DEFAULT_ATOM_FINISH,
+    DEFAULT_BOND_FINISH,
+    DEFAULT_BOND_RADIUS,
+    DEFAULT_BOND_SIZE_SCALE,
+    DEFAULT_HYDROGEN_BOND_COLOR,
+    DEFAULT_HYDROGEN_BOND_RADIUS,
+    DEFAULT_HYDROGEN_BOND_SEGMENTS,
+    DEFAULT_HYDROGEN_BOND_LINE_STYLE,
+    DEFAULT_POLYHEDRON_FILTER,
+    DEFAULT_POLYHEDRON_FINISH,
+    DEFAULT_POLYHEDRON_TRANSMIT,
+    DEFAULT_PRESET_ATOM_SIZE_SCALES,
+    DEFAULT_PRESET_STYLE,
+)
 from ..defaults import (
     DEFAULT_HYDROGEN_BOND_RULE_ID,
     default_atom_color,
@@ -221,7 +236,7 @@ class AtomSelectionRule:
 
 @dataclass(frozen=True)
 class BondStyle:
-    radius: float = 0.08
+    radius: float = DEFAULT_BOND_RADIUS
     color: Color | None = None
     material: Material | None = None
     finish: Finish | None = None
@@ -368,10 +383,10 @@ class PolyhedronStyleOverride:
 
 
 DEFAULT_HYDROGEN_BOND_STYLE = BondStyle(
-    radius=0.05,
-    color=Color(0.5, 0.5, 0.5),
-    style="dashed",
-    segments=4,
+    radius=DEFAULT_HYDROGEN_BOND_RADIUS,
+    color=DEFAULT_HYDROGEN_BOND_COLOR,
+    style=DEFAULT_HYDROGEN_BOND_LINE_STYLE,
+    segments=DEFAULT_HYDROGEN_BOND_SEGMENTS,
 )
 
 
@@ -379,13 +394,12 @@ DEFAULT_HYDROGEN_BOND_STYLE = BondStyle(
 class StyleConfig:
     preset_style: Literal[
         "ball_and_stick", "space_filling", "polyhedral"
-    ] = "ball_and_stick"
+    ] = DEFAULT_PRESET_STYLE
     atom_size_scale: float | None = None
-    bond_size_scale: float = 1.0
+    bond_size_scale: float = DEFAULT_BOND_SIZE_SCALE
     draw_atoms: bool = True
     draw_bonds: bool | None = None
     draw_polyhedra: bool = True
-    ambient_scale: float = 1.0
     elements: dict[str, AtomStyle] = field(default_factory=dict)
     bonds: dict[str, BondStyle] = field(default_factory=dict)
     polyhedra: dict[str, PolyhedronStyle] = field(default_factory=dict)
@@ -406,23 +420,18 @@ class StyleConfig:
     default_atom: AtomStyle = AtomStyle()
     default_bond: BondStyle = BondStyle()
     default_polyhedron: PolyhedronStyle = PolyhedronStyle(
-        filter=0.05,
-        transmit=0.3,
+        filter=DEFAULT_POLYHEDRON_FILTER,
+        transmit=DEFAULT_POLYHEDRON_TRANSMIT,
     )
-    default_atom_finish: Finish = Finish(phong=0.3)
-    default_bond_finish: Finish = Finish()
-    default_polyhedron_finish: Finish = Finish(phong=0.15)
+    default_atom_finish: Finish = DEFAULT_ATOM_FINISH
+    default_bond_finish: Finish = DEFAULT_BOND_FINISH
+    default_polyhedron_finish: Finish = DEFAULT_POLYHEDRON_FINISH
     default_finish: Finish | None = None
     depth_shading: DepthShading | None = None
 
     def __post_init__(self) -> None:
-        scales = {
-            "ball_and_stick": 0.4,
-            "space_filling": 1.0,
-            "polyhedral": 0.4,
-        }
         try:
-            preset_scale = scales[self.preset_style]
+            preset_scale = DEFAULT_PRESET_ATOM_SIZE_SCALES[self.preset_style]
         except KeyError:
             raise ValueError(
                 "preset_style must be 'ball_and_stick', 'space_filling', or "
@@ -434,10 +443,8 @@ class StyleConfig:
             atom_scale = preset_scale
         self._validate_size_scale("atom_size_scale", atom_scale)
         self._validate_size_scale("bond_size_scale", self.bond_size_scale)
-        self._validate_ambient_scale(self.ambient_scale)
         object.__setattr__(self, "atom_size_scale", float(atom_scale))
         object.__setattr__(self, "bond_size_scale", float(self.bond_size_scale))
-        object.__setattr__(self, "ambient_scale", float(self.ambient_scale))
         if self.draw_bonds is None:
             object.__setattr__(
                 self,
@@ -451,13 +458,6 @@ class StyleConfig:
             raise TypeError(f"{name} must be a real number")
         if not isfinite(scale) or scale <= 0:
             raise ValueError(f"{name} must be positive and finite")
-
-    @staticmethod
-    def _validate_ambient_scale(scale: float) -> None:
-        if isinstance(scale, bool) or not isinstance(scale, Real):
-            raise TypeError("ambient_scale must be a real number")
-        if not isfinite(scale) or scale < 0:
-            raise ValueError("ambient_scale must be non-negative and finite")
 
     @property
     def atom_finish(self) -> Finish:
@@ -633,20 +633,6 @@ def _primitive_position(primitive: Primitive) -> Vec3 | None:
             for value in np.mean(np.asarray(primitive.vertices, dtype=float), axis=0)
         )
     return None
-
-
-def _apply_ambient_scale(
-    primitives: list[Primitive],
-    scale: float,
-) -> None:
-    for index, primitive in enumerate(primitives):
-        primitives[index] = replace(
-            primitive,
-            material=replace(
-                primitive.material,
-                ambient=primitive.material.ambient * scale,
-            ),
-        )
 
 
 def _apply_depth_shading(
@@ -891,6 +877,5 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
             for atom in geometry.atoms
             if atom_styles[atom.key].visible
         )
-    _apply_ambient_scale(primitives, styles.ambient_scale)
     _apply_depth_shading(primitives, styles.depth_shading)
     return StyledGeometry(geometry, tuple(primitives), atom_styles)

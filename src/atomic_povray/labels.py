@@ -9,6 +9,13 @@ from typing import Callable
 import numpy as np
 from ase import Atoms
 
+from ._defaults import (
+    DEFAULT_LABEL_COLOR,
+    DEFAULT_LABEL_FONT,
+    DEFAULT_LABEL_OFFSET,
+    DEFAULT_LABEL_SIZE,
+    DEFAULT_LABEL_THICKNESS,
+)
 from .model import AtomInstance, Vec3
 from .primitives import Color, Finish, Material, TextPrimitive
 from .scene import Camera
@@ -71,11 +78,11 @@ def label_atoms(
     camera: Camera,
     labels: AtomLabeler | None = None,
     selection: AtomLabelSelection | None = None,
-    offset: Vec3 = (0.0, 0.0, 0.0),
-    size: float = 0.4,
-    thickness: float = 0.02,
-    font: str = "timrom.ttf",
-    color: Color = Color(0.0, 0.0, 0.0),
+    offset: Vec3 = DEFAULT_LABEL_OFFSET,
+    size: float = DEFAULT_LABEL_SIZE,
+    thickness: float = DEFAULT_LABEL_THICKNESS,
+    font: str = DEFAULT_LABEL_FONT,
+    color: Color = DEFAULT_LABEL_COLOR,
     material: Material | None = None,
 ) -> tuple[TextPrimitive, ...]:
     """Create camera-facing labels for visible atoms in the styled geometry.

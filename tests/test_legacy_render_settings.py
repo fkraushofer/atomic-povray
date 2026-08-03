@@ -57,6 +57,30 @@ def test_legacy_area_light_gamma_and_ambient_are_emitted():
     assert "color rgb <0.9, 0.9, 0.9>" in sdl
 
 
+def test_make_scene_accepts_scalar_ambient_light_including_overbright_values():
+    camera = Camera.perspective(
+        direction=(0.0, 0.0, -10.0),
+        target=(0.0, 0.0, 0.0),
+    )
+    scene = make_scene((), camera=camera, ambient_light=1.25)
+
+    assert scene.ambient_light == Color(1.25, 1.25, 1.25)
+    assert "ambient_light rgb <1.25, 1.25, 1.25>" in scene_to_sdl(scene)
+
+
+@pytest.mark.parametrize("value", [-0.1, float("inf")])
+def test_scalar_ambient_light_must_be_non_negative_and_finite(value):
+    with pytest.raises(ValueError, match="non-negative and finite"):
+        make_scene(
+            (),
+            camera=Camera.perspective(
+                direction=(0.0, 0.0, -10.0),
+                target=(0.0, 0.0, 0.0),
+            ),
+            ambient_light=value,
+        )
+
+
 def test_atom_and_bond_finishes_have_distinct_defaults_and_can_be_overridden():
     default_finish = Finish()
     atom_finish = Finish(
