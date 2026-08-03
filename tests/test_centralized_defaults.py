@@ -32,7 +32,6 @@ def test_geometry_and_style_defaults_come_from_canonical_values():
     assert styles.bond_size_scale == pytest.approx(
         defaults.DEFAULT_BOND_SIZE_SCALE
     )
-    assert styles.ambient_scale == pytest.approx(defaults.DEFAULT_AMBIENT_SCALE)
     assert styles.default_bond.radius == pytest.approx(defaults.DEFAULT_BOND_RADIUS)
     assert styles.default_polyhedron.filter == pytest.approx(
         defaults.DEFAULT_POLYHEDRON_FILTER
@@ -43,6 +42,19 @@ def test_geometry_and_style_defaults_come_from_canonical_values():
     assert styles.default_atom_finish == defaults.DEFAULT_ATOM_FINISH
     assert styles.default_bond_finish == defaults.DEFAULT_BOND_FINISH
     assert styles.default_polyhedron_finish == defaults.DEFAULT_POLYHEDRON_FINISH
+
+
+def test_finish_defaults_are_listed_with_canonical_defaults():
+    from atomic_povray import Color, Finish, Material
+
+    values = (Finish(), Material(Color(1.0, 1.0, 1.0)))
+    for value in values:
+        assert value.ambient == pytest.approx(defaults.DEFAULT_FINISH_AMBIENT)
+        assert value.diffuse == pytest.approx(defaults.DEFAULT_FINISH_DIFFUSE)
+        assert value.phong == pytest.approx(defaults.DEFAULT_FINISH_PHONG)
+        assert value.phong_size == pytest.approx(defaults.DEFAULT_FINISH_PHONG_SIZE)
+        assert value.specular == pytest.approx(defaults.DEFAULT_FINISH_SPECULAR)
+        assert value.emission == pytest.approx(defaults.DEFAULT_FINISH_EMISSION)
 
 
 def test_camera_light_and_label_signatures_use_canonical_values():
