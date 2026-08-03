@@ -1,13 +1,6 @@
-"""Render hydrated Rh/hematite with custom defaults from the command line.
+"""Render hydrated Rh/hematite with an imported project profile.
 
-This feature example demonstrates automatically generated covalent and dashed
-hydrogen bonds, selection-based surface-oxygen coloring, and reusable
-appearance settings.
-
-Run from the repository root:
-
-    python -m examples.rh_h2o_hematite
-
+Run from the repository root with ``python -m examples.rh_h2o_hematite``.
 Generated files are written to the current working directory by default. Use
 ``--output`` to choose another location and ``--no-render`` to write only the
 POV-Ray scene.
@@ -23,9 +16,7 @@ import numpy as np
 from atomic_povray import (
     AtomSelectionRule,
     AtomStyleOverride,
-    Background,
     Camera,
-    Color,
     DisplayBounds,
     RenderConfig,
     StyleConfig,
@@ -39,19 +30,9 @@ from atomic_povray import (
 )
 
 if __package__:
-    from .my_defaults import (
-        AMBIENT_SCALE,
-        SURFACE_OXYGEN_COLOR,
-        atom_styles,
-        legacy_light,
-    )
+    from .profile import SIDE_PROFILE, SURFACE_OXYGEN_COLOR, legacy_light
 else:
-    from my_defaults import (
-        AMBIENT_SCALE,
-        SURFACE_OXYGEN_COLOR,
-        atom_styles,
-        legacy_light,
-    )
+    from profile import SIDE_PROFILE, SURFACE_OXYGEN_COLOR, legacy_light
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -69,10 +50,7 @@ def resolve_povray_executable(povray: str | Path | None = None) -> str:
         raise RuntimeError(
             f"Could not resolve the POV-Ray executable {candidate!r}. "
             "Pass its path with --povray PATH (or povray=... when calling "
-            "main), or set the POVRAY environment variable. For example, "
-            "POVRAY=povray on Linux/Conda or "
-            r'POVRAY="C:\Program Files\POV-Ray\v3.7\bin\pvengine64.exe" '
-            "on Windows."
+            "main), or set the POVRAY environment variable."
         )
     return resolved
 
@@ -96,7 +74,7 @@ def main(
     output_path = Path(output) if output is not None else Path.cwd() / DEFAULT_OUTPUT
     executable = resolve_povray_executable(povray) if render else None
     structure = load_structure(INPUT)
-    bond_rules = get_default_bonds(structure)
+    bond_rules = get_default_bonds(structure, profile=SIDE_PROFILE)
     geometry = build_geometry(
         structure,
         bond_rules=bond_rules,
@@ -105,9 +83,7 @@ def main(
         ),
     )
     styles = StyleConfig(
-        atom_size_scale=1.0,
-        elements=atom_styles(structure.atoms.get_chemical_symbols()),
-        ambient_scale=AMBIENT_SCALE,
+        profile=SIDE_PROFILE,
         selection_rules=(
             AtomSelectionRule(
                 selector=select_top_surface_oxygen,
@@ -120,14 +96,13 @@ def main(
     camera = Camera.orthographic(
         direction=(0.0, 100.0, -25.0),
         target=(7.6, 7.0, 25.0),
-        up=(0.0, 0.0, 1.0),
-        width=20.0,
+        profile=SIDE_PROFILE,
     )
     scene = make_scene(
         styled.primitives,
         camera=camera,
         lights=(legacy_light(camera),),
-        background=Background(Color(1.0, 1.0, 1.0)),
+        profile=SIDE_PROFILE,
     )
 
     if render:
@@ -136,8 +111,7 @@ def main(
             scene,
             output_path,
             RenderConfig(
-                width=1200,
-                height=900,
+                profile=SIDE_PROFILE,
                 quality=quality,
                 executable=executable,
             ),
@@ -146,7 +120,7 @@ def main(
     else:
         scene_path = output_path.with_suffix(".pov")
         scene_path.parent.mkdir(parents=True, exist_ok=True)
-        write_scene(scene, scene_path, width=1200, height=900)
+        write_scene(scene, scene_path, profile=SIDE_PROFILE)
         print(f"Wrote {scene_path}")
 
 

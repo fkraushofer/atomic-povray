@@ -10,17 +10,6 @@ import warnings
 
 import numpy as np
 
-from .._defaults import (
-    DEFAULT_ASPECT_RATIO,
-    DEFAULT_POVRAY_EXECUTABLE,
-    DEFAULT_POVRAY_VERSION,
-    DEFAULT_RENDER_ANTIALIAS,
-    DEFAULT_RENDER_DISPLAY,
-    DEFAULT_RENDER_HEIGHT,
-    DEFAULT_RENDER_QUALITY,
-    DEFAULT_RENDER_TRANSPARENT,
-    DEFAULT_RENDER_WIDTH,
-)
 from ..model import Vec3
 from ..primitives import (
     Color,
@@ -31,6 +20,7 @@ from ..primitives import (
     TextPrimitive,
     TriangleMeshPrimitive,
 )
+from ..profile import DEFAULT_PROFILE, AtomicPovrayProfile
 from ..scene import AreaLight, Camera, PointLight, Scene
 
 
@@ -245,11 +235,16 @@ def _validate_povray_version(value: str) -> str:
 def scene_to_sdl(
     scene: Scene,
     *,
-    aspect_ratio: float = DEFAULT_ASPECT_RATIO,
-    povray_version: str = DEFAULT_POVRAY_VERSION,
+    aspect_ratio: float | None = None,
+    povray_version: str | None = None,
     max_trace_level: int | None = None,
     additional_pov: str | None = None,
+    profile: AtomicPovrayProfile = DEFAULT_PROFILE,
 ) -> str:
+    if aspect_ratio is None:
+        aspect_ratio = profile.render.width / profile.render.height
+    if povray_version is None:
+        povray_version = profile.render.povray_version
     ambient = scene.ambient_light
     povray_version = _validate_povray_version(povray_version)
     lines = [
@@ -303,12 +298,18 @@ def write_scene(
     scene: Scene,
     filename: str | Path,
     *,
-    width: int = DEFAULT_RENDER_WIDTH,
-    height: int = DEFAULT_RENDER_HEIGHT,
-    povray_version: str = DEFAULT_POVRAY_VERSION,
+    width: int | None = None,
+    height: int | None = None,
+    povray_version: str | None = None,
     max_trace_level: int | None = None,
     additional_pov: str | None = None,
+    profile: AtomicPovrayProfile = DEFAULT_PROFILE,
 ) -> Path:
+    width = profile.render.width if width is None else width
+    height = profile.render.height if height is None else height
+    povray_version = (
+        profile.render.povray_version if povray_version is None else povray_version
+    )
     path = Path(filename)
     path.write_text(
         scene_to_sdl(
@@ -317,6 +318,7 @@ def write_scene(
             povray_version=povray_version,
             max_trace_level=max_trace_level,
             additional_pov=additional_pov,
+            profile=profile,
         ),
         encoding="utf-8",
     )
@@ -325,23 +327,37 @@ def write_scene(
 
 @dataclass(frozen=True)
 class RenderConfig:
-    width: int = DEFAULT_RENDER_WIDTH
-    height: int = DEFAULT_RENDER_HEIGHT
-    quality: int = DEFAULT_RENDER_QUALITY
-    antialias: bool = DEFAULT_RENDER_ANTIALIAS
+    width: int | None = None
+    height: int | None = None
+    quality: int | None = None
+    antialias: bool | None = None
     antialias_threshold: float | None = None
     sampling_method: int | None = None
     display_gamma: float | None = None
     file_gamma: float | None = None
-    transparent: bool = DEFAULT_RENDER_TRANSPARENT
-    display: bool = DEFAULT_RENDER_DISPLAY
-    executable: str = DEFAULT_POVRAY_EXECUTABLE
-    povray_version: str = DEFAULT_POVRAY_VERSION
+    transparent: bool | None = None
+    display: bool | None = None
+    executable: str | None = None
+    povray_version: str | None = None
     max_trace_level: int | None = None
     additional_pov: str | None = None
     additional_ini: str | None = None
+    profile: AtomicPovrayProfile = DEFAULT_PROFILE
 
     def __post_init__(self) -> None:
+        defaults = self.profile.render
+        for name in (
+            "width",
+            "height",
+            "quality",
+            "antialias",
+            "transparent",
+            "display",
+            "executable",
+            "povray_version",
+        ):
+            if getattr(self, name) is None:
+                object.__setattr__(self, name, getattr(defaults, name))
         if self.width < 1 or self.height < 1:
             raise ValueError("Render width and height must be positive")
         if not 0 <= self.quality <= 11:
