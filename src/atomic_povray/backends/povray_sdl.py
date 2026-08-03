@@ -10,6 +10,17 @@ import warnings
 
 import numpy as np
 
+from .._defaults import (
+    DEFAULT_ASPECT_RATIO,
+    DEFAULT_POVRAY_EXECUTABLE,
+    DEFAULT_POVRAY_VERSION,
+    DEFAULT_RENDER_ANTIALIAS,
+    DEFAULT_RENDER_DISPLAY,
+    DEFAULT_RENDER_HEIGHT,
+    DEFAULT_RENDER_QUALITY,
+    DEFAULT_RENDER_TRANSPARENT,
+    DEFAULT_RENDER_WIDTH,
+)
 from ..model import Vec3
 from ..primitives import (
     Color,
@@ -234,8 +245,8 @@ def _validate_povray_version(value: str) -> str:
 def scene_to_sdl(
     scene: Scene,
     *,
-    aspect_ratio: float = 4 / 3,
-    povray_version: str = "3.7",
+    aspect_ratio: float = DEFAULT_ASPECT_RATIO,
+    povray_version: str = DEFAULT_POVRAY_VERSION,
     max_trace_level: int | None = None,
     additional_pov: str | None = None,
 ) -> str:
@@ -292,9 +303,9 @@ def write_scene(
     scene: Scene,
     filename: str | Path,
     *,
-    width: int = 800,
-    height: int = 600,
-    povray_version: str = "3.7",
+    width: int = DEFAULT_RENDER_WIDTH,
+    height: int = DEFAULT_RENDER_HEIGHT,
+    povray_version: str = DEFAULT_POVRAY_VERSION,
     max_trace_level: int | None = None,
     additional_pov: str | None = None,
 ) -> Path:
@@ -314,18 +325,18 @@ def write_scene(
 
 @dataclass(frozen=True)
 class RenderConfig:
-    width: int = 800
-    height: int = 600
-    quality: int = 5
-    antialias: bool = True
+    width: int = DEFAULT_RENDER_WIDTH
+    height: int = DEFAULT_RENDER_HEIGHT
+    quality: int = DEFAULT_RENDER_QUALITY
+    antialias: bool = DEFAULT_RENDER_ANTIALIAS
     antialias_threshold: float | None = None
     sampling_method: int | None = None
     display_gamma: float | None = None
     file_gamma: float | None = None
-    transparent: bool = False
-    display: bool = False
-    executable: str = "povray"
-    povray_version: str = "3.7"
+    transparent: bool = DEFAULT_RENDER_TRANSPARENT
+    display: bool = DEFAULT_RENDER_DISPLAY
+    executable: str = DEFAULT_POVRAY_EXECUTABLE
+    povray_version: str = DEFAULT_POVRAY_VERSION
     max_trace_level: int | None = None
     additional_pov: str | None = None
     additional_ini: str | None = None
