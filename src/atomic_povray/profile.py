@@ -108,10 +108,17 @@ class RenderDefaults:
     height: int = _defaults.DEFAULT_RENDER_HEIGHT
     quality: int = _defaults.DEFAULT_RENDER_QUALITY
     antialias: bool = _defaults.DEFAULT_RENDER_ANTIALIAS
+    antialias_threshold: float | None = _defaults.DEFAULT_RENDER_ANTIALIAS_THRESHOLD
+    sampling_method: int | None = _defaults.DEFAULT_RENDER_SAMPLING_METHOD
+    display_gamma: float | None = _defaults.DEFAULT_RENDER_DISPLAY_GAMMA
+    file_gamma: float | None = _defaults.DEFAULT_RENDER_FILE_GAMMA
     transparent: bool = _defaults.DEFAULT_RENDER_TRANSPARENT
     display: bool = _defaults.DEFAULT_RENDER_DISPLAY
     executable: str = _defaults.DEFAULT_POVRAY_EXECUTABLE
     povray_version: str = _defaults.DEFAULT_POVRAY_VERSION
+    max_trace_level: int | None = _defaults.DEFAULT_RENDER_MAX_TRACE_LEVEL
+    additional_pov: str | None = _defaults.DEFAULT_RENDER_ADDITIONAL_POV
+    additional_ini: str | None = _defaults.DEFAULT_RENDER_ADDITIONAL_INI
 
 
 @dataclass(frozen=True)
