@@ -30,9 +30,9 @@ from atomic_povray import (
 )
 
 if __package__:
-    from .profile import SIDE_PROFILE, SURFACE_OXYGEN_COLOR, legacy_light
+    from .hematite_profile import (\n        HEMATITE_SIDE_VIEW,\n        SURFACE_OXYGEN_COLOR,\n        get_side_view_light,\n    )
 else:
-    from profile import SIDE_PROFILE, SURFACE_OXYGEN_COLOR, legacy_light
+    from hematite_profile import (\n        HEMATITE_SIDE_VIEW,\n        SURFACE_OXYGEN_COLOR,\n        get_side_view_light,\n    )
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -74,7 +74,7 @@ def main(
     output_path = Path(output) if output is not None else Path.cwd() / DEFAULT_OUTPUT
     executable = resolve_povray_executable(povray) if render else None
     structure = load_structure(INPUT)
-    bond_rules = get_default_bonds(structure, profile=SIDE_PROFILE)
+    bond_rules = get_default_bonds(structure, profile=HEMATITE_SIDE_VIEW)
     geometry = build_geometry(
         structure,
         bond_rules=bond_rules,
@@ -83,7 +83,7 @@ def main(
         ),
     )
     styles = StyleConfig(
-        profile=SIDE_PROFILE,
+        profile=HEMATITE_SIDE_VIEW,
         selection_rules=(
             AtomSelectionRule(
                 selector=select_top_surface_oxygen,
@@ -96,13 +96,13 @@ def main(
     camera = Camera.orthographic(
         direction=(0.0, 100.0, -25.0),
         target=(7.6, 7.0, 25.0),
-        profile=SIDE_PROFILE,
+        profile=HEMATITE_SIDE_VIEW,
     )
     scene = make_scene(
         styled.primitives,
         camera=camera,
-        lights=(legacy_light(camera),),
-        profile=SIDE_PROFILE,
+        lights=(get_side_view_light(camera),),
+        profile=HEMATITE_SIDE_VIEW,
     )
 
     if render:
@@ -111,7 +111,7 @@ def main(
             scene,
             output_path,
             RenderConfig(
-                profile=SIDE_PROFILE,
+                profile=HEMATITE_SIDE_VIEW,
                 quality=quality,
                 executable=executable,
             ),
@@ -120,7 +120,7 @@ def main(
     else:
         scene_path = output_path.with_suffix(".pov")
         scene_path.parent.mkdir(parents=True, exist_ok=True)
-        write_scene(scene, scene_path, profile=SIDE_PROFILE)
+        write_scene(scene, scene_path, profile=HEMATITE_SIDE_VIEW)
         print(f"Wrote {scene_path}")
 
 
