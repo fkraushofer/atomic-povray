@@ -36,6 +36,7 @@ from .primitives import (
     TextPrimitive,
     TriangleMeshPrimitive,
 )
+from .primitive_images import primitive_images
 from .profile import (
     DEFAULT_PROFILE,
     AtomicPovrayProfile,
@@ -127,9 +128,11 @@ __all__ = [
     "label_atoms",
     "load_structure",
     "make_scene",
+    "primitive_images",
     "render_scene",
     "resolve_atom_styles",
     "scene_to_sdl",
     "write_ini",
     "write_scene",
 ]
+
