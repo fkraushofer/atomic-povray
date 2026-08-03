@@ -36,6 +36,7 @@ HEMATITE_SIDE_VIEW = replace(
         camera_width=18.0,
     ),
     render=replace(
+        DEFAULT_PROFILE.render,
         width=1024,
         height=768,
         antialias_threshold=0.05,    # slower than default 0.1, but looks nicer
