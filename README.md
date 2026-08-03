@@ -113,6 +113,7 @@ example scripts. Use `conda env config vars unset POVRAY` to remove it again.
 | Example | Purpose |
 | --- | --- |
 | `notebooks/prototype_workflow.ipynb` | Minimal notebook workflow with inline image display |
+| `notebooks/hematite_side_view.ipynb` | Configurable notebook side view using the same hematite data as the Python example, but with its own workflow and render settings |
 | `examples/minimal_workflow.py` | The same minimal workflow as a regular Python script, with automatic executable lookup |
 | `examples/hematite_side_view.py` | Command-line rendering, executable resolution, and staged geometry timing |
 | `examples/rh_h2o_hematite.py` | Command-line hydrogen-bond and surface-color example with imported project defaults |
@@ -245,91 +246,6 @@ styles = StyleConfig(
     },
 )
 ```
-
-## Reusable profiles
-
-`DEFAULT_PROFILE` collects the shipped geometry, style, scene, label, and
-render defaults in one immutable object. Build project profiles with
-`dataclasses.replace`; this avoids mutable global state and makes notebook
-results independent of execution order:
-
-```python
-from dataclasses import replace
-from atomic_povray import DEFAULT_PROFILE, Color, ElementOverride
-
-MY_PROFILE = replace(
-    DEFAULT_PROFILE,
-    geometry=replace(DEFAULT_PROFILE.geometry, bond_scale=1.15),
-    style=replace(
-        DEFAULT_PROFILE.style,
-        bond_radius=0.10,
-        element_overrides={
-            "Fe": ElementOverride(color=Color.from_hex("#A63B32")),
-            "O": ElementOverride(radius=0.45),
-        },
-    ),
-    scene=replace(DEFAULT_PROFILE.scene, ambient_light=0.7),
-    render=replace(DEFAULT_PROFILE.render, width=1200, height=900, quality=5),
-)
-```
-
-Pass the same profile only to the stages whose defaults it should supply:
-
-```python
-bond_rules = get_default_bonds(structure, profile=MY_PROFILE)
-styles = StyleConfig(profile=MY_PROFILE)
-camera = Camera.orthographic(
-    direction=(0.0, 100.0, 0.0),
-    target=(0.0, 0.0, 0.0),
-    profile=MY_PROFILE,
-)
-light = get_default_light(camera, profile=MY_PROFILE)
-scene = make_scene(
-    styled.primitives,
-    camera=camera,
-    lights=(light,),
-    profile=MY_PROFILE,
-)
-config = RenderConfig(profile=MY_PROFILE)
-```
-
-Explicit arguments always override the selected profile. Atom appearance is
-resolved with this precedence:
-
-| Priority | Source |
-| --- | --- |
-| 1 (fallback) | ASE color and covalent radius |
-| 2 | profile `element_overrides` |
-| 3 | per-scene `StyleConfig.default_atom` and `elements` |
-| 4 | coordination and ASE-selection rules |
-| 5 | source-atom and displayed-instance overrides |
-
-Element overrides are partial: changing only Fe's color still uses ASE's Fe
-radius. A per-scene `elements={"Fe": AtomStyle(radius=...)}` likewise retains
-the profile color.
-
-Named view variants can share a base profile while changing only scene
-defaults. Direction and target remain explicit because they depend on the
-structure being rendered:
-
-```python
-SIDE_PROFILE = replace(
-    MY_PROFILE,
-    scene=replace(
-        MY_PROFILE.scene,
-        camera_up=(0.0, 0.0, 1.0),
-        camera_width=20.0,
-        light_intensity=1.8,
-    ),
-)
-PERSPECTIVE_PROFILE = replace(
-    MY_PROFILE,
-    scene=replace(MY_PROFILE.scene, camera_angle=30.0),
-)
-```
-
-See `examples/profile.py` for a complete project-owned profile and side, top,
-and perspective variants.
 
 The default preset is a ball-and-stick representation: all resolved atom radii
 are multiplied by `0.4`, bonds are drawn, and the default ordinary bond radius
@@ -987,6 +903,93 @@ See [Configure the POV-Ray executable](#configure-the-pov-ray-executable) for
 Linux, Conda, and Windows examples. The package detects `pvengine*.exe` and
 uses `/RENDER ... /EXIT`; other executables are called with the generated INI
 filename.
+
+## Reusable profiles
+
+`DEFAULT_PROFILE` collects the shipped geometry, style, scene, label, and
+render defaults in one immutable object. Build project profiles with
+`dataclasses.replace`; this avoids mutable global state and makes notebook
+results independent of execution order:
+
+```python
+from dataclasses import replace
+from atomic_povray import DEFAULT_PROFILE, Color, ElementOverride
+
+MY_PROFILE = replace(
+    DEFAULT_PROFILE,
+    geometry=replace(DEFAULT_PROFILE.geometry, bond_scale=1.15),
+    style=replace(
+        DEFAULT_PROFILE.style,
+        bond_radius=0.10,
+        element_overrides={
+            "Fe": ElementOverride(color=Color.from_hex("#A63B32")),
+            "O": ElementOverride(radius=0.45),
+        },
+    ),
+    scene=replace(DEFAULT_PROFILE.scene, ambient_light=0.7),
+    render=replace(DEFAULT_PROFILE.render, width=1200, height=900, quality=5),
+)
+```
+
+Pass the same profile only to the stages whose defaults it should supply:
+
+```python
+bond_rules = get_default_bonds(structure, profile=MY_PROFILE)
+styles = StyleConfig(profile=MY_PROFILE)
+camera = Camera.orthographic(
+    direction=(0.0, 100.0, 0.0),
+    target=(0.0, 0.0, 0.0),
+    profile=MY_PROFILE,
+)
+light = get_default_light(camera, profile=MY_PROFILE)
+scene = make_scene(
+    styled.primitives,
+    camera=camera,
+    lights=(light,),
+    profile=MY_PROFILE,
+)
+config = RenderConfig(profile=MY_PROFILE)
+```
+
+Explicit arguments always override the selected profile. Atom appearance is
+resolved with this precedence:
+
+| Priority | Source |
+| --- | --- |
+| 1 (fallback) | ASE color and covalent radius |
+| 2 | profile `element_overrides` |
+| 3 | per-scene `StyleConfig.default_atom` and `elements` |
+| 4 | coordination and ASE-selection rules |
+| 5 | source-atom and displayed-instance overrides |
+
+Element overrides are partial: changing only Fe's color still uses ASE's Fe
+radius. A per-scene `elements={"Fe": AtomStyle(radius=...)}` likewise retains
+the profile color.
+
+Named view variants can share a base profile while changing only scene
+defaults. Camera direction, orientation, framing, and lighting can all live in
+the profile; a structure-dependent target can still be passed explicitly:
+
+```python
+SIDE_PROFILE = replace(
+    MY_PROFILE,
+    scene=replace(
+        MY_PROFILE.scene,
+        camera_direction=(0.0, 100.0, 0.0),
+        camera_up=(0.0, 0.0, 1.0),
+        camera_width=20.0,
+        light_intensity=1.8,
+    ),
+)
+PERSPECTIVE_PROFILE = replace(
+    MY_PROFILE,
+    scene=replace(MY_PROFILE.scene, camera_angle=30.0),
+)
+```
+
+See `examples/profile.py` for a complete project-owned profile and side, top,
+and perspective variants. The notebook example keeps its tailored preferences
+in `notebooks/hematite_profile.py`.
 
 ## Tests
 
