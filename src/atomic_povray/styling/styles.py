@@ -424,7 +424,11 @@ class StyleConfig:
         )
         atom_scale = self.atom_size_scale
         if atom_scale is None:
-            atom_scale = preset_scale
+            atom_scale = (
+                preset_scale
+                if self.preset_style is not None
+                else profile_defaults.atom_size_scale
+            )
         self._validate_size_scale("atom_size_scale", atom_scale)
         self._validate_size_scale("bond_size_scale", bond_scale)
         object.__setattr__(self, "preset_style", preset_style)
