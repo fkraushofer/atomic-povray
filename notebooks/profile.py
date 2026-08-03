@@ -14,27 +14,24 @@ from atomic_povray import (
 SIZE_FACTOR = 0.7
 
 ELEMENT_OVERRIDES = {
-    "H": ElementOverride(radius=0.20 * SIZE_FACTOR, color=Color(0.90, 0.90, 0.90)),
-    "C": ElementOverride(radius=0.40 * SIZE_FACTOR, color=Color(0.20, 0.20, 0.20)),
-    "O": ElementOverride(radius=0.40 * SIZE_FACTOR, color=Color(1.05, 0.10, 0.05)),
-    "Fe": ElementOverride(radius=0.65 * SIZE_FACTOR, color=Color(0.10, 0.10, 1.10)),
-    "Rh": ElementOverride(radius=0.65 * SIZE_FACTOR, color=Color(0.50, 0.50, 0.50)),
-    "Pt": ElementOverride(radius=0.75 * SIZE_FACTOR, color=Color(0.60, 0.60, 0.60)),
+    "H": ElementOverride(radius=0.20, color=Color(0.90, 0.90, 0.90)),
+    "C": ElementOverride(radius=0.40, color=Color(0.20, 0.20, 0.20)),
+    "O": ElementOverride(radius=0.40, color=Color(1.05, 0.10, 0.05)),
+    "Fe": ElementOverride(radius=0.65, color=Color(0.10, 0.10, 1.10)),
+    "Rh": ElementOverride(radius=0.65, color=Color(0.50, 0.50, 0.50)),
+    "Pt": ElementOverride(radius=0.75, color=Color(0.60, 0.60, 0.60)),
 }
 
 HEMATITE_SIDE_VIEW = replace(
     DEFAULT_PROFILE,
     style=replace(
         DEFAULT_PROFILE.style,
-        # The custom radii already include their desired global scaling.
-        preset_atom_size_scales={
-            **DEFAULT_PROFILE.style.preset_atom_size_scales,
-            "ball_and_stick": 1.0,
-        },
+        atom_size_scale=SIZE_FACTOR,
         element_overrides=ELEMENT_OVERRIDES,
     ),
     scene=replace(
         DEFAULT_PROFILE.scene,
+        camera_direction=(0.0, 100.0, 0.0),
         camera_up=(0.0, 0.0, 1.0),
         camera_width=18.0,
     ),
