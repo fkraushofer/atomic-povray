@@ -113,12 +113,13 @@ example scripts. Use `conda env config vars unset POVRAY` to remove it again.
 | Example | Purpose |
 | --- | --- |
 | `notebooks/prototype_workflow.ipynb` | Minimal notebook workflow with inline image display |
+| `notebooks/hematite_side_view.ipynb` | Configurable notebook side view using the same hematite data as the Python example, but with its own workflow and render settings |
 | `examples/minimal_workflow.py` | The same minimal workflow as a regular Python script, with automatic executable lookup |
 | `examples/hematite_side_view.py` | Command-line rendering, executable resolution, and staged geometry timing |
 | `examples/rh_h2o_hematite.py` | Command-line hydrogen-bond and surface-color example with imported project defaults |
 | `examples/render_file.py` | Render any ASE-readable file with automatic orthographic framing |
 | `examples/render_batch.py` | Apply the same settings to files or wildcard patterns |
-| `examples/my_defaults.py` | Reusable legacy atom colors, radii, finish, ambient scale, and area light |
+| `examples/hematite_profile.py` | Copyable project profiles with element, view, lighting, and render defaults |
 
 Run the executable examples as modules from the repository root:
 
@@ -164,9 +165,9 @@ the `POVRAY` environment variable and then search for `povray` on `PATH`.
 Inputs are located relative to the repository, while generated files default
 to the shell's current working directory.
 
-The Rh/H₂O example intentionally keeps reusable appearance choices separate
-from scene construction. Copy `my_defaults.py` into a project and adapt it when
-several figures should share the same atom palette, sizes, finish, and lighting.
+The Rh/H₂O example intentionally keeps reusable choices separate from scene
+construction. Copy `hematite_profile.py` into a project's own `render` package
+and adapt it there; an installed atomic-povray package never needs to be edited.
 
 ## Staged notebook API
 
@@ -260,21 +261,16 @@ space_filling = StyleConfig(preset_style="space_filling")
 
 `space_filling` uses an atom scale of `1.0` and omits bond primitives. Bond
 geometry is retained, so coordination-dependent styles remain available and
-switching presets does not require rebuilding geometry. Override the global atom and bond scales independently when needed. Both are
-applied after resolving default or explicit per-style radii. The ambient
-coefficient can likewise be scaled globally after resolving every atom and
-bond material:
+switching presets does not require rebuilding geometry. Override the global
+atom and bond scales independently when needed. Both are applied after
+resolving default or explicit per-style radii:
 
 ```python
 styles = StyleConfig(
     atom_size_scale=0.55,
     bond_size_scale=1.25,
-    ambient_scale=0.8,
 )
 ```
-
-Unlike the size scales, `ambient_scale=0.0` is valid and disables ambient
-lighting for all styled atoms and bonds.
 
 Generate bond rules explicitly before geometry construction. This makes the
 exact rule set inspectable and editable; `build_geometry()` never adds hidden
@@ -616,18 +612,23 @@ styles = StyleConfig()
 
 Override them independently with `default_atom_finish=` or
 `default_bond_finish=`. The compatibility argument `default_finish=` still sets
-a shared finish for both. Use `ambient_scale=` to multiply the ambient
-coefficient of every resolved atom and bond material, including explicit
-`Finish` and `Material` overrides:
+a shared finish for both. Each material's `ambient` coefficient is multiplied
+by the scene-level `ambient_light` in POV-Ray. Use the scalar shorthand for a
+neutral global adjustment:
 
 ```python
-styles = StyleConfig(ambient_scale=0.5)
+scene = make_scene(
+    styled.primitives,
+    camera=camera,
+    lights=(get_default_light(camera),),
+    ambient_light=0.5,
+)
 ```
 
-The scene-level `ambient_light` is a separate RGB multiplier in POV-Ray and
-defaults to white. In normal use, leave it at that default and control overall
-ambient strength with `StyleConfig.ambient_scale`; setting both to `0.5`
-would multiply the ambient contribution twice.
+This is equivalent to `Color(0.5, 0.5, 0.5)`. It applies consistently to every
+primitive in the scene, including manually supplied `extra_primitives`. Values
+above `1` are allowed for overbright ambient illumination. Change an individual
+object's contribution with `Finish(ambient=...)` or `Material(ambient=...)`.
 
 Override only the finish while retaining the atom or bond color with
 `AtomStyle(..., finish=another_finish)` or
@@ -902,6 +903,92 @@ See [Configure the POV-Ray executable](#configure-the-pov-ray-executable) for
 Linux, Conda, and Windows examples. The package detects `pvengine*.exe` and
 uses `/RENDER ... /EXIT`; other executables are called with the generated INI
 filename.
+
+## Reusable profiles
+
+`DEFAULT_PROFILE` collects the shipped geometry, style, scene, label, and
+render defaults in one immutable object. Build project profiles with
+`dataclasses.replace`; this avoids mutable global state and makes notebook
+results independent of execution order:
+
+```python
+from dataclasses import replace
+from atomic_povray import DEFAULT_PROFILE, Color, ElementOverride
+
+MY_PROFILE = replace(
+    DEFAULT_PROFILE,
+    geometry=replace(DEFAULT_PROFILE.geometry, bond_scale=1.15),
+    style=replace(
+        DEFAULT_PROFILE.style,
+        bond_radius=0.10,
+        element_overrides={
+            "Fe": ElementOverride(color=Color.from_hex("#A63B32")),
+            "O": ElementOverride(radius=0.45),
+        },
+    ),
+    scene=replace(DEFAULT_PROFILE.scene, ambient_light=0.7),
+    render=replace(DEFAULT_PROFILE.render, width=1200, height=900, quality=5),
+)
+```
+
+Pass the same profile only to the stages whose defaults it should supply:
+
+```python
+bond_rules = get_default_bonds(structure, profile=MY_PROFILE)
+styles = StyleConfig(profile=MY_PROFILE)
+camera = Camera.orthographic(
+    direction=(0.0, 100.0, 0.0),
+    target=(0.0, 0.0, 0.0),
+    profile=MY_PROFILE,
+)
+light = get_default_light(camera, profile=MY_PROFILE)
+scene = make_scene(
+    styled.primitives,
+    camera=camera,
+    lights=(light,),
+    profile=MY_PROFILE,
+)
+config = RenderConfig(profile=MY_PROFILE)
+```
+
+Explicit arguments always override the selected profile. Atom appearance is
+resolved with this precedence:
+
+| Priority | Source |
+| --- | --- |
+| 1 (fallback) | ASE color and covalent radius |
+| 2 | profile `element_overrides` |
+| 3 | per-scene `StyleConfig.default_atom` and `elements` |
+| 4 | coordination and ASE-selection rules |
+| 5 | source-atom and displayed-instance overrides |
+
+Element overrides are partial: changing only Fe's color still uses ASE's Fe
+radius. A per-scene `elements={"Fe": AtomStyle(radius=...)}` likewise retains
+the profile color.
+
+Named view variants can share a base profile while changing only scene
+defaults. Camera direction, orientation, framing, and lighting can all live in
+the profile; a structure-dependent target can still be passed explicitly:
+
+```python
+SIDE_PROFILE = replace(
+    MY_PROFILE,
+    scene=replace(
+        MY_PROFILE.scene,
+        camera_direction=(0.0, 100.0, 0.0),
+        camera_up=(0.0, 0.0, 1.0),
+        camera_width=20.0,
+        light_intensity=1.8,
+    ),
+)
+PERSPECTIVE_PROFILE = replace(
+    MY_PROFILE,
+    scene=replace(MY_PROFILE.scene, camera_angle=30.0),
+)
+```
+
+See `examples/hematite_profile.py` and `notebooks/hematite_profile.py` for
+matching project-owned profiles used by the two hematite workflows.
 
 ## Tests
 

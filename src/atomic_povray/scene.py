@@ -13,13 +13,10 @@ from ._defaults import (
     DEFAULT_CAMERA_ANGLE,
     DEFAULT_CAMERA_UP,
     DEFAULT_CAMERA_WIDTH,
-    DEFAULT_LIGHT_ADAPTIVE,
-    DEFAULT_LIGHT_ANGULAR_DIAMETER,
-    DEFAULT_LIGHT_INTENSITY,
-    DEFAULT_LIGHT_SAMPLES,
 )
 from .model import Vec3
 from .primitives import Color, Primitive
+from .profile import DEFAULT_PROFILE, AtomicPovrayProfile
 
 
 @dataclass(frozen=True)
@@ -44,23 +41,47 @@ class Camera:
     def perspective(
         cls,
         *,
-        direction: Vec3,
+        direction: Vec3 | None = None,
         target: Vec3,
-        up: Vec3 = DEFAULT_CAMERA_UP,
-        angle: float = DEFAULT_CAMERA_ANGLE,
+        up: Vec3 | None = None,
+        angle: float | None = None,
+        profile: AtomicPovrayProfile = DEFAULT_PROFILE,
     ) -> "Camera":
-        return cls(direction, target, up, "perspective", angle=angle)
+        defaults = profile.scene
+        if direction is None:
+            direction = defaults.camera_direction
+        if direction is None:
+            raise ValueError("direction must be passed or defined by the profile")
+        return cls(
+            direction,
+            target,
+            defaults.camera_up if up is None else up,
+            "perspective",
+            angle=defaults.camera_angle if angle is None else angle,
+        )
 
     @classmethod
     def orthographic(
         cls,
         *,
-        direction: Vec3,
+        direction: Vec3 | None = None,
         target: Vec3,
-        up: Vec3 = DEFAULT_CAMERA_UP,
-        width: float = DEFAULT_CAMERA_WIDTH,
+        up: Vec3 | None = None,
+        width: float | None = None,
+        profile: AtomicPovrayProfile = DEFAULT_PROFILE,
     ) -> "Camera":
-        return cls(direction, target, up, "orthographic", width=width)
+        defaults = profile.scene
+        if direction is None:
+            direction = defaults.camera_direction
+        if direction is None:
+            raise ValueError("direction must be passed or defined by the profile")
+        return cls(
+            direction,
+            target,
+            defaults.camera_up if up is None else up,
+            "orthographic",
+            width=defaults.camera_width if width is None else width,
+        )
 
 
 @dataclass(frozen=True)
@@ -98,10 +119,11 @@ class AreaLight:
 def get_default_light(
     camera: Camera,
     *,
-    intensity: float = DEFAULT_LIGHT_INTENSITY,
-    angular_diameter: float = DEFAULT_LIGHT_ANGULAR_DIAMETER,
-    samples: tuple[int, int] = DEFAULT_LIGHT_SAMPLES,
-    adaptive: int = DEFAULT_LIGHT_ADAPTIVE,
+    intensity: float | None = None,
+    angular_diameter: float | None = None,
+    samples: tuple[int, int] | None = None,
+    adaptive: int | None = None,
+    profile: AtomicPovrayProfile = DEFAULT_PROFILE,
 ) -> AreaLight:
     """Return a soft key light positioned above and right of the camera.
 
@@ -111,6 +133,7 @@ def get_default_light(
     rotates.
     """
 
+    defaults = profile.scene
     distance = sqrt(sum(component * component for component in camera.direction))
     if not isfinite(distance) or distance <= 0:
         raise ValueError("camera direction must be non-zero and finite")
@@ -141,10 +164,14 @@ def get_default_light(
     return AreaLight(
         location=location,
         target=camera.target,
-        intensity=intensity,
-        angular_diameter=angular_diameter,
-        samples=samples,
-        adaptive=adaptive,
+        intensity=defaults.light_intensity if intensity is None else intensity,
+        angular_diameter=(
+            defaults.light_angular_diameter
+            if angular_diameter is None
+            else angular_diameter
+        ),
+        samples=defaults.light_samples if samples is None else samples,
+        adaptive=defaults.light_adaptive if adaptive is None else adaptive,
     )
 
 
@@ -184,15 +211,18 @@ def make_scene(
     camera: Camera,
     lights: tuple[Light, ...] = (),
     background: Background | None = None,
-    ambient_light: Color | float = DEFAULT_AMBIENT_LIGHT,
+    ambient_light: Color | float | None = None,
     fog: Fog | None = None,
     extra_primitives: tuple[Primitive, ...] = (),
+    profile: AtomicPovrayProfile = DEFAULT_PROFILE,
 ) -> Scene:
     """Assemble a scene; extras are a public extension point.
 
     A scalar ``ambient_light`` is shorthand for a neutral grey color.
     """
 
+    if ambient_light is None:
+        ambient_light = profile.scene.ambient_light
     if isinstance(ambient_light, bool) or not isinstance(
         ambient_light, (Color, Real)
     ):
@@ -206,7 +236,7 @@ def make_scene(
         primitives=(*primitives, *extra_primitives),
         camera=camera,
         lights=lights,
-        background=background or Background(),
+        background=background or Background(profile.scene.background_color),
         ambient_light=ambient_light,
         fog=fog,
     )

@@ -10,27 +10,14 @@ from typing import TYPE_CHECKING, Literal, TypeAlias
 
 import numpy as np
 
-from .._defaults import (
-    DEFAULT_ATOM_FINISH,
-    DEFAULT_BOND_FINISH,
-    DEFAULT_BOND_RADIUS,
-    DEFAULT_BOND_SIZE_SCALE,
-    DEFAULT_HYDROGEN_BOND_COLOR,
-    DEFAULT_HYDROGEN_BOND_RADIUS,
-    DEFAULT_HYDROGEN_BOND_SEGMENTS,
-    DEFAULT_HYDROGEN_BOND_LINE_STYLE,
-    DEFAULT_POLYHEDRON_FILTER,
-    DEFAULT_POLYHEDRON_FINISH,
-    DEFAULT_POLYHEDRON_TRANSMIT,
-    DEFAULT_PRESET_ATOM_SIZE_SCALES,
-    DEFAULT_PRESET_STYLE,
-)
+from .._defaults import DEFAULT_BOND_RADIUS
 from ..defaults import (
     DEFAULT_HYDROGEN_BOND_RULE_ID,
     default_atom_color,
     default_atom_radius,
 )
 from ..model import AtomKey, BondNeighbor, GeometryModel, Vec3
+from ..profile import DEFAULT_PROFILE, AtomicPovrayProfile
 from ..primitives import (
     Color,
     CylinderPrimitive,
@@ -382,21 +369,13 @@ class PolyhedronStyleOverride:
         return replace(style, **changes)
 
 
-DEFAULT_HYDROGEN_BOND_STYLE = BondStyle(
-    radius=DEFAULT_HYDROGEN_BOND_RADIUS,
-    color=DEFAULT_HYDROGEN_BOND_COLOR,
-    style=DEFAULT_HYDROGEN_BOND_LINE_STYLE,
-    segments=DEFAULT_HYDROGEN_BOND_SEGMENTS,
-)
-
-
 @dataclass(frozen=True)
 class StyleConfig:
     preset_style: Literal[
         "ball_and_stick", "space_filling", "polyhedral"
-    ] = DEFAULT_PRESET_STYLE
+    ] | None = None
     atom_size_scale: float | None = None
-    bond_size_scale: float = DEFAULT_BOND_SIZE_SCALE
+    bond_size_scale: float | None = None
     draw_atoms: bool = True
     draw_bonds: bool | None = None
     draw_polyhedra: bool = True
@@ -418,38 +397,68 @@ class StyleConfig:
         default_factory=dict
     )
     default_atom: AtomStyle = AtomStyle()
-    default_bond: BondStyle = BondStyle()
-    default_polyhedron: PolyhedronStyle = PolyhedronStyle(
-        filter=DEFAULT_POLYHEDRON_FILTER,
-        transmit=DEFAULT_POLYHEDRON_TRANSMIT,
-    )
-    default_atom_finish: Finish = DEFAULT_ATOM_FINISH
-    default_bond_finish: Finish = DEFAULT_BOND_FINISH
-    default_polyhedron_finish: Finish = DEFAULT_POLYHEDRON_FINISH
+    default_bond: BondStyle | None = None
+    default_polyhedron: PolyhedronStyle | None = None
+    default_atom_finish: Finish | None = None
+    default_bond_finish: Finish | None = None
+    default_polyhedron_finish: Finish | None = None
     default_finish: Finish | None = None
     depth_shading: DepthShading | None = None
+    profile: AtomicPovrayProfile = DEFAULT_PROFILE
 
     def __post_init__(self) -> None:
+        profile_defaults = self.profile.style
+        preset_style = self.preset_style or profile_defaults.preset_style
         try:
-            preset_scale = DEFAULT_PRESET_ATOM_SIZE_SCALES[self.preset_style]
+            preset_scale = profile_defaults.preset_atom_size_scales[preset_style]
         except KeyError:
             raise ValueError(
                 "preset_style must be 'ball_and_stick', 'space_filling', or "
                 "'polyhedral'"
             ) from None
 
+        bond_scale = (
+            profile_defaults.bond_size_scale
+            if self.bond_size_scale is None
+            else self.bond_size_scale
+        )
         atom_scale = self.atom_size_scale
         if atom_scale is None:
-            atom_scale = preset_scale
+            atom_scale = (
+                preset_scale
+                if self.preset_style is not None
+                else profile_defaults.atom_size_scale
+            )
         self._validate_size_scale("atom_size_scale", atom_scale)
-        self._validate_size_scale("bond_size_scale", self.bond_size_scale)
+        self._validate_size_scale("bond_size_scale", bond_scale)
+        object.__setattr__(self, "preset_style", preset_style)
         object.__setattr__(self, "atom_size_scale", float(atom_scale))
-        object.__setattr__(self, "bond_size_scale", float(self.bond_size_scale))
+        object.__setattr__(self, "bond_size_scale", float(bond_scale))
+        if self.default_bond is None:
+            object.__setattr__(
+                self, "default_bond", BondStyle(radius=profile_defaults.bond_radius)
+            )
+        if self.default_polyhedron is None:
+            object.__setattr__(
+                self,
+                "default_polyhedron",
+                PolyhedronStyle(
+                    filter=profile_defaults.polyhedron_filter,
+                    transmit=profile_defaults.polyhedron_transmit,
+                ),
+            )
+        for name, value in (
+            ("default_atom_finish", profile_defaults.atom_finish),
+            ("default_bond_finish", profile_defaults.bond_finish),
+            ("default_polyhedron_finish", profile_defaults.polyhedron_finish),
+        ):
+            if getattr(self, name) is None:
+                object.__setattr__(self, name, value)
         if self.draw_bonds is None:
             object.__setattr__(
                 self,
                 "draw_bonds",
-                self.preset_style in ("ball_and_stick", "polyhedral"),
+                preset_style in ("ball_and_stick", "polyhedral"),
             )
 
     @staticmethod
@@ -463,29 +472,32 @@ class StyleConfig:
     def atom_finish(self) -> Finish:
         """Return the atom finish, honoring the legacy shared override."""
 
-        return self.default_finish or self.default_atom_finish
+        return self.default_finish or self.default_atom_finish  # type: ignore[return-value]
 
     @property
     def bond_finish(self) -> Finish:
         """Return the bond finish, honoring the legacy shared override."""
 
-        return self.default_finish or self.default_bond_finish
+        return self.default_finish or self.default_bond_finish  # type: ignore[return-value]
 
     @property
     def polyhedron_finish(self) -> Finish:
-        return self.default_finish or self.default_polyhedron_finish
+        return self.default_finish or self.default_polyhedron_finish  # type: ignore[return-value]
 
     def atom_style(self, symbol: str) -> AtomStyle:
         """Resolve built-in, global, and element radius/color defaults."""
 
         element = self.elements.get(symbol)
         global_default = self.default_atom
+        profile_element = self.profile.style.element_overrides.get(symbol)
         return AtomStyle(
             radius=(
                 element.radius
                 if element is not None and element.radius is not None
                 else global_default.radius
                 if global_default.radius is not None
+                else profile_element.radius
+                if profile_element is not None and profile_element.radius is not None
                 else default_atom_radius(symbol)
             ),
             color=(
@@ -493,6 +505,8 @@ class StyleConfig:
                 if element is not None and element.color is not None
                 else global_default.color
                 if global_default.color is not None
+                else profile_element.color
+                if profile_element is not None and profile_element.color is not None
                 else default_atom_color(symbol)
             ),
             material=(
@@ -512,8 +526,14 @@ class StyleConfig:
         if rule_id in self.bonds:
             return self.bonds[rule_id]
         if rule_id == DEFAULT_HYDROGEN_BOND_RULE_ID:
-            return DEFAULT_HYDROGEN_BOND_STYLE
-        return self.default_bond
+            defaults = self.profile.style
+            return BondStyle(
+                radius=defaults.hydrogen_bond_radius,
+                color=defaults.hydrogen_bond_color,
+                style=defaults.hydrogen_bond_line_style,
+                segments=defaults.hydrogen_bond_segments,
+            )
+        return self.default_bond  # type: ignore[return-value]
 
     def polyhedron_style(
         self, rule_id: str, center: AtomKey

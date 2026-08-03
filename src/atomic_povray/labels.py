@@ -9,15 +9,9 @@ from typing import Callable
 import numpy as np
 from ase import Atoms
 
-from ._defaults import (
-    DEFAULT_LABEL_COLOR,
-    DEFAULT_LABEL_FONT,
-    DEFAULT_LABEL_OFFSET,
-    DEFAULT_LABEL_SIZE,
-    DEFAULT_LABEL_THICKNESS,
-)
 from .model import AtomInstance, Vec3
 from .primitives import Color, Finish, Material, TextPrimitive
+from .profile import DEFAULT_PROFILE, AtomicPovrayProfile
 from .scene import Camera
 from .styling import StyledGeometry
 
@@ -78,12 +72,13 @@ def label_atoms(
     camera: Camera,
     labels: AtomLabeler | None = None,
     selection: AtomLabelSelection | None = None,
-    offset: Vec3 = DEFAULT_LABEL_OFFSET,
-    size: float = DEFAULT_LABEL_SIZE,
-    thickness: float = DEFAULT_LABEL_THICKNESS,
-    font: str = DEFAULT_LABEL_FONT,
-    color: Color = DEFAULT_LABEL_COLOR,
+    offset: Vec3 | None = None,
+    size: float | None = None,
+    thickness: float | None = None,
+    font: str | None = None,
+    color: Color | None = None,
     material: Material | None = None,
+    profile: AtomicPovrayProfile = DEFAULT_PROFILE,
 ) -> tuple[TextPrimitive, ...]:
     """Create camera-facing labels for visible atoms in the styled geometry.
 
@@ -93,6 +88,12 @@ def label_atoms(
     the final resolved atom radius.
     """
 
+    defaults = profile.labels
+    offset = defaults.offset if offset is None else offset
+    size = defaults.size if size is None else size
+    thickness = defaults.thickness if thickness is None else thickness
+    font = defaults.font if font is None else font
+    color = defaults.color if color is None else color
     size = _positive_finite("size", size)
     thickness = _positive_finite("thickness", thickness)
     if not font:

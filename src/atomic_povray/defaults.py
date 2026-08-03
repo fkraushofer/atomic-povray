@@ -11,10 +11,10 @@ from typing import Any
 from ase.data import atomic_numbers, covalent_radii
 from ase.data.colors import jmol_colors
 
-from ._defaults import DEFAULT_BOND_SCALE, DEFAULT_HYDROGEN_BOND_MAX
 from .config import BondRule
 from .model import StructureModel
 from .primitives import Color
+from .profile import DEFAULT_PROFILE, AtomicPovrayProfile
 
 
 DEFAULT_HYDROGEN_BOND_RULE_ID = "default:hydrogen:O-H"
@@ -172,10 +172,11 @@ class BondRuleSet:
 def get_default_bonds(
     structure: StructureModel | Any,
     *,
-    bond_scale: float = DEFAULT_BOND_SCALE,
+    bond_scale: float | None = None,
     include_pairs: Iterable[tuple[str, str]] = (),
     exclude_pairs: Iterable[tuple[str, str]] = (),
     print_table: bool = True,
+    profile: AtomicPovrayProfile = DEFAULT_PROFILE,
 ) -> BondRuleSet:
     """Materialize editable default rules for the elements in a structure.
 
@@ -187,6 +188,9 @@ def get_default_bonds(
     printed as a compact table; pass ``print_table=False`` to suppress it.
     """
 
+    if bond_scale is None:
+        bond_scale = profile.geometry.bond_scale
+    hydrogen_bond_max = profile.geometry.hydrogen_bond_max
     if not isfinite(bond_scale) or bond_scale <= 0:
         raise ValueError("bond_scale must be positive and finite")
 
@@ -236,17 +240,17 @@ def get_default_bonds(
             )
         )
         if is_oh:
-            if maximum >= DEFAULT_HYDROGEN_BOND_MAX:
+            if maximum >= hydrogen_bond_max:
                 raise ValueError(
                     "bond_scale makes the covalent O-H cutoff reach or exceed "
-                    f"the fixed {DEFAULT_HYDROGEN_BOND_MAX} Å hydrogen-bond limit"
+                    f"the fixed {hydrogen_bond_max} Å hydrogen-bond limit"
                 )
             rules.add(
                 BondRule(
                     "O",
                     "H",
                     maximum,
-                    DEFAULT_HYDROGEN_BOND_MAX,
+                    hydrogen_bond_max,
                     name=DEFAULT_HYDROGEN_BOND_RULE_ID,
                     extension_mode="none",
                 )
