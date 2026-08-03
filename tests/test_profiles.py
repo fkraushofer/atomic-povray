@@ -144,6 +144,10 @@ def test_scene_and_render_profile_defaults_with_explicit_precedence():
             width=1200,
             height=900,
             quality=3,
+            antialias_threshold=0.05,
+            sampling_method=2,
+            display_gamma=2.0,
+            file_gamma=2.0,
         ),
     )
     camera = Camera.orthographic(
@@ -160,6 +164,10 @@ def test_scene_and_render_profile_defaults_with_explicit_precedence():
     assert scene.background == Background(Color(0.2, 0.3, 0.4))
     assert scene.ambient_light == Color(0.6, 0.6, 0.6)
     assert (render.width, render.height, render.quality) == (1200, 900, 3)
+    assert render.antialias_threshold == pytest.approx(0.05)
+    assert render.sampling_method == 2
+    assert render.display_gamma == pytest.approx(2.0)
+    assert render.file_gamma == pytest.approx(2.0)
 
     explicit_camera = Camera.orthographic(
         direction=(0.0, 0.0, 10.0),
