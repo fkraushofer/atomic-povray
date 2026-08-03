@@ -35,6 +35,15 @@ HEMATITE_SIDE_VIEW = replace(
         camera_up=(0.0, 0.0, 1.0),
         camera_width=18.0,
     ),
+    render=replace(
+        width=1024,
+        height=768,
+        antialias_threshold=0.05,    # slower than default 0.1, but looks nicer
+        sampling_method=2,
+        display_gamma=2.0,
+        file_gamma=2.0,
+        transparent=True,
+    ),
 )
 
 
