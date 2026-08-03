@@ -88,6 +88,39 @@ Run the complete test suite before publishing a change:
 python -m pytest
 ```
 
+GitHub publication and local validation are separate capabilities. The connected
+GitHub app can publish a branch without providing a local checkout or Python
+environment. Conversely, tests can run in a disposable local tree even when
+`git clone`, `gh`, or authenticated Git transport is unavailable.
+
+When no checkout is present:
+
+1. Reconstruct the relevant branch in a temporary workspace from files fetched
+   through the connected GitHub app. Include the package source, `tests/`,
+   `pyproject.toml`, and all fixtures/data required by the suite.
+2. Mirror the proposed edits into that local tree before validating them.
+3. Inspect `pyproject.toml`, then install the project and its test extra in the
+   transient environment when package installation is permitted:
+
+   ```bash
+   python -m pip install -e '.[test]'
+   python -m pytest
+   ```
+
+4. Publish the already-validated content through the connected GitHub app.
+
+Do not treat a missing checkout, ASE, SciPy, pytest, or `gh` as sufficient reason
+to skip tests. First try local reconstruction and installation of declared test
+dependencies. Do not claim that tests passed unless the tested local files exactly
+match the content published to the branch.
+
+If reconstruction or dependency installation is genuinely blocked (for example,
+package downloads are disallowed, required external binaries are unavailable, or
+the complete test data cannot be fetched), run the strongest available narrower
+checks and state the exact limitation in the PR description. POV-Ray itself is
+only required for tests that actually invoke rendering; SDL/INI generation tests
+should remain runnable without it.
+
 Update the notebook, examples, README, and roadmap when a public API or milestone changes.
 
 ## Development workflow
