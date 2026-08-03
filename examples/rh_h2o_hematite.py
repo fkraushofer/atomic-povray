@@ -30,9 +30,17 @@ from atomic_povray import (
 )
 
 if __package__:
-    from .hematite_profile import (\n        HEMATITE_SIDE_VIEW,\n        SURFACE_OXYGEN_COLOR,\n        get_side_view_light,\n    )
+    from .hematite_profile import (
+        HEMATITE_SIDE_VIEW,
+        SURFACE_OXYGEN_COLOR,
+        get_side_view_light,
+    )
 else:
-    from hematite_profile import (\n        HEMATITE_SIDE_VIEW,\n        SURFACE_OXYGEN_COLOR,\n        get_side_view_light,\n    )
+    from hematite_profile import (
+        HEMATITE_SIDE_VIEW,
+        SURFACE_OXYGEN_COLOR,
+        get_side_view_light,
+    )
 
 
 ROOT = Path(__file__).resolve().parents[1]
