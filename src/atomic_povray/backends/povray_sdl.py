@@ -273,6 +273,8 @@ def scene_to_sdl(
     if povray_version is None:
         povray_version = profile.render.povray_version
     ambient = scene.ambient_light
+    if radiosity is None:
+        radiosity = profile.render.radiosity
     _warn_for_radiosity_ambient(scene, radiosity)
     povray_version = _validate_povray_version(povray_version)
     lines = [
