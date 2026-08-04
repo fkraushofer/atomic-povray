@@ -535,8 +535,6 @@ Returning an empty string suppresses the corresponding label.
 This first implementation uses POV-Ray TrueType text with left alignment.
 The default `timrom.ttf` is normally bundled with POV-Ray; pass another font
 name or path when needed. `material=` can replace the simple `color=` setting.
-Collision avoidance, leader lines, fixed-screen positioning, and label rules
-inside `StyleConfig` are deliberately outside this basic layer.
 
 #### Custom and periodic primitives
 
