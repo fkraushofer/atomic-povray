@@ -59,10 +59,6 @@ A shared default finish applies to atoms and bonds unless a more specific finish
 
 Depth shading is deferred styling work. Implement it in the style-resolution stage, not in geometry or as an undocumented light-intensity adjustment.
 
-## Compatibility policy
-
-Prefer a clean, coherent API over unnecessary backward-compatibility shims. When replacing an experimental API, remove the obsolete implementation, exports, tests, examples, and documentation in the same change. Do not leave deprecated zombie functions unless the user explicitly requests a compatibility period.
-
 ## POV-Ray behavior
 
 POV-Ray 3.7 is the default SDL compatibility target and executable example. Keep `assumed_gamma 1.0` explicit in generated scenes. SDL version, display gamma, file gamma, transparency, antialiasing, and render quality are separate settings.
@@ -79,8 +75,6 @@ Opening only a `.pov` file does not reproduce INI render settings; examples shou
 Every geometry change needs focused identity/count tests, not only image comparisons. In particular, test non-orthogonal periodic cells, boundary crossings, deduplication, asymmetric extension direction, one-hop non-recursion, and per-boundary extension control where relevant.
 
 Every styling or backend change should test resolved primitive properties or emitted SDL/INI. Use rendered-image regression tests only as an additional check when a stable POV-Ray environment is available.
-
-Use `tests/data/fe2o3-012-1x1-relaxed.vasp` as the main compact realistic example. The 3×3 structure is a larger regression/performance case.
 
 Run the complete test suite before publishing a change:
 
