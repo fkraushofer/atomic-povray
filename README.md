@@ -11,6 +11,8 @@ writes or renders a POV-Ray scene.
 Its features are strongly inspired by [VESTA](https://jp-minerals.org/vesta/en/),
 but with reproducible scene construction and rendering, as well as reusable profiles
 for maintaining consistent atom styles, lighting, and other settings within a project.
+Rendering features and behavior are based on the earlier pure POV-Ray `vaspviewCode` by
+[@schmid-iap](https://github.com/schmid-iap).
 
 atomic-povray generates a POV-Ray SDL file and then executes the POV-Ray engine as a
 subprocess to render it. Alternatively, it can write only the SDL file for manual
