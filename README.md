@@ -930,8 +930,8 @@ periodic bond detection.
 
 #### Background and fog
 
-POV-Ray's native constant fog is available as a continuous alternative when
-depth follows the camera view:
+POV-Ray's native constant fog is available as a continuous alternative to 
+directional depth shading when depth follows the camera view:
 
 ```python
 scene = make_scene(
