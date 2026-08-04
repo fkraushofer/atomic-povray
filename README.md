@@ -372,6 +372,12 @@ structure = load_structure("POSCAR")
 bond_rules = get_default_bonds(structure, bond_scale=1.2)
 ```
 
+Distance ranges are half-open: the minimum is included and the maximum is
+excluded. Adjacent rules for the same element pair can therefore share a
+cutoff without claiming the same bond. Every rule has a unique name, which is
+also used later as its key in `StyleConfig.bonds`; use distinct names when
+adjacent ranges should receive different styles.
+
 For a metal-metal bond such as Pt-Pt, add an explicit rule in the next cell
 because metal-metal pairs are deliberately excluded from the chemical defaults:
 
@@ -529,6 +535,8 @@ Returning an empty string suppresses the corresponding label.
 This first implementation uses POV-Ray TrueType text with left alignment.
 The default `timrom.ttf` is normally bundled with POV-Ray; pass another font
 name or path when needed. `material=` can replace the simple `color=` setting.
+Collision avoidance, leader lines, fixed-screen positioning, and label rules
+inside `StyleConfig` are deliberately outside this basic layer.
 
 #### Custom and periodic primitives
 
@@ -689,27 +697,18 @@ one particular periodic image. Later matching rules win within a category, and
 partial overrides retain properties they do not specify. Setting
 `visible=False` also removes bonds incident to that atom. Split-color solid bonds automatically use the final resolved endpoint colors.
 
-#### Bond styles and distance ranges
+#### Bond styles
 
-Bond-rule distance ranges are half-open: the minimum is included and the
-maximum is excluded. Adjacent rules can therefore share a cutoff without
-claiming the same bond. Give them distinct names so each rule can resolve to
-its own style:
+Map bond-rule names to `BondStyle` objects to override their appearance. For
+example, the automatically generated covalent and hydrogen O-H rules can be
+styled independently:
 
 ```python
-geometry = build_geometry(
-    structure,
-    bond_rules=(
-        BondRule("O", "H", 0.1, 1.2, name="covalent-O-H"),
-        BondRule("O", "H", 1.2, 2.0, name="hydrogen-O-H"),
-    ),
-)
-
 styles = StyleConfig(
     ...,
     bonds={
-        "covalent-O-H": BondStyle(radius=0.07),
-        "hydrogen-O-H": BondStyle(
+        "default:covalent:O-H": BondStyle(radius=0.07),
+        "default:hydrogen:O-H": BondStyle(
             style="dashed",
             segments=4,
             radius=0.05,
