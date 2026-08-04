@@ -16,40 +16,22 @@ atomic-povray generates a POV-Ray SDL file and then executes the POV-Ray engine 
 subprocess to render it. Alternatively, it can write only the SDL file for manual
 rendering.
 
-## What is implemented
+## Features
 
-- ASE structure loading
-- floating-point fractional ranges that combine replication, offset, and crop
-- optional Cartesian cutoff planes defined by a normal and signed distance
-- one-hop bond-extension atoms across clipping and replication boundaries
-- asymmetric Fe→O-style boundary extension by default, with symmetric and
-  disabled modes available per bond rule
-- per-plane and per-fractional-face control over whether extensions are allowed
-- element-pair bond rules with half-open minimum/maximum distance ranges
-- periodic bond discovery, including skewed cells and bonds crossing cell edges
-- stable atom identity as `(source_index, lattice_shift)`
-- atom spheres with ASE-backed fallback colors and covalent radii
-- automatic, editable default bond rules for chemically plausible element pairs
-- layered atom-style overrides by coordination, ASE selection, source index, or
-  displayed periodic instance
-- solid, dashed, or dotted bonds, with configurable segment count and radius
-- single-color bonds, plus two-color solid bonds with equal visible lengths
-- distinct default atom and bond finishes, with per-style material or finish
-  overrides
-- directional exponential depth shading with a configurable onset, direction,
-  decay length, and target color
-- native POV-Ray constant fog for continuous camera-distance fading
-- perspective and orthographic cameras
-- point lights, backgrounds, transparent output
-- direct POV-Ray SDL and INI generation
-- an `extra_primitives=` scene hook for unit cells, arrows, isosurfaces, labels, etc.
-- camera-facing atom labels with configurable text, selection, font, size, offset,
-  thickness, color, or material
-- optional per-vertex normals for smooth externally generated triangle meshes
-- notebook-friendly, explicitly staged API
-
-Collision avoidance, leader lines, and fixed-screen label placement
-persistent disk caching, and an interactive preview are intentionally deferred.
+- [Flexible structure display](#display-bounds): load any ASE-supported structure,
+  replicate and crop fractional cells, and clip with Cartesian planes
+- [Periodic bond construction](#bond-rules): chemically configurable bond rules,
+  periodic bond discovery, and controlled extension across display boundaries
+- [Custom atom and bond styles](#style-overrides): layered overrides by element,
+  coordination, ASE selection, source atom, or displayed periodic instance
+- [Advanced scene primitives](#extra-primitives): unit cells, labels, arrows,
+  coordination polyhedra, isosurfaces, and custom triangle meshes
+- [Depth and atmosphere effects](#depth-shading): directional depth shading and
+  native POV-Ray fog
+- [Reusable rendering configuration](#rendering): perspective or orthographic
+  cameras, lighting, backgrounds, transparency, materials, and radiosity
+- [Scriptable workflows](#rendering-files): staged Python API, reusable profiles,
+  batch rendering, and direct POV-Ray SDL/INI generation
 
 ## Installation
 
