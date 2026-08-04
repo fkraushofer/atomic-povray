@@ -11,6 +11,7 @@ from types import MappingProxyType
 from . import _defaults
 from .model import Vec3
 from .primitives import Color, Finish
+from .radiosity import Radiosity
 
 
 @dataclass(frozen=True)
@@ -117,6 +118,7 @@ class RenderDefaults:
     executable: str = _defaults.DEFAULT_POVRAY_EXECUTABLE
     povray_version: str = _defaults.DEFAULT_POVRAY_VERSION
     max_trace_level: int | None = _defaults.DEFAULT_RENDER_MAX_TRACE_LEVEL
+    radiosity: Radiosity | None = _defaults.DEFAULT_RENDER_RADIOSITY
     additional_pov: str | None = _defaults.DEFAULT_RENDER_ADDITIONAL_POV
     additional_ini: str | None = _defaults.DEFAULT_RENDER_ADDITIONAL_INI
 

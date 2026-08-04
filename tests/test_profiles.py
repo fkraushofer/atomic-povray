@@ -12,6 +12,7 @@ from atomic_povray import (
     Camera,
     Color,
     ElementOverride,
+    Radiosity,
     RenderConfig,
     StyleConfig,
     get_default_bonds,
@@ -148,6 +149,7 @@ def test_scene_and_render_profile_defaults_with_explicit_precedence():
             sampling_method=2,
             display_gamma=2.0,
             file_gamma=2.0,
+            radiosity=Radiosity(count=150),
         ),
     )
     camera = Camera.orthographic(
@@ -168,6 +170,7 @@ def test_scene_and_render_profile_defaults_with_explicit_precedence():
     assert render.sampling_method == 2
     assert render.display_gamma == pytest.approx(2.0)
     assert render.file_gamma == pytest.approx(2.0)
+    assert render.radiosity == Radiosity(count=150)
 
     explicit_camera = Camera.orthographic(
         direction=(0.0, 0.0, 10.0),

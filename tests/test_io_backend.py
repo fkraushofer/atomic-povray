@@ -10,7 +10,10 @@ from atomic_povray import (
     Camera,
     Color,
     Fog,
+    Material,
+    Radiosity,
     RenderConfig,
+    SpherePrimitive,
     make_scene,
     load_structure,
     render_scene,
@@ -89,6 +92,72 @@ def test_max_trace_level_and_additional_pov_are_written_to_sdl():
 
     assert "  max_trace_level 20\n}" in text
     assert "}\n\n#declare Custom_Value = 3;\n\ncamera {" in text
+
+
+
+def test_radiosity_preset_is_written_inside_global_settings():
+    scene = make_scene(
+        (
+            SpherePrimitive(
+                center=(0.0, 0.0, 0.0),
+                radius=1.0,
+                material=Material(Color(1.0, 0.0, 0.0), ambient=0.0),
+            ),
+        ),
+        camera=Camera.perspective(
+            direction=(0.0, 10.0, 0.0),
+            target=(0.0, 0.0, 0.0),
+            up=(0.0, 0.0, 1.0),
+        ),
+    )
+
+    text = scene_to_sdl(scene, radiosity=Radiosity())
+
+    assert """  radiosity {
+    pretrace_start 0.08
+    pretrace_end 0.01
+    count 100
+    error_bound 0.5
+    recursion_limit 2
+  }
+}""" in text
+
+
+def test_radiosity_warns_for_nonzero_material_ambient_but_writes_scene():
+    scene = make_scene(
+        (
+            SpherePrimitive(
+                center=(0.0, 0.0, 0.0),
+                radius=1.0,
+                material=Material(Color(1.0, 0.0, 0.0)),
+            ),
+        ),
+        camera=Camera.perspective(
+            direction=(0.0, 10.0, 0.0),
+            target=(0.0, 0.0, 0.0),
+            up=(0.0, 0.0, 1.0),
+        ),
+    )
+
+    with pytest.warns(UserWarning, match=r"ambient != 0"):
+        text = scene_to_sdl(scene, radiosity=Radiosity())
+
+    assert "radiosity {" in text
+    assert "sphere {" in text
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    (
+        ({"pretrace_end": 0.09, "pretrace_start": 0.08}, "pretrace_end"),
+        ({"count": 0}, "count"),
+        ({"error_bound": 0.0}, "error_bound"),
+        ({"recursion_limit": 21}, "recursion_limit"),
+    ),
+)
+def test_radiosity_parameters_are_validated(kwargs, message):
+    with pytest.raises((TypeError, ValueError), match=message):
+        Radiosity(**kwargs)
 
 
 def test_additional_ini_is_appended(tmp_path: Path):

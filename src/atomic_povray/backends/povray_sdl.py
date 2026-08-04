@@ -21,6 +21,7 @@ from ..primitives import (
     TriangleMeshPrimitive,
 )
 from ..profile import DEFAULT_PROFILE, AtomicPovrayProfile
+from ..radiosity import Radiosity
 from ..scene import AreaLight, Camera, PointLight, Scene
 
 
@@ -232,12 +233,38 @@ def _validate_povray_version(value: str) -> str:
     return value
 
 
+def _radiosity_to_sdl(radiosity: Radiosity) -> list[str]:
+    return [
+        "  radiosity {",
+        f"    pretrace_start {_number(radiosity.pretrace_start)}",
+        f"    pretrace_end {_number(radiosity.pretrace_end)}",
+        f"    count {radiosity.count}",
+        f"    error_bound {_number(radiosity.error_bound)}",
+        f"    recursion_limit {radiosity.recursion_limit}",
+        "  }",
+    ]
+
+
+def _warn_for_radiosity_ambient(scene: Scene, radiosity: Radiosity | None) -> None:
+    if radiosity is not None and any(
+        primitive.material.ambient != 0 for primitive in scene.primitives
+    ):
+        warnings.warn(
+            "Radiosity is enabled while one or more materials have ambient != 0. "
+            "This can make indirect illumination look washed out; ambient=0 is "
+            "usually a better starting point. Rendering will continue.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 def scene_to_sdl(
     scene: Scene,
     *,
     aspect_ratio: float | None = None,
     povray_version: str | None = None,
     max_trace_level: int | None = None,
+    radiosity: Radiosity | None = None,
     additional_pov: str | None = None,
     profile: AtomicPovrayProfile = DEFAULT_PROFILE,
 ) -> str:
@@ -246,6 +273,9 @@ def scene_to_sdl(
     if povray_version is None:
         povray_version = profile.render.povray_version
     ambient = scene.ambient_light
+    if radiosity is None:
+        radiosity = profile.render.radiosity
+    _warn_for_radiosity_ambient(scene, radiosity)
     povray_version = _validate_povray_version(povray_version)
     lines = [
         f"#version {povray_version};",
@@ -260,6 +290,8 @@ def scene_to_sdl(
         if max_trace_level < 1:
             raise ValueError("max_trace_level must be positive")
         lines.append(f"  max_trace_level {max_trace_level}")
+    if radiosity is not None:
+        lines.extend(_radiosity_to_sdl(radiosity))
     lines.extend(("}", ""))
     if additional_pov:
         lines.extend((additional_pov.rstrip("\n"), ""))
@@ -302,6 +334,7 @@ def write_scene(
     height: int | None = None,
     povray_version: str | None = None,
     max_trace_level: int | None = None,
+    radiosity: Radiosity | None = None,
     additional_pov: str | None = None,
     profile: AtomicPovrayProfile = DEFAULT_PROFILE,
 ) -> Path:
@@ -317,6 +350,7 @@ def write_scene(
             aspect_ratio=width / height,
             povray_version=povray_version,
             max_trace_level=max_trace_level,
+            radiosity=radiosity,
             additional_pov=additional_pov,
             profile=profile,
         ),
@@ -340,6 +374,7 @@ class RenderConfig:
     executable: str | None = None
     povray_version: str | None = None
     max_trace_level: int | None = None
+    radiosity: Radiosity | None = None
     additional_pov: str | None = None
     additional_ini: str | None = None
     profile: AtomicPovrayProfile = DEFAULT_PROFILE
@@ -360,6 +395,7 @@ class RenderConfig:
             "executable",
             "povray_version",
             "max_trace_level",
+            "radiosity",
             "additional_pov",
             "additional_ini",
         ):
@@ -470,6 +506,7 @@ def render_scene(
         height=config.height,
         povray_version=config.povray_version,
         max_trace_level=config.max_trace_level,
+        radiosity=config.radiosity,
         additional_pov=config.additional_pov,
     )
     ini_path = write_ini(scene_path, image_path, config)

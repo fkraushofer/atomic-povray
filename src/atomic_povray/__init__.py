@@ -1,6 +1,7 @@
 """Public, notebook-friendly API for atomic-povray Prototype 1."""
 
 from .backends import (
+    Radiosity,
     RenderConfig,
     RenderResult,
     render_scene,
@@ -108,6 +109,7 @@ __all__ = [
     "PolyhedronStyle",
     "PolyhedronStyleOverride",
     "Primitive",
+    "Radiosity",
     "RenderConfig",
     "RenderDefaults",
     "RenderResult",

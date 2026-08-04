@@ -1,3 +1,4 @@
+from ..radiosity import Radiosity
 from .povray_sdl import (
     RenderConfig,
     RenderResult,
@@ -8,6 +9,7 @@ from .povray_sdl import (
 )
 
 __all__ = [
+    "Radiosity",
     "RenderConfig",
     "RenderResult",
     "render_scene",
