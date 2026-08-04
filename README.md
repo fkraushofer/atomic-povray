@@ -36,16 +36,40 @@ rendering.
 
 ## Installation
 
-Create a clean environment and install the project in editable mode:
+The recommended setup uses Conda to keep atomic-povray and its dependencies
+separate from other Python software. If Conda is not installed yet, follow the
+[official Conda installation instructions](https://docs.conda.io/docs/user-guide/install/download.html).
+The [Conda environment guide](https://docs.conda.io/docs/user-guide/tasks/manage-environments.html)
+provides more background on creating and activating environments.
+
+Download this repository and extract it if necessary. Then open a terminal
+(or the Anaconda Prompt on Windows) and create a new environment:
 
 ```bash
 conda create -n atomic-povray python=3.12 povray -c conda-forge
 conda activate atomic-povray
-python -m pip install -e ".[test,notebook]"
 ```
 
-The `povray` Conda package puts the executable on the active environment's
-`PATH`. A separate system installation works equally well.
+Next, change into the downloaded `atomic-povray` package directory: this is the
+folder that contains `pyproject.toml`. Run the installation command from there:
+
+```bash
+cd path/to/atomic-povray
+python -m pip install .
+```
+
+The final dot in `python -m pip install .` means "install the package in the
+current directory," so the command will fail if it is run from another folder.
+The standard installation includes everything needed to use atomic-povray; it
+does not install the test suite or JupyterLab. To use the included notebooks,
+install the optional notebook support from the same directory instead:
+
+```bash
+python -m pip install ".[notebook]"
+```
+
+The `povray` Conda package puts the renderer executable on the active
+environment's `PATH`. A separate system installation works equally well.
 
 ### Configure the POV-Ray executable
 
@@ -428,7 +452,8 @@ geometry = build_geometry(
 The default `boundary_mode="complete"` builds the full one-hop ligand shell
 around every in-bounds center, including ligands outside the display region.
 Use `"visible"` to restrict hull vertices to displayed atom instances.
-`center_selector` accepts the same integer-index, integer-sequence, or
+`center_selector` is called with the underlying ASE `Atoms` object
+(`structure.atoms`) and accepts the same integer-index, integer-sequence, or
 Boolean-mask results as atom selection rules. Ligands can be filtered by
 element and bond-rule ID. `expansion` moves every vertex radially by an
 absolute distance in Å.
@@ -449,7 +474,7 @@ polyhedron_rules = (
         name="Fe-O",
         ligand_elements={"O"},
         bond_rules={"default:Fe-O"},
-        center_selector=lambda atoms: atoms.positions[:, 2] > 20.0,
+        center_selector=lambda ase_atoms: ase_atoms.positions[:, 2] > 20.0,
     ),
 )
 ```
@@ -488,7 +513,18 @@ face the camera in both orthographic and perspective scenes. If `labels` is omit
 `O1`, `O2`, … and independently `Fe1`, `Fe2`, …. Numbering follows the original
 ASE atom order even when elements are interleaved. The same convention is
 available separately as `element_labels(structure.atoms)`. Pass a `labels=`
-callable to use another convention; empty strings suppress individual labels.
+callable to use another convention. For example, this displays the zero-based
+ASE source index of each atom:
+
+```python
+labels = label_atoms(
+    styled,
+    camera=camera,
+    labels=lambda atom: str(atom.key.source_index),
+)
+```
+
+Returning an empty string suppresses the corresponding label.
 
 This first implementation uses POV-Ray TrueType text with left alignment.
 The default `timrom.ttf` is normally bundled with POV-Ray; pass another font
@@ -1104,4 +1140,3 @@ The tests cover ordinary and boundary-crossing bonds, skewed cells, clipping
 planes, asymmetric and symmetric one-hop extensions, non-recursion, per-plane
 extension control, replication identities, bicolored styling, extra
 primitives, shared and overridden finishes, gamma settings, and SDL output.
-
