@@ -33,6 +33,8 @@ rendering.
   cells, arrows, isosurfaces, and custom triangle meshes
 - [Configurable scenes and rendering](#set-up-and-render-the-scene), including
   cameras, lighting, transparency, depth effects, fog, and radiosity
+- [Selected-variable interactive previews](#refine-selected-settings-interactively)
+  with asynchronous, headless POV-Ray rendering in Jupyter
 - [Notebook, script, and batch workflows](#examples) with reusable project
   profiles and direct POV-Ray SDL/INI output
 
@@ -167,7 +169,8 @@ geometry = build_geometry(
         fractional_ranges=((0, 2), (0, 2), (0, 1)),
     ),
 )
-styled = apply_styles(geometry, StyleConfig())
+styles = StyleConfig()
+styled = apply_styles(geometry, styles)
 
 camera = Camera.orthographic(
     direction=(0, 100, 0),
@@ -182,6 +185,81 @@ scene = make_scene(
 )
 render_scene(scene, "structure.png", RenderConfig(quality=5))
 ```
+
+### Refine selected settings interactively
+
+Install the `notebook` extra to use `interactive_render`. It displays only the
+controls explicitly requested by the caller, renders low-quality previews in
+the background, and retains the newest pending state while POV-Ray is busy.
+Scene and camera controls can operate on an existing `Scene` directly:
+
+```python
+from atomic_povray import Control, interactive_render
+
+session = interactive_render(
+    scene,
+    "structure.png",
+    RenderConfig(quality=9, display=False),
+    controls=[
+        "camera.direction",
+        "camera.target",
+        Control("camera.width", min=10, max=40, step=0.1),
+        "scene.background.color",
+    ],
+)
+```
+
+Each numeric or vector component has a slider and an exact numeric field. The
+`Render full quality` button writes `structure.png` with the supplied
+`RenderConfig`; changing a setting afterwards returns the session to preview
+mode. Preview renders are always headless and default to at most 480 pixels
+wide, quality 3, no antialiasing, and no radiosity. Pass an explicit
+`preview_config` to change those render settings.
+
+Style controls need the pre-existing geometry and `StyleConfig`, because a
+finished `Scene` does not retain enough information to restyle its primitives:
+
+```python
+session = interactive_render(
+    scene,
+    "structure.png",
+    RenderConfig(quality=9, display=False),
+    geometry=geometry,
+    style_config=styles,
+    controls=[
+        "style.atom_size_scale",
+        "style.default_atom_finish.phong",
+        "style.depth_shading.enabled",
+        "style.depth_shading.origin",
+        "style.depth_shading.direction",
+        "style.depth_shading.decay_length",
+        "style.depth_shading.color",
+    ],
+)
+```
+
+This re-runs only `apply_styles()` against the already constructed geometry.
+If the original scene also contains custom primitives, pass the same objects as
+`extra_primitives` so they remain in the rebuilt scene.
+Disabling depth shading or fog disables its component widgets but retains their
+values, so switching the effect back on restores the previous settings.
+
+The visible control set can be replaced without losing earlier changes:
+
+```python
+session.set_controls([
+    "scene.light.location",
+    "scene.light.intensity",
+])
+```
+
+`session.values` contains every setting that differs from the state passed to
+`interactive_render`, including changes made under earlier control sets.
+`session.as_python()` returns a copyable `apply_interactive_values(...)` snippet
+for a profile-based notebook, standalone script, or batch renderer. This keeps
+the notebook or script as the reproducible source of truth; interactive values
+are not silently serialized as an incomplete replacement for the project
+profile. Use `available_controls()` to list the curated registry.
 
 The same code can be run interactively in a Jupyter notebook or saved as a
 standalone `.py` script. Notebooks are convenient for inspecting bond rules
