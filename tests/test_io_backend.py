@@ -146,6 +146,31 @@ def test_radiosity_warns_for_nonzero_material_ambient_but_writes_scene():
     assert "sphere {" in text
 
 
+
+def test_radiosity_skips_ambient_warning_when_ambient_light_is_zero(recwarn):
+    scene = make_scene(
+        (
+            SpherePrimitive(
+                center=(0.0, 0.0, 0.0),
+                radius=1.0,
+                material=Material(Color(1.0, 0.0, 0.0)),
+            ),
+        ),
+        camera=Camera.perspective(
+            direction=(0.0, 10.0, 0.0),
+            target=(0.0, 0.0, 0.0),
+            up=(0.0, 0.0, 1.0),
+        ),
+        ambient_light=0,
+    )
+
+    text = scene_to_sdl(scene, radiosity=Radiosity())
+
+    assert not recwarn
+    assert "ambient_light rgb <0, 0, 0>" in text
+    assert "radiosity {" in text
+
+
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     (
