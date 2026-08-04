@@ -1,4 +1,4 @@
-"""Public, notebook-friendly API for atomic-povray Prototype 1."""
+"""Public API for atomic-povray."""
 
 from .backends import (
     Radiosity,
@@ -137,4 +137,5 @@ __all__ = [
     "write_ini",
     "write_scene",
 ]
+
 
