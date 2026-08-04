@@ -246,7 +246,15 @@ def _radiosity_to_sdl(radiosity: Radiosity) -> list[str]:
 
 
 def _warn_for_radiosity_ambient(scene: Scene, radiosity: Radiosity | None) -> None:
-    if radiosity is not None and any(
+    ambient_light_is_nonzero = any(
+        channel != 0
+        for channel in (
+            scene.ambient_light.red,
+            scene.ambient_light.green,
+            scene.ambient_light.blue,
+        )
+    )
+    if radiosity is not None and ambient_light_is_nonzero and any(
         primitive.material.ambient != 0 for primitive in scene.primitives
     ):
         warnings.warn(

@@ -2,9 +2,9 @@
 
 ## Project purpose
 
-`atomic-povray` converts ASE-readable atomic structures into reusable geometry, renderer-independent styled primitives, and POV-Ray scenes. The notebook API is the first frontend. The architecture must also remain suitable for later ViPErLEED integration and for external modules that contribute objects such as arrows, unit-cell edges, or isosurfaces.
+`atomic-povray` converts ASE-readable atomic structures into reusable geometry, renderer-independent styled primitives, and POV-Ray scenes. Notebook, standalone-script, and batch workflows share the same public API. The architecture must also remain suitable for later ViPErLEED integration and for external modules that contribute objects such as arrows, unit-cell edges, or isosurfaces.
 
-Read `README.md` for the current API and `ROADMAP.md` for planned milestones before making changes.
+Read `README.md` for the current API and user-facing workflow before making changes.
 
 ## Architectural boundaries
 
@@ -59,10 +59,6 @@ A shared default finish applies to atoms and bonds unless a more specific finish
 
 Depth shading is deferred styling work. Implement it in the style-resolution stage, not in geometry or as an undocumented light-intensity adjustment.
 
-## Compatibility policy
-
-This is still an early prototype. Prefer a clean, coherent API over backward-compatibility shims. When replacing an experimental API, remove the obsolete implementation, exports, tests, examples, and documentation in the same change. Do not leave deprecated zombie functions unless the user explicitly requests a compatibility period.
-
 ## POV-Ray behavior
 
 POV-Ray 3.7 is the default SDL compatibility target and executable example. Keep `assumed_gamma 1.0` explicit in generated scenes. SDL version, display gamma, file gamma, transparency, antialiasing, and render quality are separate settings.
@@ -79,8 +75,6 @@ Opening only a `.pov` file does not reproduce INI render settings; examples shou
 Every geometry change needs focused identity/count tests, not only image comparisons. In particular, test non-orthogonal periodic cells, boundary crossings, deduplication, asymmetric extension direction, one-hop non-recursion, and per-boundary extension control where relevant.
 
 Every styling or backend change should test resolved primitive properties or emitted SDL/INI. Use rendered-image regression tests only as an additional check when a stable POV-Ray environment is available.
-
-Use `tests/data/fe2o3-012-1x1-relaxed.vasp` as the main compact realistic example. The 3×3 structure is a larger regression/performance case.
 
 Run the complete test suite before publishing a change:
 
@@ -121,7 +115,7 @@ checks and state the exact limitation in the PR description. POV-Ray itself is
 only required for tests that actually invoke rendering; SDL/INI generation tests
 should remain runnable without it.
 
-Update the notebook, examples, README, and roadmap when a public API or milestone changes.
+Update the notebook, examples, and README when a public API or documented workflow changes.
 
 ## Development workflow
 
