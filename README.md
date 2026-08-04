@@ -1,15 +1,20 @@
 # atomic-povray
 
-This package provides a pipeline to render atomic structures from the
-Atomic Simulation Environment (ASE) in POV-Ray. It reads any
-ASE-supported structure, constructs a finite replicated and cropped atomic
-geometry once, resolves periodic bonds, converts that geometry to
-renderer-independent primitives, and only then writes or renders a POV-Ray
-scene.
+This package provides a lightweight pipeline for rendering atomic structures from the
+[Atomic Simulation Environment](https://ase.gitlab.io/ase/) (ASE) with
+[POV-Ray](https://www.povray.org/), offering more extensive features and higher-level
+defaults than ASE's built-in POV-Ray writer. It reads any ASE-supported structure file,
+constructs a finite, replicated and cropped atomic geometry, resolves periodic bonds,
+converts the resulting geometry into renderer-independent primitives, and only then
+writes or renders a POV-Ray scene.
 
-Currently, the workflow is to generate a POV-Ray SDL input file, then execute
-the POV-Ray engine as a subprocess with that input. Alternatively, the input
-file can be written and then rendered manually.
+Its features are strongly inspired by [VESTA](https://jp-minerals.org/vesta/en/),
+but with reproducible scene construction and rendering, as well as reusable profiles
+for maintaining consistent atom styles, lighting, and other settings within a project.
+
+atomic-povray generates a POV-Ray SDL file and then executes the POV-Ray engine as a
+subprocess to render it. Alternatively, it can write only the SDL file for manual
+rendering.
 
 ## What is implemented
 
