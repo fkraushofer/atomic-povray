@@ -1010,16 +1010,23 @@ config = RenderConfig(radiosity=Radiosity())
 The preset corresponds to `pretrace_start=0.08`, `pretrace_end=0.01`,
 `count=100`, `error_bound=0.5`, and `recursion_limit=2`; pass different
 values to `Radiosity` when tuning a final render. Radiosity supplies indirect
-illumination, so materials normally look best with `ambient=0`. If any scene
-primitive retains a nonzero material ambient coefficient, SDL generation emits
-a warning but continues normally. A quick way to set the shared atom, bond, and
-polyhedron finishes is:
+illumination, so disable POV-Ray's separate ambient illumination at scene level:
 
 ```python
-from atomic_povray import Finish, StyleConfig
-
-styles = StyleConfig(default_finish=Finish(ambient=0))
+scene = make_scene(
+    styled.primitives,
+    camera=camera,
+    lights=(get_default_light(camera),),
+    ambient_light=0,
+)
 ```
+
+POV-Ray multiplies every material's `ambient` coefficient by this global value,
+so `ambient_light=0` disables ambient illumination for all scene primitives,
+including `extra_primitives`, without changing their finishes. When radiosity
+is enabled with nonzero `ambient_light`, SDL generation emits a warning if any
+scene primitive retains a nonzero material ambient coefficient, but continues
+normally.
 
 For advanced POV-Ray features not yet represented by the Python API,
 `RenderConfig` also accepts raw `additional_pov` and `additional_ini` text.
