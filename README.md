@@ -18,20 +18,21 @@ rendering.
 
 ## Features
 
-- [Flexible structure display](#display-bounds): load any ASE-supported structure,
-  replicate and crop fractional cells, and clip with Cartesian planes
-- [Periodic bond construction](#bond-rules): chemically configurable bond rules,
-  periodic bond discovery, and controlled extension across display boundaries
-- [Custom atom and bond styles](#style-overrides): layered overrides by element,
-  coordination, ASE selection, source atom, or displayed periodic instance
-- [Advanced scene primitives](#extra-primitives): unit cells, labels, arrows,
-  coordination polyhedra, isosurfaces, and custom triangle meshes
-- [Depth and atmosphere effects](#depth-shading): directional depth shading and
-  native POV-Ray fog
-- [Reusable rendering configuration](#rendering): perspective or orthographic
-  cameras, lighting, backgrounds, transparency, materials, and radiosity
-- [Scriptable workflows](#rendering-files): staged Python API, reusable profiles,
-  batch rendering, and direct POV-Ray SDL/INI generation
+- [Flexible structure display](#choose-the-displayed-region), including cell
+  replication, fractional cropping, Cartesian clipping, and boundary atoms
+- [Chemically configurable periodic bonds](#configure-bonds), including bonds
+  across unit-cell and display boundaries
+- [Coordination polyhedra](#construct-coordination-polyhedra) with complete
+  periodic environments and independently configurable appearance
+- [Layered atom, bond, and polyhedron styling](#style-atoms-bonds-and-polyhedra)
+  using elements, coordination, ASE selections, source atoms, or individual
+  periodic images
+- [Additional scene primitives](#add-other-primitives), including labels, unit
+  cells, arrows, isosurfaces, and custom triangle meshes
+- [Configurable scenes and rendering](#set-up-and-render-the-scene), including
+  cameras, lighting, transparency, depth effects, fog, and radiosity
+- [Notebook, script, and batch workflows](#examples) with reusable project
+  profiles and direct POV-Ray SDL/INI output
 
 ## Installation
 
@@ -46,7 +47,7 @@ python -m pip install -e ".[test,notebook]"
 The `povray` Conda package puts the executable on the active environment's
 `PATH`. A separate system installation works equally well.
 
-## Configure the POV-Ray executable
+### Configure the POV-Ray executable
 
 Pass the command or full executable path to `RenderConfig.executable`. On
 Linux, and with the Conda package on any platform, the executable is normally:
@@ -95,18 +96,93 @@ conda activate atomic-povray
 Reactivating the environment makes the new variable available to Python and the
 example scripts. Use `conda env config vars unset POVRAY` to remove it again.
 
+## How a render is built
+
+An atomic-povray image is assembled in four main steps:
+
+1. [Construct the geometry](#construct-the-geometry): load the structure, choose
+   which periodic region to display, and determine bonds and coordination
+   polyhedra.
+2. [Add other primitives](#add-other-primitives): optionally add labels,
+   isosurfaces, unit-cell edges, arrows, or custom meshes.
+3. [Style atoms, bonds, and polyhedra](#style-atoms-bonds-and-polyhedra): choose
+   colors, sizes, materials, visibility, and depth effects.
+4. [Set up and render the scene](#set-up-and-render-the-scene): position the
+   camera and lights, then write or render the POV-Ray scene.
+
+Geometry construction performs the periodic neighbor search and is normally
+the most expensive Python step. The resulting geometry can be reused while
+changing styles, the camera, lighting, or render quality.
+
+A minimal complete render looks like this:
+
+```python
+from atomic_povray import (
+    Camera,
+    DisplayBounds,
+    RenderConfig,
+    StyleConfig,
+    apply_styles,
+    build_geometry,
+    get_default_bonds,
+    get_default_light,
+    load_structure,
+    make_scene,
+    render_scene,
+)
+
+structure = load_structure("POSCAR")
+bond_rules = get_default_bonds(structure)
+
+geometry = build_geometry(
+    structure,
+    bond_rules=bond_rules,
+    bounds=DisplayBounds(
+        fractional_ranges=((0, 2), (0, 2), (0, 1)),
+    ),
+)
+styled = apply_styles(geometry, StyleConfig())
+
+camera = Camera.orthographic(
+    direction=(0, 100, 0),
+    target=(0, 0, 0),
+    up=(0, 0, 1),
+    width=20,
+)
+scene = make_scene(
+    styled.primitives,
+    camera=camera,
+    lights=(get_default_light(camera),),
+)
+render_scene(scene, "structure.png", RenderConfig(quality=5))
+```
+
+The same code can be run interactively in a Jupyter notebook or saved as a
+standalone `.py` script. Notebooks are convenient for inspecting bond rules
+and repeatedly adjusting styles or the camera. Scripts are preferable for
+reproducible figures, command-line use, and batch rendering. In a notebook,
+display the finished image with:
+
+```python
+from IPython.display import Image
+
+Image(filename="structure.png")
+```
+
+See the [minimal notebook](notebooks/prototype_workflow.ipynb) and
+[minimal script](examples/minimal_workflow.py) for complete versions.
+
 ## Examples
 
-| Example | Purpose |
+| Start here if you want to… | Example |
 | --- | --- |
-| `notebooks/prototype_workflow.ipynb` | Minimal notebook workflow with inline image display |
-| `notebooks/hematite_side_view.ipynb` | Configurable notebook side view using the same hematite data as the Python example, but with its own workflow and render settings |
-| `examples/minimal_workflow.py` | The same minimal workflow as a regular Python script, with automatic executable lookup |
-| `examples/hematite_side_view.py` | Command-line rendering, executable resolution, and staged geometry timing |
-| `examples/rh_h2o_hematite.py` | Command-line hydrogen-bond and surface-color example with imported project defaults |
-| `examples/render_file.py` | Render any ASE-readable file with automatic orthographic framing |
-| `examples/render_batch.py` | Apply the same settings to files or wildcard patterns |
-| `examples/hematite_profile.py` | Copyable project profiles with element, view, lighting, and render defaults |
+| Work interactively in Jupyter | [Minimal notebook](notebooks/prototype_workflow.ipynb) |
+| Start from a standalone script | [Minimal script](examples/minimal_workflow.py) |
+| Render any ASE-readable file | [Single-file renderer](examples/render_file.py) |
+| Render several files consistently | [Batch renderer](examples/render_batch.py) |
+| Build a detailed surface-science figure | [Hematite side view](examples/hematite_side_view.py) |
+| Configure project settings and specific atom-style overrides | [Rh/H₂O on hematite](examples/rh_h2o_hematite.py) with its [reusable profile](examples/hematite_profile.py) |
+| Adapt a complete interactive workflow | [Hematite notebook](notebooks/hematite_side_view.ipynb) |
 
 Run the executable examples as modules from the repository root:
 
@@ -156,108 +232,95 @@ The Rh/H₂O example intentionally keeps reusable choices separate from scene
 construction. Copy `hematite_profile.py` into a project's own `render` package
 and adapt it there; an installed atomic-povray package never needs to be edited.
 
-## Staged notebook API
+## Configuration guide
+
+The following sections describe the same four steps in more detail. Most
+changes to a figure only require repeating the current step and the steps after
+it; for example, changing the camera does not repeat periodic bond discovery.
+
+### Construct the geometry
+
+#### Choose the displayed region
+
+`DisplayBounds` is the only boundary model. Its three fractional `(min, max)`
+ranges correspond to the three unit-cell vectors and simultaneously define
+replication, offset, and fractional cropping:
 
 ```python
-from atomic_povray import *
+bounds = DisplayBounds(
+    fractional_ranges=((-2.0, 2.0), (-1.5, 1.5), (0.45, 0.75)),
+)
+```
 
-structure = load_structure("POSCAR")
-bond_rules = get_default_bonds(structure)  # Prints the generated rule table.
+Ranges are half-open: the lower endpoint is included and the upper endpoint is
+excluded. Thus `(0.0, 3.0)` gives exactly three copies along that lattice
+vector, while non-integer endpoints crop or offset the displayed region.
 
-# Edit bond_rules here before the expensive geometry stage, if needed.
-geometry = build_geometry(
-    structure,
-    bond_rules=bond_rules,
-    bounds=DisplayBounds(
-        fractional_ranges=((-2.0, 2.0), (-1.5, 1.5), (0.45, 0.75)),
-        cutoff_planes=(
-            CutoffPlane(normal=(1.0, 0.0, 0.0), distance=9.5),
+Optional Cartesian cutoff planes remove everything beyond their normal:
+
+```python
+bounds = DisplayBounds(
+    fractional_ranges=((0.0, 3.0), (0.0, 2.0), (0.0, 1.0)),
+    cutoff_planes=(
+        CutoffPlane(normal=(1.0, 1.0, 0.0), distance=12.0),
+    ),
+)
+```
+
+The normal is normalized internally; `distance` is the signed perpendicular
+distance from the Cartesian origin. A point is retained when
+`unit(normal) · position <= distance`.
+
+Every displayed atom is either a primary atom satisfying all fractional ranges
+and cutoff planes, or a bond-extension atom outside at least one such boundary.
+Extension atoms are admitted only as direct endpoints of bonds initiated from
+primary atoms. They never initiate another neighbor search, so extensions
+cannot grow recursively beyond the first outside atom.
+
+The default bond rule is asymmetric and uses its declared element order:
+
+```python
+BondRule("Fe", "O", 0.1, 2.45)
+```
+
+This lets an in-bounds Fe pull in a bonded O outside the boundary, matching
+VESTA's default behavior. It does not let an in-bounds O pull in an Fe. To
+search in both directions, request it explicitly:
+
+```python
+BondRule("Fe", "O", 0.1, 2.45, extension_mode="symmetric")
+```
+
+Use `extension_mode="none"` to suppress extensions for that rule. Each cutoff
+plane can independently forbid bond extensions across itself:
+
+```python
+bounds = DisplayBounds(
+    cutoff_planes=(
+        CutoffPlane(
+            normal=(1.0, 0.0, 0.0),
+            distance=12.0,
+            allow_bond_extensions=False,
         ),
-    ),
+    )
 )
-
-styles = StyleConfig(
-    depth_shading=DepthShading(
-        origin=(0.0, 0.0, 24.0),
-        direction=(0.0, 0.0, -1.0),
-        decay_length=30.0,
-        target=Color(1.0, 1.0, 1.0),
-    ),
-)
-styled = apply_styles(geometry, styles)
-
-camera = Camera.orthographic(
-    direction=(0.0, 100.0, 0.0),
-    target=(5.0, 0.0, 25.5),
-    up=(0.0, 0.0, 1.0),
-    width=21.0,
-)
-scene = make_scene(
-    styled.primitives,
-    camera=camera,
-    lights=(get_default_light(camera),),
-    background=Background(Color(1.0, 1.0, 1.0)),
-)
-
-write_scene(scene, "hematite.pov")
-render_scene(scene, "hematite.png", RenderConfig(quality=3))
 ```
 
-The camera `direction` points from the camera toward `target`; its magnitude
-sets the camera distance. The emitted camera position is therefore
-`target - direction`. Keeping `direction` fixed while changing `target`
-translates the view without changing its orientation or perspective.
-
-`get_default_light(camera)` creates a soft area light that tracks the camera,
-offset half a camera distance upward and half a camera distance to screen-right.
-This gives the target consistent elevated three-quarter illumination while the
-view changes. Its defaults are equivalent to
-`AreaLight(intensity=1.8, angular_diameter=35.0, samples=(9, 9), adaptive=3)`;
-all four settings can be overridden directly.
-
-Changing the camera only repeats `make_scene` and `render_scene`. Changing
-colors/radii repeats `apply_styles` onward. Neither operation repeats periodic
-bond detection.
-
-## Atomic and bond defaults
-
-Atom colors and radii fall back field by field to ASE's Jmol colors and
-covalent radii. Explicit element styles therefore only need to contain the
-properties that differ:
+The six fractional range faces follow the same default: extensions are allowed.
+Their lower and upper faces can be configured separately:
 
 ```python
-styles = StyleConfig(
-    elements={
-        "Fe": AtomStyle(color=Color.from_hex("#A63B32")),
-        "O": AtomStyle(radius=0.4),
-    },
+bounds = DisplayBounds(
+    fractional_ranges=((0.0, 2.0), (0.0, 1.0), (0.0, 1.0)),
+    lower_allow_bond_extensions=(True, True, True),
+    upper_allow_bond_extensions=(False, True, True),
 )
 ```
 
-The default preset is a ball-and-stick representation: all resolved atom radii
-are multiplied by `0.4`, bonds are drawn, and the default ordinary bond radius
-is `0.08` Å. The atom scale is global and is applied after element,
-coordination, selection, and individual-atom radius overrides.
+The example above disables extensions through the upper face normal to the
+first lattice vector while retaining them at the other five faces.
 
-Use the built-in presets directly when switching representations:
-
-```python
-ball_and_stick = StyleConfig(preset_style="ball_and_stick")
-space_filling = StyleConfig(preset_style="space_filling")
-```
-
-`space_filling` uses an atom scale of `1.0` and omits bond primitives. Bond
-geometry is retained, so coordination-dependent styles remain available and
-switching presets does not require rebuilding geometry. Override the global
-atom and bond scales independently when needed. Both are applied after
-resolving default or explicit per-style radii:
-
-```python
-styles = StyleConfig(
-    atom_size_scale=0.55,
-    bond_size_scale=1.25,
-)
-```
+#### Configure bonds
 
 Generate bond rules explicitly before geometry construction. This makes the
 exact rule set inspectable and editable; `build_geometry()` never adds hidden
@@ -339,11 +402,11 @@ covalent radii are based on Cordero *et al.*, “Covalent radii revisited”
 Jmol color table. VESTA inspired the conservative candidate-pair policy and
 editable workflow, but no VESTA data files are redistributed.
 
-## Coordination polyhedra
+#### Construct coordination polyhedra
 
 Polyhedra reuse the complete periodic environments produced by the bond rules,
 then calculate the ligand hull with SciPy. Define them during geometry
-construction and style them independently:
+construction:
 
 ```python
 polyhedron_rules = (
@@ -360,22 +423,6 @@ geometry = build_geometry(
     bond_rules=bond_rules,
     polyhedron_rules=polyhedron_rules,
 )
-
-styles = StyleConfig(
-    preset_style="polyhedral",
-    polyhedra={
-        "Fe-O": PolyhedronStyle(
-            # Inherit the resolved Fe color, changing only transparency.
-            alpha=0.55,
-            filter=0.15,
-            edges=PolyhedronEdgeStyle(
-                visible=True,
-                radius=0.025,
-                color=Color(0.25, 0.08, 0.05),
-            ),
-        ),
-    },
-)
 ```
 
 The default `boundary_mode="complete"` builds the full one-hop ligand shell
@@ -391,46 +438,9 @@ triangles. Coplanar environments use a deterministic projected polygon, so
 square-planar coordination is supported. Optional edge cylinders contain only
 true polyhedron edges, not triangulation diagonals across flat faces.
 
-`draw_atoms`, `draw_bonds`, and `draw_polyhedra` are independent
-`StyleConfig` controls. Face colors inherit the resolved central-atom color
-unless the polyhedron style supplies a color or material.
-
-Use `polyhedron_source_overrides` to change every displayed periodic image of
-a polyhedron centered on a particular ASE source atom. Keys are zero-based ASE
-atom indices:
-
-```python
-styles = StyleConfig(
-    polyhedron_source_overrides={
-        # Make source atom 12's polyhedra more transparent in every replication.
-        12: PolyhedronStyleOverride(transmit=0.7),
-        # Do not render any polyhedron centered on source atom 17.
-        17: PolyhedronStyleOverride(visible=False),
-    },
-)
-```
-
-Use `polyhedron_instance_overrides` when only one displayed periodic image
-should change. `AtomKey(source_index, image_shift)` identifies the source atom
-and its lattice translation:
-
-```python
-styles = StyleConfig(
-    polyhedron_instance_overrides={
-        AtomKey(12, (1, 0, 0)): PolyhedronStyleOverride(visible=False),
-    },
-)
-```
-
-The same visibility mechanism is available for atoms through
-`source_atom_overrides={17: AtomStyleOverride(visible=False)}` and
-`atom_instance_overrides={AtomKey(17, (1, 0, 0)):
-AtomStyleOverride(visible=False)}`. Hiding an atom also suppresses bonds that
-terminate at it; hiding a polyhedron affects only that polyhedron.
-
 When the desired subset is already known before geometry construction, prefer
-a polyhedron rule's `center_selector`. For example, this builds and renders
-Fe-centered polyhedra only above a Cartesian z coordinate of 20 Å:
+a polyhedron rule's `center_selector`. For example, this builds Fe-centered
+polyhedra only above a Cartesian z coordinate of 20 Å:
 
 ```python
 polyhedron_rules = (
@@ -444,41 +454,141 @@ polyhedron_rules = (
 )
 ```
 
-For interactive styling without rebuilding geometry, generate equivalent
-visibility overrides instead:
+### Add other primitives
+
+#### Atom labels
+
+Labels are ordinary renderer-independent `TextPrimitive` objects and are added
+through the existing `extra_primitives` scene hook. `label_atoms()` consumes
+`StyledGeometry` so it can place each label just in front of the atom surface
+using the final resolved radius:
 
 ```python
-z_min = 20.0
-hide_below = {
-    index: PolyhedronStyleOverride(visible=False)
-    for index, (symbol, position) in enumerate(
-        zip(structure.atoms.get_chemical_symbols(), structure.atoms.positions)
-    )
-    if symbol == "Fe" and position[2] <= z_min
-}
-styles = StyleConfig(polyhedron_source_overrides=hide_below)
+labels = label_atoms(
+    styled,
+    camera=camera,
+    selection=lambda atom: not atom.is_extension,
+    offset=(0.15, 0.10, 0.02),
+    size=0.4,
+    font="timrom.ttf",
+    color=Color(0.05, 0.05, 0.05),
+)
+
+scene = make_scene(
+    styled.primitives,
+    camera=camera,
+    lights=(get_default_light(camera),),
+    extra_primitives=labels,
+)
 ```
 
-Set `filter`, `transmit`, or `alpha` directly on `PolyhedronStyle` to retain
-the inherited RGB components while overriding only transparency. These fields
-also work in `PolyhedronStyleOverride`. If `color` is supplied, they modify
-that color instead. A full `material` remains the highest-precedence override.
+The three `offset` components mean image-right, image-up, and toward-camera,
+respectively, and the same offset is applied to every selected atom. Labels
+face the camera in both orthographic and perspective scenes. If `labels` is omitted, the default uses VESTA-style per-element numbering:
+`O1`, `O2`, … and independently `Fe1`, `Fe2`, …. Numbering follows the original
+ASE atom order even when elements are interleaved. The same convention is
+available separately as `element_labels(structure.atoms)`. Pass a `labels=`
+callable to use another convention; empty strings suppress individual labels.
 
-By default, polyhedron faces inherit the resolved center-atom RGB color and use `filter=0.05, transmit=0.3`. Override either component in `default_polyhedron`, a named polyhedron style, or a source/instance override when a different transparency is desired.
+This first implementation uses POV-Ray TrueType text with left alignment.
+The default `timrom.ttf` is normally bundled with POV-Ray; pass another font
+name or path when needed. `material=` can replace the simple `color=` setting.
+Collision avoidance, leader lines, fixed-screen positioning, and label rules
+inside `StyleConfig` are deliberately outside this basic layer.
 
-POV-Ray distinguishes neutral transmission from colored filtering:
+#### Custom and periodic primitives
+
+External modules can construct generic primitives and append them without the
+core knowing their scientific meaning:
 
 ```python
-Color(0.8, 0.2, 0.1, alpha=0.6)               # transmit=0.4
-Color(0.8, 0.2, 0.1, filter=0.3)              # tinted transmission
-Color(0.8, 0.2, 0.1, filter=0.2, transmit=0.3)
+cell_edge = CylinderPrimitive(
+    start=(0, 0, 0),
+    end=tuple(structure.cell[0]),
+    radius=0.03,
+    material=Material(Color(0.1, 0.1, 0.1)),
+)
+
+scene = make_scene(
+    styled.primitives,
+    camera=camera,
+    extra_primitives=(cell_edge,),
+)
 ```
 
-`alpha` is exactly an opacity alias for `1 - transmit`; passing both
-`alpha` and `transmit` raises an error. `filter` may be combined with
-either form. All transparency components must lie between 0 and 1.
 
-## Atom style rules
+Use `primitive_images()` to repeat any generic extra primitive over integer unit-cell images without rebuilding it. The three ranges use the same lattice-vector order, signs, and half-open convention as `DisplayBounds.fractional_ranges`; fractional endpoints are deliberately not accepted:
+
+```python
+positive_images = primitive_images(
+    positive_iso,
+    structure,
+    ranges=((-1, 2), (0, 1), (0, 1)),
+)
+negative_images = primitive_images(
+    negative_iso,
+    structure,
+    ranges=((-1, 2), (0, 1), (0, 1)),
+)
+
+scene = make_scene(
+    styled.primitives,
+    camera=camera,
+    extra_primitives=positive_images + negative_images,
+)
+```
+
+The example produces the original primitive and its neighboring images along both −a and +a. Translations always use `structure.atoms.cell`; mesh faces, normals, materials, and text orientation are reused unchanged.
+
+`TriangleMeshPrimitive` is part of the generic primitive model so external
+charge-density or convex-hull modules can insert triangle meshes. Set its
+optional `normals` field to one normal per vertex for smooth POV-Ray
+`mesh2` shading; when normals are omitted, the existing faceted output is
+preserved.
+
+### Style atoms, bonds, and polyhedra
+
+#### Atom and bond defaults
+
+Atom colors and radii fall back field by field to ASE's Jmol colors and
+covalent radii. Explicit element styles therefore only need to contain the
+properties that differ:
+
+```python
+styles = StyleConfig(
+    elements={
+        "Fe": AtomStyle(color=Color.from_hex("#A63B32")),
+        "O": AtomStyle(radius=0.4),
+    },
+)
+```
+
+The default preset is a ball-and-stick representation: all resolved atom radii
+are multiplied by `0.4`, bonds are drawn, and the default ordinary bond radius
+is `0.08` Å. The atom scale is global and is applied after element,
+coordination, selection, and individual-atom radius overrides.
+
+Use the built-in presets directly when switching representations:
+
+```python
+ball_and_stick = StyleConfig(preset_style="ball_and_stick")
+space_filling = StyleConfig(preset_style="space_filling")
+```
+
+`space_filling` uses an atom scale of `1.0` and omits bond primitives. Bond
+geometry is retained, so coordination-dependent styles remain available and
+switching presets does not require rebuilding geometry. Override the global
+atom and bond scales independently when needed. Both are applied after
+resolving default or explicit per-style radii:
+
+```python
+styles = StyleConfig(
+    atom_size_scale=0.55,
+    bond_size_scale=1.25,
+)
+```
+
+#### Atom style rules and overrides
 
 Atom appearance resolves from the general element style through increasingly
 specific partial overrides:
@@ -543,9 +653,9 @@ Use `source_atom_overrides={17: ...}` for ASE atom 17 in every displayed
 replication, or `atom_instance_overrides={AtomKey(17, (1, 0, 0)): ...}` for
 one particular periodic image. Later matching rules win within a category, and
 partial overrides retain properties they do not specify. Setting
-`visible=False` also removes bonds incident to that atom. Split-color solid\nbonds automatically use the final resolved endpoint colors.
+`visible=False` also removes bonds incident to that atom. Split-color solid bonds automatically use the final resolved endpoint colors.
 
-## Bond styles and distance ranges
+#### Bond styles and distance ranges
 
 Bond-rule distance ranges are half-open: the minimum is included and the
 maximum is excluded. Adjacent rules can therefore share a cutoff without
@@ -586,7 +696,104 @@ full `material`, or set `split_by_atom_color=False` to use the final resolved
 color of the bond rule's first endpoint. Solid bonds retain the default
 two-color split based on their atom colors.
 
-## Finishes and overrides
+#### Polyhedron styles and visibility
+
+Style polyhedra independently from the geometry that defines their vertices:
+
+```python
+styles = StyleConfig(
+    preset_style="polyhedral",
+    polyhedra={
+        "Fe-O": PolyhedronStyle(
+            # Inherit the resolved Fe color, changing only transparency.
+            alpha=0.55,
+            filter=0.15,
+            edges=PolyhedronEdgeStyle(
+                visible=True,
+                radius=0.025,
+                color=Color(0.25, 0.08, 0.05),
+            ),
+        ),
+    },
+)
+```
+
+`draw_atoms`, `draw_bonds`, and `draw_polyhedra` are independent
+`StyleConfig` controls. Face colors inherit the resolved central-atom color
+unless the polyhedron style supplies a color or material.
+
+Use `polyhedron_source_overrides` to change every displayed periodic image of
+a polyhedron centered on a particular ASE source atom. Keys are zero-based ASE
+atom indices:
+
+```python
+styles = StyleConfig(
+    polyhedron_source_overrides={
+        # Make source atom 12's polyhedra more transparent in every replication.
+        12: PolyhedronStyleOverride(transmit=0.7),
+        # Do not render any polyhedron centered on source atom 17.
+        17: PolyhedronStyleOverride(visible=False),
+    },
+)
+```
+
+Use `polyhedron_instance_overrides` when only one displayed periodic image
+should change. `AtomKey(source_index, image_shift)` identifies the source atom
+and its lattice translation:
+
+```python
+styles = StyleConfig(
+    polyhedron_instance_overrides={
+        AtomKey(12, (1, 0, 0)): PolyhedronStyleOverride(visible=False),
+    },
+)
+```
+
+The same visibility mechanism is available for atoms through
+`source_atom_overrides={17: AtomStyleOverride(visible=False)}` and
+`atom_instance_overrides={AtomKey(17, (1, 0, 0)):
+AtomStyleOverride(visible=False)}`. Hiding an atom also suppresses bonds that
+terminate at it; hiding a polyhedron affects only that polyhedron.
+
+For interactive styling without rebuilding geometry, generate visibility
+overrides from the source structure:
+
+```python
+z_min = 20.0
+hide_below = {
+    index: PolyhedronStyleOverride(visible=False)
+    for index, (symbol, position) in enumerate(
+        zip(structure.atoms.get_chemical_symbols(), structure.atoms.positions)
+    )
+    if symbol == "Fe" and position[2] <= z_min
+}
+styles = StyleConfig(polyhedron_source_overrides=hide_below)
+```
+
+Set `filter`, `transmit`, or `alpha` directly on `PolyhedronStyle` to
+retain the inherited RGB components while overriding only transparency. These
+fields also work in `PolyhedronStyleOverride`. If `color` is supplied, they
+modify that color instead. A full `material` remains the highest-precedence
+override.
+
+By default, polyhedron faces inherit the resolved center-atom RGB color and use
+`filter=0.05, transmit=0.3`. Override either component in
+`default_polyhedron`, a named polyhedron style, or a source/instance override
+when a different transparency is desired.
+
+POV-Ray distinguishes neutral transmission from colored filtering:
+
+```python
+Color(0.8, 0.2, 0.1, alpha=0.6)               # transmit=0.4
+Color(0.8, 0.2, 0.1, filter=0.3)              # tinted transmission
+Color(0.8, 0.2, 0.1, filter=0.2, transmit=0.3)
+```
+
+`alpha` is exactly an opacity alias for `1 - transmit`; passing both
+`alpha` and `transmit` raises an error. `filter` may be combined with
+either form. All transparency components must lie between 0 and 1.
+
+#### Finishes and materials
 
 Atoms and bonds have distinct built-in finishes. Both use ambient `0.10`,
 diffuse `0.60`, and Phong size `10`; atoms use Phong `0.30`, while bonds use
@@ -630,7 +837,7 @@ overrides both color and finish. The resolution order is:
 first prototype, but `finish=` is clearer for new code because a finish has no
 dummy pigment color.
 
-## Depth shading and fog
+#### Depth shading
 
 Directional depth shading is resolved into primitive colors during
 `apply_styles`:
@@ -668,6 +875,28 @@ DepthShading(
 )
 ```
 
+### Set up and render the scene
+
+#### Camera and lighting
+
+The camera `direction` points from the camera toward `target`; its magnitude
+sets the camera distance. The emitted camera position is therefore
+`target - direction`. Keeping `direction` fixed while changing `target`
+translates the view without changing its orientation or perspective.
+
+`get_default_light(camera)` creates a soft area light that tracks the camera,
+offset half a camera distance upward and half a camera distance to screen-right.
+This gives the target consistent elevated three-quarter illumination while the
+view changes. Its defaults are equivalent to
+`AreaLight(intensity=1.8, angular_diameter=35.0, samples=(9, 9), adaptive=3)`;
+all four settings can be overridden directly.
+
+Changing the camera only repeats `make_scene` and `render_scene`. Changing
+colors or radii repeats `apply_styles` onward. Neither operation repeats
+periodic bond detection.
+
+#### Background and fog
+
 POV-Ray's native constant fog is available as a continuous alternative when
 depth follows the camera view:
 
@@ -689,186 +918,13 @@ Cartesian onset or shading direction; use directional depth shading when those
 controls matter. Matching the fog and background colors gives the usual
 atmospheric fade.
 
-POV-Ray evaluates fog only at render quality 9 or higher. The default
-`RenderConfig(quality=3)` is deliberately retained because it is useful for
-fast camera and lighting previews, but those previews omit fog. `render_scene`
+POV-Ray evaluates fog only at render quality 9 or higher. A lower setting such as `RenderConfig(quality=3)` is useful for fast camera
+and lighting previews, but these previews omit fog. The package-wide default
+quality is `5`, which also omits fog. `render_scene`
 emits a warning when a foggy scene is rendered below quality 9. Use
 `RenderConfig(quality=9)` or higher for a final render that includes fog.
 
-## Boundary and bond-extension behavior
-
-`DisplayBounds` is the only boundary model. Its three fractional `(min, max)`
-ranges correspond to the three unit-cell vectors and simultaneously define
-replication, offset, and fractional cropping:
-
-```python
-bounds = DisplayBounds(
-    fractional_ranges=((-2.0, 2.0), (-1.5, 1.5), (0.45, 0.75)),
-)
-```
-
-Ranges are half-open: the lower endpoint is included and the upper endpoint is
-excluded. Thus `(0.0, 3.0)` gives exactly three copies along that lattice
-vector, while non-integer endpoints crop or offset the displayed region.
-
-Optional Cartesian cutoff planes remove everything beyond their normal:
-
-```python
-bounds = DisplayBounds(
-    fractional_ranges=((0.0, 3.0), (0.0, 2.0), (0.0, 1.0)),
-    cutoff_planes=(
-        CutoffPlane(normal=(1.0, 1.0, 0.0), distance=12.0),
-    ),
-)
-```
-
-The normal is normalized internally; `distance` is the signed perpendicular
-distance from the Cartesian origin. A point is retained when
-`unit(normal) · position <= distance`.
-
-Every displayed atom is either a primary atom satisfying all fractional ranges
-and cutoff planes, or a bond-extension atom outside at least one such boundary.
-Extension atoms are admitted only as direct endpoints of bonds initiated from
-primary atoms. They never initiate another neighbor search, so extensions
-cannot grow recursively beyond the first outside atom.
-
-The default bond rule is asymmetric and uses its declared element order:
-
-```python
-BondRule("Fe", "O", 0.1, 2.45)
-```
-
-This lets an in-bounds Fe pull in a bonded O outside the boundary, matching
-VESTA's default behavior. It does not let an in-bounds O pull in an Fe. To
-search in both directions, request it explicitly:
-
-```python
-BondRule("Fe", "O", 0.1, 2.45, extension_mode="symmetric")
-```
-
-Use `extension_mode="none"` to suppress extensions for that rule. Each cutoff
-plane can independently forbid bond extensions across itself:
-
-```python
-bounds = DisplayBounds(
-    cutoff_planes=(
-        CutoffPlane(
-            normal=(1.0, 0.0, 0.0),
-            distance=12.0,
-            allow_bond_extensions=False,
-        ),
-    )
-)
-```
-
-The six fractional range faces follow the same default: extensions are allowed.
-Their lower and upper faces can be configured separately:
-
-```python
-bounds = DisplayBounds(
-    fractional_ranges=((0.0, 2.0), (0.0, 1.0), (0.0, 1.0)),
-    lower_allow_bond_extensions=(True, True, True),
-    upper_allow_bond_extensions=(False, True, True),
-)
-```
-
-The example above disables extensions through the upper face normal to the
-first lattice vector while retaining them at the other five faces.
-
-The minimal notebook and script provide the shortest complete path through the
-pipeline. See the examples table above for feature-focused alternatives.
-
-## Atom labels
-
-Labels are ordinary renderer-independent `TextPrimitive` objects and are added
-through the existing `extra_primitives` scene hook. `label_atoms()` consumes
-`StyledGeometry` so it can place each label just in front of the atom surface
-using the final resolved radius:
-
-```python
-labels = label_atoms(
-    styled,
-    camera=camera,
-    selection=lambda atom: not atom.is_extension,
-    offset=(0.15, 0.10, 0.02),
-    size=0.4,
-    font="timrom.ttf",
-    color=Color(0.05, 0.05, 0.05),
-)
-
-scene = make_scene(
-    styled.primitives,
-    camera=camera,
-    lights=(get_default_light(camera),),
-    extra_primitives=labels,
-)
-```
-
-The three `offset` components mean image-right, image-up, and toward-camera,
-respectively, and the same offset is applied to every selected atom. Labels
-face the camera in both orthographic and perspective scenes. If `labels` is omitted, the default uses VESTA-style per-element numbering:
-`O1`, `O2`, … and independently `Fe1`, `Fe2`, …. Numbering follows the original
-ASE atom order even when elements are interleaved. The same convention is
-available separately as `element_labels(structure.atoms)`. Pass a `labels=`
-callable to use another convention; empty strings suppress individual labels.
-
-This first implementation uses POV-Ray TrueType text with left alignment.
-The default `timrom.ttf` is normally bundled with POV-Ray; pass another font
-name or path when needed. `material=` can replace the simple `color=` setting.
-Collision avoidance, leader lines, fixed-screen positioning, and label rules
-inside `StyleConfig` are deliberately outside this basic layer.
-
-## Extra primitive hook
-
-External modules can construct generic primitives and append them without the
-core knowing their scientific meaning:
-
-```python
-cell_edge = CylinderPrimitive(
-    start=(0, 0, 0),
-    end=tuple(structure.cell[0]),
-    radius=0.03,
-    material=Material(Color(0.1, 0.1, 0.1)),
-)
-
-scene = make_scene(
-    styled.primitives,
-    camera=camera,
-    extra_primitives=(cell_edge,),
-)
-```
-
-
-Use `primitive_images()` to repeat any generic extra primitive over integer unit-cell images without rebuilding it. The three ranges use the same lattice-vector order, signs, and half-open convention as `DisplayBounds.fractional_ranges`; fractional endpoints are deliberately not accepted:
-
-```python
-positive_images = primitive_images(
-    positive_iso,
-    structure,
-    ranges=((-1, 2), (0, 1), (0, 1)),
-)
-negative_images = primitive_images(
-    negative_iso,
-    structure,
-    ranges=((-1, 2), (0, 1), (0, 1)),
-)
-
-scene = make_scene(
-    styled.primitives,
-    camera=camera,
-    extra_primitives=positive_images + negative_images,
-)
-```
-
-The example produces the original primitive and its neighboring images along both −a and +a. Translations always use `structure.atoms.cell`; mesh faces, normals, materials, and text orientation are reused unchanged.
-
-`TriangleMeshPrimitive` is part of the generic primitive model so external
-charge-density or convex-hull modules can insert triangle meshes. Set its
-optional `normals` field to one normal per vertex for smooth POV-Ray
-`mesh2` shading; when normals are omitted, the existing faceted output is
-preserved.
-
-## Rendering
+#### Rendering and file output
 
 `write_scene` and `write_ini` only need Python. `render_scene` additionally
 needs POV-Ray. It writes a `.pov` scene and `.ini` render file beside the
@@ -952,7 +1008,7 @@ Linux, Conda, and Windows examples. The package detects `pvengine*.exe` and
 uses `/RENDER ... /EXIT`; other executables are called with the generated INI
 filename.
 
-## Reusable profiles
+## Reusable project profiles
 
 `DEFAULT_PROFILE` collects the shipped geometry, style, scene, label, and
 render defaults in one immutable object. Build project profiles with
