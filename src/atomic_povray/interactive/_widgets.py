@@ -109,20 +109,26 @@ class _WidgetMixin:
     ) -> tuple[float, float, float]:
         step = control.step if control.step is not None else spec.step or 0.1
         default_span = max(10.0 * step, abs(current) * 2.0, 1.0)
+        display_minimum, display_maximum = (
+            spec.display_range
+            if spec.display_range is not None
+            else (current - default_span, current + default_span)
+        )
         minimum = (
             control.min
             if control.min is not None
-            else spec.minimum
-            if spec.minimum is not None
-            else current - default_span
+            else display_minimum
         )
         maximum = (
             control.max
             if control.max is not None
-            else spec.maximum
-            if spec.maximum is not None
-            else current + default_span
+            else display_maximum
         )
+        limit_minimum, limit_maximum = spec.limits
+        if limit_minimum is not None:
+            minimum = max(float(minimum), limit_minimum)
+        if limit_maximum is not None:
+            maximum = min(float(maximum), limit_maximum)
         minimum = min(float(minimum), current)
         maximum = max(float(maximum), current)
         if minimum == maximum:

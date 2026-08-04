@@ -172,9 +172,26 @@ def test_preview_display_width_is_not_a_rendered_value():
     assert session.scene.camera.width == scene.camera.width
 
 
-def test_control_overrides_must_respect_registered_limits():
-    with pytest.raises(ValueError, match="registered limit"):
-        _session(controls=[Control("camera.angle", min=0.0)])
+def test_control_overrides_change_display_range_without_changing_limits():
+    session, _, _ = _session(
+        controls=[Control("camera.angle", min=-20.0, max=200.0)]
+    )
+    session._ensure_ui()
+    slider, number = session._control_widgets["camera.angle"].children
+    assert slider.min == number.min == pytest.approx(0.0)
+    assert slider.max == number.max == pytest.approx(180.0)
+
+    with pytest.raises(ValueError, match="must be at least 0.0"):
+        session.set_value("camera.angle", -1.0, render=False)
+
+
+def test_existing_value_expands_default_display_range_without_coercion():
+    session, _, _ = _session(controls=["camera.width"])
+    session.set_value("camera.width", 750.0, render=False)
+    session._ensure_ui()
+    slider, number = session._control_widgets["camera.width"].children
+    assert slider.max == number.max == pytest.approx(750.0)
+    assert slider.value == number.value == pytest.approx(750.0)
 
 
 def test_generic_widget_types_build_together():

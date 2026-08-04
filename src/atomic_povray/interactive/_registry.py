@@ -1,7 +1,7 @@
 """Catalogue of supported controls and their presentation defaults.
 
-This is the central place to browse or adjust labels, groups, ranges, and steps
-for variables exposed by interactive rendering.
+This is the central place to browse or adjust labels, groups, hard limits,
+display ranges, and steps for variables exposed by interactive rendering.
 """
 
 from __future__ import annotations
@@ -30,8 +30,8 @@ class _ControlSpec:
     group: str
     getter: Getter
     setter: Setter
-    minimum: float | None = None
-    maximum: float | None = None
+    limits: tuple[float | None, float | None] = (None, None)
+    display_range: tuple[float, float] | None = None
     step: float | None = None
     choices: tuple[Any, ...] = ()
     applicable: Applicability = lambda state: True
@@ -60,15 +60,21 @@ class _ControlSpec:
                 raise TypeError(f"{self.name} must be a three-vector") from error
             if len(vector) != 3:
                 raise ValueError(f"{self.name} must contain exactly three values")
+            for component in vector:
+                self._validate_limits(component)
             return vector
         if isinstance(value, bool):
             raise TypeError(f"{self.name} must be a number")
         number = float(value)
-        if self.minimum is not None and number < self.minimum:
-            raise ValueError(f"{self.name} must be at least {self.minimum}")
-        if self.maximum is not None and number > self.maximum:
-            raise ValueError(f"{self.name} must be at most {self.maximum}")
+        self._validate_limits(number)
         return number
+
+    def _validate_limits(self, number: float) -> None:
+        minimum, maximum = self.limits
+        if minimum is not None and number < minimum:
+            raise ValueError(f"{self.name} must be at least {minimum}")
+        if maximum is not None and number > maximum:
+            raise ValueError(f"{self.name} must be at most {maximum}")
 
 
 def _with_scene(state: _InteractiveState, scene: Scene) -> _InteractiveState:
@@ -80,8 +86,8 @@ def _camera_spec(
     kind: ControlKind,
     label: str,
     *,
-    minimum: float | None = None,
-    maximum: float | None = None,
+    limits: tuple[float | None, float | None] = (None, None),
+    display_range: tuple[float, float] | None = None,
     step: float | None = None,
     choices: tuple[Any, ...] = (),
 ) -> _ControlSpec:
@@ -96,7 +102,7 @@ def _camera_spec(
 
     return _ControlSpec(
         name, kind, label, "Camera", getter, setter,
-        minimum, maximum, step, choices,
+        limits, display_range, step, choices,
     )
 
 
@@ -106,8 +112,8 @@ def _scene_attribute_spec(
     label: str,
     group: str,
     *,
-    minimum: float | None = None,
-    maximum: float | None = None,
+    limits: tuple[float | None, float | None] = (None, None),
+    display_range: tuple[float, float] | None = None,
     step: float | None = None,
 ) -> _ControlSpec:
     field_name = name.rsplit(".", 1)[1]
@@ -120,7 +126,7 @@ def _scene_attribute_spec(
 
     return _ControlSpec(
         name, kind, label, group, getter, setter,
-        minimum, maximum, step,
+        limits, display_range, step,
     )
 
 
@@ -129,8 +135,8 @@ def _style_attribute_spec(
     kind: ControlKind,
     label: str,
     *,
-    minimum: float | None = None,
-    maximum: float | None = None,
+    limits: tuple[float | None, float | None] = (None, None),
+    display_range: tuple[float, float] | None = None,
     step: float | None = None,
     choices: tuple[Any, ...] = (),
 ) -> _ControlSpec:
@@ -149,7 +155,7 @@ def _style_attribute_spec(
 
     return _ControlSpec(
         name, kind, label, "Appearance", getter, setter,
-        minimum, maximum, step, choices,
+        limits, display_range, step, choices,
         applicable=lambda state: state.style_config is not None,
     )
 
@@ -203,7 +209,7 @@ def _finish_spec(name: str, label: str, finish_field: str) -> _ControlSpec:
 
     return _ControlSpec(
         name, "number", label, "Appearance", getter, setter,
-        0.0, 1.0, 0.05,
+        limits=(0.0, 1.0), display_range=(0.0, 1.0), step=0.05,
         applicable=lambda state: state.style_config is not None,
     )
 
@@ -214,8 +220,8 @@ def _depth_spec(
     label: str,
     field_name: str,
     *,
-    minimum: float | None = None,
-    maximum: float | None = None,
+    limits: tuple[float | None, float | None] = (None, None),
+    display_range: tuple[float, float] | None = None,
     step: float | None = None,
 ) -> _ControlSpec:
     def getter(state: _InteractiveState) -> Any:
@@ -231,7 +237,7 @@ def _depth_spec(
 
     return _ControlSpec(
         name, kind, label, "Depth shading", getter, setter,
-        minimum, maximum, step,
+        limits, display_range, step,
         applicable=lambda state: state.style_config is not None,
     )
 
@@ -248,8 +254,8 @@ def _light_spec(
     label: str,
     field_name: str,
     *,
-    minimum: float | None = None,
-    maximum: float | None = None,
+    limits: tuple[float | None, float | None] = (None, None),
+    display_range: tuple[float, float] | None = None,
     step: float | None = None,
 ) -> _ControlSpec:
     def getter(state: _InteractiveState) -> Any:
@@ -262,7 +268,7 @@ def _light_spec(
 
     return _ControlSpec(
         name, kind, label, "Lighting", getter, setter,
-        minimum, maximum, step,
+        limits, display_range, step,
         applicable=lambda state: bool(state.scene.lights),
     )
 
@@ -278,11 +284,11 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
         ),
         _camera_spec(
             "camera.angle", "number", "Perspective angle",
-            minimum=1.0, maximum=179.0, step=0.5,
+            limits=(0.0, 180.0), display_range=(1.0, 179.0), step=0.5,
         ),
         _camera_spec(
             "camera.width", "number", "Orthographic width",
-            minimum=0.01, maximum=500.0, step=0.25,
+            limits=(0.0, None), display_range=(0.01, 500.0), step=0.25,
         ),
         _scene_attribute_spec(
             "scene.ambient_light", "color", "Ambient light", "Scene"
@@ -291,7 +297,7 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
         _light_spec("scene.light.color", "color", "Color", "color"),
         _light_spec(
             "scene.light.intensity", "number", "Intensity", "intensity",
-            minimum=0.0, maximum=10.0, step=0.05,
+            limits=(0.0, None), display_range=(0.0, 10.0), step=0.05,
         ),
         _style_attribute_spec(
             "style.preset_style", "choice", "Preset",
@@ -299,11 +305,11 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
         ),
         _style_attribute_spec(
             "style.atom_size_scale", "number", "Atom size scale",
-            minimum=0.01, maximum=5.0, step=0.05,
+            limits=(0.0, None), display_range=(0.01, 5.0), step=0.05,
         ),
         _style_attribute_spec(
             "style.bond_size_scale", "number", "Bond size scale",
-            minimum=0.01, maximum=5.0, step=0.05,
+            limits=(0.0, None), display_range=(0.01, 5.0), step=0.05,
         ),
         _style_attribute_spec("style.draw_atoms", "boolean", "Draw atoms"),
         _style_attribute_spec("style.draw_bonds", "boolean", "Draw bonds"),
@@ -347,8 +353,8 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
             "number",
             "Decay length",
             "decay_length",
-            minimum=0.01,
-            maximum=500.0,
+            limits=(0.0, None),
+            display_range=(0.01, 500.0),
             step=0.1,
         ),
         _depth_spec(
@@ -402,9 +408,12 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
             fog_enabled_setter,
         )
     )
-    for field_name, kind, label, minimum, maximum, step in (
-        ("distance", "number", "Distance", 0.01, 1000.0, 0.5),
-        ("color", "color", "Color", None, None, None),
+    for field_name, kind, label, limits, display_range, step in (
+        (
+            "distance", "number", "Distance",
+            (0.0, None), (0.01, 1000.0), 0.5,
+        ),
+        ("color", "color", "Color", (None, None), None, None),
     ):
         def fog_getter(
             state: _InteractiveState, field_name: str = field_name
@@ -430,8 +439,8 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
                 "Fog",
                 fog_getter,
                 fog_setter,
-                minimum,
-                maximum,
+                limits,
+                display_range,
                 step,
             )
         )

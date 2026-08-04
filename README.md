@@ -210,6 +210,10 @@ session = interactive_render(
 ```
 
 Each numeric or vector component has a slider and an exact numeric field. The
+registry keeps actual validity limits separate from the default displayed
+range. Consequently, `Control(min=..., max=...)` changes only the widget range;
+it cannot relax a registered validity limit, and a current value outside the
+default display range expands the widget without changing that value.
 `Render full quality` button writes `structure.png` with the supplied
 `RenderConfig`; changing a setting afterwards returns the session to preview
 mode. Preview renders are always headless and default to at most 480 pixels

@@ -157,24 +157,6 @@ class InteractiveRenderSession(_WidgetMixin):
                     raise ValueError(
                         f"{control.name} min must be smaller than max"
                     )
-            if (
-                control.min is not None
-                and spec.minimum is not None
-                and control.min < spec.minimum
-            ):
-                raise ValueError(
-                    f"{control.name} min cannot be below the registered "
-                    f"limit {spec.minimum}"
-                )
-            if (
-                control.max is not None
-                and spec.maximum is not None
-                and control.max > spec.maximum
-            ):
-                raise ValueError(
-                    f"{control.name} max cannot exceed the registered "
-                    f"limit {spec.maximum}"
-                )
             resolved.append(control)
         self._controls = tuple(resolved)
         if self.ui is not None:
