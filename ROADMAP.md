@@ -44,16 +44,6 @@ scene = make_scene(
 
 Whether that background appears in the PNG still depends on `RenderConfig.transparent`. With transparency enabled, POV-Ray preserves alpha; disable it when an opaque background color is desired.
 
-## Milestone 3: alternate atoms and persistent geometry
-
-- Persistent content-addressed geometry cache
-- Stable export/import format for cached geometry
-- Timing benchmarks and larger realistic regression tests
-
-Cache keys should be based on contents and relevant configuration, not filenames or modification times. Camera, lighting, background, and render resolution must not invalidate geometry caches.
-
-Prefer a stable representation such as compressed NumPy arrays plus JSON metadata over making pickle/joblib the long-term public interchange format.
-
 ## Milestone 4: interactive notebook frontend
 
 - `ipywidgets` controls for camera, field of view, colors, lighting, and render settings
