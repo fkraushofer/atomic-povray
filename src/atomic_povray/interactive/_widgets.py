@@ -7,7 +7,7 @@ from typing import Any
 
 from ..primitives import Color
 from ._control import Control
-from ._registry import _CONTROL_SPECS, _ControlSpec
+from ._registry import _ControlSpec, _get_control_spec
 
 class _WidgetMixin:
     def _ensure_ui(self) -> None:
@@ -66,7 +66,7 @@ class _WidgetMixin:
         self._control_widgets.clear()
         grouped: dict[str, list[Any]] = {}
         for control in self._controls:
-            spec = _CONTROL_SPECS[control.name]
+            spec = _get_control_spec(control.name)
             widget = self._make_widget(control, spec)
             self._control_widgets[control.name] = widget
             grouped.setdefault(spec.group, []).append(widget)
@@ -239,12 +239,12 @@ class _WidgetMixin:
     def _set_vector_component(
         self, name: str, index: int, value: float
     ) -> None:
-        vector = list(_CONTROL_SPECS[name].getter(self._state))
+        vector = list(_get_control_spec(name).getter(self._state))
         vector[index] = value
         self.set_value(name, tuple(vector))
 
     def _set_color(self, name: str, value: str) -> None:
-        current = _CONTROL_SPECS[name].getter(self._state)
+        current = _get_control_spec(name).getter(self._state)
         rgb = Color.from_hex(value)
         self.set_value(
             name,
