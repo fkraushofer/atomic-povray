@@ -727,10 +727,11 @@ the requested number of spheres along that span, with one dot radius of
 clearance from each atom surface. For both styles, `segments` is the number of
 visible pieces and `radius` is the cylinder or sphere radius.
 
-Dashed and dotted bonds must be single-color. Supply an explicit `color` or
-full `material`, or set `split_by_atom_color=False` to use the final resolved
-color of the bond rule's first endpoint. Solid bonds retain the default
-two-color split based on their atom colors.
+Dashed and dotted bonds are always rendered in a single color. They use their
+explicit `color` or full `material`, then `default_bond.color`, and finally the
+resolved color of the bond rule's first endpoint. Solid bonds retain the
+default two-color split based on their atom colors unless a color or material
+override applies.
 
 #### Polyhedron styles and visibility
 
@@ -1169,19 +1170,32 @@ session = interactive_render(
 
 `scene.light.location`, `scene.light.color`, and `scene.light.intensity` control
 the first light. Area lights additionally support
-`scene.light.angular_diameter`. For scenes with several lights, address each
-one by its zero-based position in `scene.lights`:
+`scene.light.angular_diameter`. Request the namespace `"scene.light"` to show
+all controls applicable to that light. For scenes with several lights, address
+each one by its zero-based position in `scene.lights`:
 
 ```python
 controls=[
-    "scene.lights[0].angular_diameter",
-    "scene.lights[1].angular_diameter",
+    "scene.lights[0]",
+    "scene.lights[1]",
 ]
 ```
 
-The same indexed form supports `.location`, `.color`, and `.intensity`.
-`.angular_diameter` is available only when the selected light is an
-`AreaLight`.
+Each indexed namespace expands to `.location`, `.color`, `.intensity`, and,
+for an `AreaLight`, `.angular_diameter`. Inapplicable namespace children are
+omitted automatically; requesting an inapplicable leaf directly still raises
+an error.
+
+Ambient illumination has separate color and scalar intensity controls. The
+intensity scales all RGB channels, supports overbright values above 1, and has
+a default displayed range from 0 to 10:
+
+```python
+controls=["scene.ambient_light"]
+```
+
+This expands to `scene.ambient_light.color` and
+`scene.ambient_light.intensity`.
 
 The **Render full quality** button writes the requested output with the supplied
 `RenderConfig`. Preview rendering defaults to at most 480 pixels wide, quality
@@ -1207,12 +1221,15 @@ session = interactive_render(
 Set `quality=5` instead for a higher-quality preview. An explicitly supplied
 preview configuration is used as-is except that `display` is always forced to
 `False`, keeping preview renders headless. Use `available_controls()` to inspect
-the supported control names.
+the supported leaf-control names in alphabetical order.
 
-The interactive `camera.width` control applies to either projection. If you
-also request `camera.angle`, the UI automatically adds an **Override angle**
-checkbox; while it is cleared, the displayed angle follows width and camera
-distance automatically.
+The interactive `camera.width` control applies to either projection. Request
+`"camera"` to expose all camera controls while retaining width-based framing.
+That namespace omits `camera.angle` and its **Override angle** checkbox unless
+the camera already has an explicit angle. Request `camera.angle` directly when
+an explicit field-of-view override is wanted; the checkbox is then added
+automatically. While it is cleared, the displayed angle follows width and
+camera distance automatically.
 
 Style and depth-shading controls additionally require the original geometry and
 style configuration, because those values cannot be recovered from a finished
@@ -1238,6 +1255,15 @@ repeating bond discovery. Requesting any depth-shading field automatically
 includes its enable/disable control, and values are retained while depth
 shading or fog is disabled. Pass the original `extra_primitives=` when they
 must remain in a restyled scene.
+
+Namespace strings can expose every applicable registered child, for example
+`"style.default_atom_finish"`, `"style.default_bond_finish"`,
+`"style.default_polyhedron_finish"`, `"style.depth_shading"`, or
+`"scene.fog"`. Finish namespaces include `ambient`, `diffuse`, `emission`,
+`phong`, `phong_size`, and `specular`. Duplicate leaves are removed while
+preserving their first occurrence. A custom `Control(...)` remains leaf-only,
+because one range override cannot be applied meaningfully to heterogeneous
+children.
 
 `session.set_controls(...)` can replace the visible controls without losing
 earlier changes. `session.values` contains all accumulated differences from the

@@ -15,7 +15,11 @@ from ..primitives import Primitive
 from ..scene import Scene
 from ..styling import StyleConfig, apply_styles
 from ._control import Control
-from ._registry import _ControlSpec, _get_control_spec
+from ._registry import (
+    _ControlSpec,
+    _expand_control_namespace,
+    _get_control_spec,
+)
 from ._rendering import InteractiveRenderResult, _LatestRenderController
 from ._state import _initial_state, _values_equal
 from ._widgets import _WidgetMixin
@@ -170,7 +174,26 @@ class InteractiveRenderSession(_WidgetMixin):
 
         requested: list[Control] = []
         for value in controls:
-            control = Control(value) if isinstance(value, str) else value
+            if isinstance(value, str):
+                try:
+                    _get_control_spec(value)
+                except ValueError:
+                    expanded = _expand_control_namespace(value, self._state)
+                    if expanded is None:
+                        raise ValueError(
+                            f"unknown interactive control {value!r}; "
+                            "use available_controls() to inspect supported names"
+                        ) from None
+                    if not expanded:
+                        raise ValueError(
+                            f"control namespace {value!r} has no controls "
+                            "applicable to this session"
+                        )
+                    requested.extend(Control(name) for name in expanded)
+                    continue
+                control = Control(value)
+            else:
+                control = value
             if not isinstance(control, Control):
                 raise TypeError("controls must contain strings or Control objects")
             requested.append(control)
@@ -179,7 +202,11 @@ class InteractiveRenderSession(_WidgetMixin):
         controls_with_toggles = _include_angle_override(
             _include_depth_shading_toggle(requested)
         )
+        seen: set[str] = set()
         for control in controls_with_toggles:
+            if control.name in seen:
+                continue
+            seen.add(control.name)
             try:
                 spec = _get_control_spec(control.name)
             except ValueError:

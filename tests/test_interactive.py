@@ -10,6 +10,7 @@ from atomic_povray import (
     Color,
     Control,
     DepthShading,
+    Finish,
     PointLight,
     RenderConfig,
     StructureModel,
@@ -28,7 +29,15 @@ from atomic_povray.interactive._registry import (
 )
 
 
-def _session(*, controls, depth_shading=None, geometry=True, lights=()):
+def _session(
+    *,
+    controls,
+    depth_shading=None,
+    geometry=True,
+    lights=(),
+    style_config=None,
+    camera_angle=None,
+):
     model = build_geometry(
         StructureModel(
             Atoms(
@@ -40,13 +49,18 @@ def _session(*, controls, depth_shading=None, geometry=True, lights=()):
         ),
         bond_rules=(),
     )
-    styles = StyleConfig(depth_shading=depth_shading)
+    styles = style_config or StyleConfig(depth_shading=depth_shading)
     styled = apply_styles(model, styles)
-    camera = Camera.orthographic(
+    camera_factory = (
+        Camera.perspective if camera_angle is not None else Camera.orthographic
+    )
+    camera_kwargs = {"angle": camera_angle} if camera_angle is not None else {}
+    camera = camera_factory(
         direction=(0.0, 100.0, 0.0),
         target=(0.0, 0.0, 0.0),
         up=(0.0, 0.0, 1.0),
         width=20.0,
+        **camera_kwargs,
     )
     scene = make_scene(
         styled.primitives,
@@ -67,7 +81,9 @@ def _session(*, controls, depth_shading=None, geometry=True, lights=()):
 
 
 def test_registry_contains_initial_camera_scene_style_and_depth_controls():
-    names = set(available_controls())
+    available = available_controls()
+    names = set(available)
+    assert available == tuple(sorted(available))
     assert {
         "camera.direction",
         "camera.target",
@@ -75,14 +91,181 @@ def test_registry_contains_initial_camera_scene_style_and_depth_controls():
         "scene.background.color",
         "scene.light.intensity",
         "scene.light.angular_diameter",
+        "scene.ambient_light.color",
+        "scene.ambient_light.intensity",
         "style.atom_size_scale",
+        "style.default_atom_finish.ambient",
+        "style.default_atom_finish.diffuse",
+        "style.default_atom_finish.emission",
         "style.default_atom_finish.phong",
+        "style.default_atom_finish.phong_size",
+        "style.default_atom_finish.specular",
         "style.depth_shading.enabled",
         "style.depth_shading.origin",
         "style.depth_shading.direction",
         "style.depth_shading.decay_length",
         "style.depth_shading.color",
     } <= names
+    assert "style.default_atom.color" not in names
+    assert "style.default_polyhedron.color" not in names
+
+
+def test_ambient_light_color_and_intensity_compose_order_independently():
+    session, scene, styles = _session(controls=["scene.ambient_light"])
+    assert tuple(control.name for control in session.controls) == (
+        "scene.ambient_light.color",
+        "scene.ambient_light.intensity",
+    )
+
+    color = Color(0.2, 0.4, 0.6)
+    session.set_value("scene.ambient_light.intensity", 2.5, render=False)
+    session.set_value("scene.ambient_light.color", color, render=False)
+    assert session.scene.ambient_light == Color(0.5, 1.0, 1.5)
+
+    reversed_values = dict(reversed(tuple(session.values.items())))
+    reapplied_scene, _ = apply_interactive_values(
+        scene=scene,
+        style_config=styles,
+        values=reversed_values,
+    )
+    assert reapplied_scene.ambient_light == session.scene.ambient_light
+
+
+def test_ambient_light_intensity_uses_zero_to_ten_display_range():
+    spec = _get_control_spec("scene.ambient_light.intensity")
+    assert spec.limits == (0.0, None)
+    assert spec.display_range == (0.0, 10.0)
+
+
+@pytest.mark.parametrize(
+    "namespace",
+    (
+        "style.default_atom_finish",
+        "style.default_bond_finish",
+        "style.default_polyhedron_finish",
+    ),
+)
+def test_finish_namespaces_expand_to_every_finish_property(namespace):
+    session, _, _ = _session(controls=[namespace])
+    assert tuple(control.name.rsplit(".", 1)[1] for control in session.controls) == (
+        "ambient",
+        "diffuse",
+        "emission",
+        "phong",
+        "phong_size",
+        "specular",
+    )
+
+
+@pytest.mark.parametrize(
+    "namespace",
+    (
+        "style.default_atom_finish",
+        "style.default_bond_finish",
+        "style.default_polyhedron_finish",
+    ),
+)
+@pytest.mark.parametrize(
+    ("property_name", "value"),
+    (
+        ("ambient", 0.2),
+        ("diffuse", 0.4),
+        ("emission", 0.6),
+        ("phong", 0.8),
+        ("phong_size", 25.0),
+        ("specular", 1.2),
+    ),
+)
+def test_generated_finish_controls_update_every_property(
+    namespace, property_name, value
+):
+    control_name = f"{namespace}.{property_name}"
+    session, _, _ = _session(controls=[control_name])
+    session.set_value(control_name, value, render=False)
+    effective_finish = getattr(
+        session.style_config,
+        namespace.removeprefix("style.default_"),
+    )
+
+    assert getattr(effective_finish, property_name) == pytest.approx(value)
+
+
+def test_finish_edit_splits_legacy_shared_finish_without_visual_change():
+    shared = Finish(
+        ambient=0.2,
+        diffuse=0.3,
+        phong=0.4,
+        phong_size=20.0,
+        specular=0.5,
+        emission=0.1,
+    )
+    session, scene, styles = _session(
+        controls=["style.default_atom_finish.diffuse"],
+        style_config=StyleConfig(default_finish=shared),
+    )
+    session.set_value("style.default_atom_finish.diffuse", 0.8, render=False)
+
+    assert session.style_config.default_finish is None
+    assert session.style_config.atom_finish == Finish(
+        ambient=0.2,
+        diffuse=0.8,
+        phong=0.4,
+        phong_size=20.0,
+        specular=0.5,
+        emission=0.1,
+    )
+    assert session.style_config.bond_finish == shared
+    assert session.style_config.polyhedron_finish == shared
+
+    reapplied_scene, reapplied_styles = apply_interactive_values(
+        scene=scene,
+        style_config=styles,
+        values=session.values,
+    )
+    assert reapplied_scene == scene
+    assert reapplied_styles == session.style_config
+
+
+def test_generic_namespaces_filter_inapplicable_controls_and_deduplicate():
+    session, _, _ = _session(
+        controls=["camera", "camera.width", "scene.light"],
+        lights=(PointLight((1.0, 2.0, 3.0)),),
+    )
+    names = tuple(control.name for control in session.controls)
+    assert names == (
+        "camera.direction",
+        "camera.target",
+        "camera.up",
+        "camera.projection",
+        "camera.width",
+        "scene.light.location",
+        "scene.light.color",
+        "scene.light.intensity",
+    )
+    assert "scene.light.angular_diameter" not in names
+
+
+def test_camera_namespace_includes_angle_only_when_already_overridden():
+    session, _, _ = _session(controls=["camera"], camera_angle=35.0)
+    names = tuple(control.name for control in session.controls)
+    assert "camera.angle_override" in names
+    assert "camera.angle" in names
+
+
+def test_indexed_light_namespace_expands_for_selected_light():
+    session, _, _ = _session(
+        controls=["scene.lights[1]"],
+        lights=(
+            PointLight((1.0, 2.0, 3.0)),
+            AreaLight((4.0, 5.0, 6.0)),
+        ),
+    )
+    assert tuple(control.name for control in session.controls) == (
+        "scene.lights[1].location",
+        "scene.lights[1].color",
+        "scene.lights[1].intensity",
+        "scene.lights[1].angular_diameter",
+    )
 
 
 @pytest.mark.parametrize(

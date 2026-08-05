@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from functools import partial
 import re
 from typing import Any
 
@@ -162,30 +161,6 @@ def _camera_angle_specs() -> tuple[_ControlSpec, _ControlSpec]:
     )
 
 
-def _scene_attribute_spec(
-    name: str,
-    kind: ControlKind,
-    label: str,
-    group: str,
-    *,
-    limits: tuple[float | None, float | None] = (None, None),
-    display_range: DisplayRange | None = None,
-    step: float | None = None,
-) -> _ControlSpec:
-    field_name = name.rsplit(".", 1)[1]
-
-    def getter(state: _InteractiveState) -> Any:
-        return getattr(state.scene, field_name)
-
-    def setter(state: _InteractiveState, value: Any) -> _InteractiveState:
-        return _with_scene(state, replace(state.scene, **{field_name: value}))
-
-    return _ControlSpec(
-        name, kind, label, group, getter, setter,
-        limits, display_range, step,
-    )
-
-
 def _style_attribute_spec(
     name: str,
     kind: ControlKind,
@@ -216,11 +191,7 @@ def _style_attribute_spec(
     )
 
 
-def _style_color_spec(
-    name: str,
-    label: str,
-    style_field: str,
-) -> _ControlSpec:
+def _style_color_spec(name: str, label: str, style_field: str) -> _ControlSpec:
     def getter(state: _InteractiveState) -> Color:
         assert state.style_config is not None
         color = getattr(state.style_config, style_field).color
@@ -248,26 +219,77 @@ def _style_color_spec(
     )
 
 
-def _finish_spec(name: str, label: str, finish_field: str) -> _ControlSpec:
+def _finish_spec(
+    name: str,
+    label: str,
+    finish_field: str,
+    *,
+    display_range: tuple[float, float] = (0.0, 1.0),
+    step: float = 0.05,
+) -> _ControlSpec:
+    finish_property = name.rsplit(".", 1)[1]
+
     def getter(state: _InteractiveState) -> float:
         assert state.style_config is not None
-        finish = getattr(state.style_config, finish_field)
-        return float(getattr(finish, name.rsplit(".", 1)[1]))
+        style_config = state.style_config
+        effective_field = finish_field.removeprefix("default_")
+        finish = getattr(style_config, effective_field)
+        return float(getattr(finish, finish_property))
 
     def setter(state: _InteractiveState, value: float) -> _InteractiveState:
         assert state.style_config is not None
-        finish = getattr(state.style_config, finish_field)
-        finish = replace(finish, **{name.rsplit(".", 1)[1]: value})
+        style_config = state.style_config
+        if style_config.default_finish is not None:
+            style_config = replace(
+                style_config,
+                default_atom_finish=style_config.atom_finish,
+                default_bond_finish=style_config.bond_finish,
+                default_polyhedron_finish=style_config.polyhedron_finish,
+                default_finish=None,
+            )
+        finish = getattr(style_config, finish_field)
+        finish = replace(finish, **{finish_property: value})
         return replace(
             state,
-            style_config=replace(state.style_config, **{finish_field: finish}),
+            style_config=replace(style_config, **{finish_field: finish}),
         )
 
     return _ControlSpec(
         name, "number", label, "Appearance", getter, setter,
-        limits=(0.0, 1.0), display_range=(0.0, 1.0), step=0.05,
+        limits=(0.0, None), display_range=display_range, step=step,
         applicable=lambda state: state.style_config is not None,
     )
+
+
+def _finish_specs(
+    namespace: str,
+    label_prefix: str,
+    finish_field: str,
+) -> list[_ControlSpec]:
+    """Return all numeric finish controls for one primitive type."""
+
+    specs = []
+    for property_name in (
+        "ambient",
+        "diffuse",
+        "emission",
+        "phong",
+        "phong_size",
+        "specular",
+    ):
+        label_property = property_name.replace("_", " ")
+        display_range = (0.0, 100.0) if property_name == "phong_size" else (0.0, 1.0)
+        step = 1.0 if property_name == "phong_size" else 0.05
+        specs.append(
+            _finish_spec(
+                f"{namespace}.{property_name}",
+                f"{label_prefix} {label_property}",
+                finish_field,
+                display_range=display_range,
+                step=step,
+            )
+        )
+    return specs
 
 
 def _depth_spec(
@@ -344,6 +366,7 @@ _INDEXED_LIGHT_CONTROL = re.compile(
     r"scene\.lights\[(?P<index>\d+)\]\."
     r"(?P<field>location|color|intensity|angular_diameter)\Z"
 )
+_INDEXED_LIGHT_NAMESPACE = re.compile(r"scene\.lights\[(?P<index>\d+)\]\Z")
 
 
 def _indexed_light_spec(
@@ -373,6 +396,47 @@ def _indexed_light_spec(
 
 def _make_control_specs() -> dict[str, _ControlSpec]:
     angle_override, angle = _camera_angle_specs()
+
+    def ambient_color_getter(state: _InteractiveState) -> Color:
+        return state.ambient_light_color
+
+    def ambient_color_setter(
+        state: _InteractiveState, value: Color
+    ) -> _InteractiveState:
+        intensity = state.ambient_light_intensity
+        effective = Color(
+            value.red * intensity,
+            value.green * intensity,
+            value.blue * intensity,
+            filter=value.filter,
+            transmit=value.transmit,
+        )
+        return replace(
+            state,
+            scene=replace(state.scene, ambient_light=effective),
+            ambient_light_color=value,
+        )
+
+    def ambient_intensity_getter(state: _InteractiveState) -> float:
+        return state.ambient_light_intensity
+
+    def ambient_intensity_setter(
+        state: _InteractiveState, value: float
+    ) -> _InteractiveState:
+        color = state.ambient_light_color
+        effective = Color(
+            color.red * value,
+            color.green * value,
+            color.blue * value,
+            filter=color.filter,
+            transmit=color.transmit,
+        )
+        return replace(
+            state,
+            scene=replace(state.scene, ambient_light=effective),
+            ambient_light_intensity=value,
+        )
+
     specs = [
         _camera_spec(
             "camera.direction", "vector", "Direction",
@@ -396,8 +460,24 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
             "camera.width", "number", "Width",
             limits=(0.0, None), display_range=(1.0, 100.0), step=0.25,
         ),
-        _scene_attribute_spec(
-            "scene.ambient_light", "color", "Ambient light", "Scene"
+        _ControlSpec(
+            "scene.ambient_light.color",
+            "color",
+            "Color",
+            "Ambient light",
+            ambient_color_getter,
+            ambient_color_setter,
+        ),
+        _ControlSpec(
+            "scene.ambient_light.intensity",
+            "number",
+            "Intensity",
+            "Ambient light",
+            ambient_intensity_getter,
+            ambient_intensity_setter,
+            limits=(0.0, None),
+            display_range=(0.0, 10.0),
+            step=0.05,
         ),
         _light_spec(
             "scene.light.location", "vector", "Location", "location",
@@ -431,25 +511,17 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
             "style.draw_polyhedra", "boolean", "Draw polyhedra"
         ),
         _style_color_spec(
-            "style.default_atom.color", "Default atom color", "default_atom"
-        ),
-        _style_color_spec(
             "style.default_bond.color", "Default bond color", "default_bond"
         ),
-        _style_color_spec(
-            "style.default_polyhedron.color",
-            "Default polyhedron color",
-            "default_polyhedron",
+        *_finish_specs(
+            "style.default_atom_finish", "Atom", "default_atom_finish"
         ),
-        _finish_spec(
-            "style.default_atom_finish.phong", "Atom phong", "default_atom_finish"
+        *_finish_specs(
+            "style.default_bond_finish", "Bond", "default_bond_finish"
         ),
-        _finish_spec(
-            "style.default_bond_finish.phong", "Bond phong", "default_bond_finish"
-        ),
-        _finish_spec(
-            "style.default_polyhedron_finish.phong",
-            "Polyhedron phong",
+        *_finish_specs(
+            "style.default_polyhedron_finish",
+            "Polyhedron",
             "default_polyhedron_finish",
         ),
         _depth_spec(
@@ -607,10 +679,43 @@ def _get_control_spec(name: str) -> _ControlSpec:
     return spec
 
 
+def _expand_control_namespace(
+    name: str,
+    state: _InteractiveState,
+) -> tuple[str, ...] | None:
+    """Expand a registry namespace to its applicable leaf controls."""
+
+    indexed_match = _INDEXED_LIGHT_NAMESPACE.fullmatch(name)
+    if indexed_match is not None:
+        index = int(indexed_match.group("index"))
+        candidates = tuple(
+            f"scene.lights[{index}].{leaf.rsplit('.', 1)[1]}"
+            for leaf in _CONTROL_SPECS
+            if leaf.startswith("scene.light.")
+        )
+    else:
+        prefix = f"{name}."
+        candidates = tuple(
+            leaf for leaf in _CONTROL_SPECS if leaf.startswith(prefix)
+        )
+        if not candidates:
+            return None
+
+    if name == "camera" and state.scene.camera.angle is None:
+        candidates = tuple(
+            leaf
+            for leaf in candidates
+            if leaf not in {"camera.angle", "camera.angle_override"}
+        )
+    return tuple(
+        leaf for leaf in candidates if _get_control_spec(leaf).applicable(state)
+    )
+
+
 def available_controls() -> tuple[str, ...]:
     """Return the static names accepted by :func:`interactive_render`.
 
     Lights may additionally use dynamic ``scene.lights[index].field`` names.
     """
 
-    return tuple(_CONTROL_SPECS)
+    return tuple(sorted(_CONTROL_SPECS))

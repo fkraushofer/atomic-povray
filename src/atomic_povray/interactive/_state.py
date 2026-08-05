@@ -7,8 +7,10 @@ from dataclasses import dataclass
 from math import isclose
 from typing import Any
 
+from ..primitives import Color
 from ..scene import Fog, Scene
 from ..styling import DepthShading, StyleConfig
+
 
 @dataclass(frozen=True)
 class _InteractiveState:
@@ -16,6 +18,8 @@ class _InteractiveState:
     style_config: StyleConfig | None
     depth_shading: DepthShading
     fog: Fog
+    ambient_light_color: Color
+    ambient_light_intensity: float
 
 
 def _initial_state(scene: Scene, styles: StyleConfig | None) -> _InteractiveState:
@@ -33,7 +37,14 @@ def _initial_state(scene: Scene, styles: StyleConfig | None) -> _InteractiveStat
         distance=max(1.0, scene.camera.width * 2),
         color=scene.background.color,
     )
-    return _InteractiveState(scene, styles, shading, fog)
+    return _InteractiveState(
+        scene,
+        styles,
+        shading,
+        fog,
+        scene.ambient_light,
+        1.0,
+    )
 
 
 def _values_equal(left: Any, right: Any) -> bool:
