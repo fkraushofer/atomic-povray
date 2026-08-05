@@ -85,6 +85,7 @@ class _WidgetMixin:
             and self._state.style_config.depth_shading is not None
         )
         fog_enabled = self._state.scene.fog is not None
+        angle_overridden = self._state.scene.camera.angle is not None
         for name, widget in self._control_widgets.items():
             if name.startswith("style.depth_shading.") and not name.endswith(
                 ".enabled"
@@ -92,6 +93,8 @@ class _WidgetMixin:
                 self._set_widget_disabled(widget, not depth_enabled)
             elif name.startswith("scene.fog.") and not name.endswith(".enabled"):
                 self._set_widget_disabled(widget, not fog_enabled)
+            elif name == "camera.angle":
+                self._set_widget_disabled(widget, not angle_overridden)
 
     def _set_widget_disabled(self, widget: Any, disabled: bool) -> None:
         children = getattr(widget, "children", ())

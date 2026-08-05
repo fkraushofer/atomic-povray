@@ -53,7 +53,7 @@ def test_finish_defaults_are_listed_with_canonical_defaults():
 def test_camera_light_and_label_profiles_use_canonical_values():
     camera_fields = Camera.__dataclass_fields__
     assert camera_fields["up"].default == defaults.DEFAULT_CAMERA_UP
-    assert camera_fields["angle"].default == defaults.DEFAULT_CAMERA_ANGLE
+    assert camera_fields["angle"].default is None
     assert camera_fields["width"].default == defaults.DEFAULT_CAMERA_WIDTH
 
     scene = DEFAULT_PROFILE.scene

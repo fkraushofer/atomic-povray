@@ -124,6 +124,43 @@ def _camera_spec(
     )
 
 
+def _camera_angle_specs() -> tuple[_ControlSpec, _ControlSpec]:
+    """Return the explicit-angle toggle and its numeric value control."""
+
+    def override_getter(state: _InteractiveState) -> bool:
+        return state.scene.camera.angle is not None
+
+    def override_setter(
+        state: _InteractiveState, value: bool
+    ) -> _InteractiveState:
+        camera = state.scene.camera
+        angle = camera.effective_angle if value else None
+        return _with_scene(
+            state, replace(state.scene, camera=replace(camera, angle=angle))
+        )
+
+    def angle_getter(state: _InteractiveState) -> float:
+        return state.scene.camera.effective_angle
+
+    def angle_setter(
+        state: _InteractiveState, value: float
+    ) -> _InteractiveState:
+        camera = replace(state.scene.camera, angle=value)
+        return _with_scene(state, replace(state.scene, camera=camera))
+
+    return (
+        _ControlSpec(
+            "camera.angle_override", "boolean", "Override angle", "Camera",
+            override_getter, override_setter,
+        ),
+        _ControlSpec(
+            "camera.angle", "number", "Perspective angle", "Camera",
+            angle_getter, angle_setter,
+            limits=(0.0, 180.0), display_range=(1.0, 179.0), step=0.5,
+        ),
+    )
+
+
 def _scene_attribute_spec(
     name: str,
     kind: ControlKind,
@@ -292,6 +329,7 @@ def _light_spec(
 
 
 def _make_control_specs() -> dict[str, _ControlSpec]:
+    angle_override, angle = _camera_angle_specs()
     specs = [
         _camera_spec(
             "camera.direction", "vector", "Direction",
@@ -309,12 +347,10 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
             "camera.projection", "choice", "Projection",
             choices=("orthographic", "perspective"),
         ),
+        angle_override,
+        angle,
         _camera_spec(
-            "camera.angle", "number", "Perspective angle",
-            limits=(0.0, 180.0), display_range=(1.0, 179.0), step=0.5,
-        ),
-        _camera_spec(
-            "camera.width", "number", "Orthographic width",
+            "camera.width", "number", "Width",
             limits=(0.0, None), display_range=(1.0, 100.0), step=0.25,
         ),
         _scene_attribute_spec(
