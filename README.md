@@ -1160,6 +1160,19 @@ session = interactive_render(
 )
 ```
 
+`scene.light.location`, `scene.light.color`, and `scene.light.intensity` control
+the first light. For scenes with several lights, address each one by its
+zero-based position in `scene.lights`:
+
+```python
+controls=[
+    "scene.lights[0].location",
+    "scene.lights[1].location",
+]
+```
+
+The same indexed form supports `.color` and `.intensity`.
+
 The **Render full quality** button writes the requested output with the supplied
 `RenderConfig`. Preview rendering defaults to at most 480 pixels wide, quality
 3, no antialiasing, and no radiosity. `preview_config` is a complete
