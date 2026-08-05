@@ -278,8 +278,10 @@ def _finish_specs(
         "specular",
     ):
         label_property = property_name.replace("_", " ")
-        display_range = (0.0, 100.0) if property_name == "phong_size" else (0.0, 1.0)
-        step = 1.0 if property_name == "phong_size" else 0.05
+        display_range = (
+            (0.0, 20.0) if property_name == "phong_size" else (0.0, 1.0)
+        )
+        step = 0.1 if property_name == "phong_size" else 0.05
         specs.append(
             _finish_spec(
                 f"{namespace}.{property_name}",
