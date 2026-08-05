@@ -37,6 +37,8 @@ def _session(
     lights=(),
     style_config=None,
     camera_angle=None,
+    preview_config=None,
+    quality=None,
 ):
     model = build_geometry(
         StructureModel(
@@ -75,6 +77,8 @@ def _session(
         controls=controls,
         geometry=model if geometry else None,
         style_config=styles,
+        preview_config=preview_config,
+        quality=quality,
         show=False,
     )
     return session, scene, styles
@@ -108,6 +112,7 @@ def test_registry_contains_initial_camera_scene_style_and_depth_controls():
     } <= names
     assert "style.default_atom.color" not in names
     assert "style.default_polyhedron.color" not in names
+    assert "style.preset_style" not in names
 
 
 def test_ambient_light_color_and_intensity_compose_order_independently():
@@ -398,6 +403,38 @@ def test_default_preview_config_is_headless_and_keeps_aspect_ratio():
     assert session.preview_config.height == 360
     assert session.preview_config.quality == 3
     assert session.preview_config.antialias is False
+
+
+def test_preview_quality_overrides_automatic_preview_config():
+    session, _, _ = _session(controls=["camera.width"], quality=9)
+
+    assert session.preview_config.width == 480
+    assert session.preview_config.height == 360
+    assert session.preview_config.quality == 9
+    assert session.preview_config.antialias is False
+    assert session.preview_config.display is False
+
+
+def test_preview_quality_overrides_explicit_preview_config():
+    explicit_preview = RenderConfig(
+        width=320,
+        height=200,
+        quality=1,
+        antialias=True,
+        display=True,
+    )
+
+    session, _, _ = _session(
+        controls=["camera.width"],
+        preview_config=explicit_preview,
+        quality=9,
+    )
+
+    assert session.preview_config.width == 320
+    assert session.preview_config.height == 200
+    assert session.preview_config.quality == 9
+    assert session.preview_config.antialias is True
+    assert session.preview_config.display is False
 
 
 def test_preview_display_width_is_not_a_rendered_value():
