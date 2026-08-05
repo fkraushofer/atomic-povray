@@ -288,7 +288,7 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
         ),
         _camera_spec(
             "camera.width", "number", "Orthographic width",
-            limits=(0.0, None), display_range=(0.01, 500.0), step=0.25,
+            limits=(0.0, None), display_range=(1.0, 100.0), step=0.25,
         ),
         _scene_attribute_spec(
             "scene.ambient_light", "color", "Ambient light", "Scene"
@@ -305,11 +305,11 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
         ),
         _style_attribute_spec(
             "style.atom_size_scale", "number", "Atom size scale",
-            limits=(0.0, None), display_range=(0.01, 5.0), step=0.05,
+            limits=(0.0, None), display_range=(0.05, 2.0), step=0.05,
         ),
         _style_attribute_spec(
             "style.bond_size_scale", "number", "Bond size scale",
-            limits=(0.0, None), display_range=(0.01, 5.0), step=0.05,
+            limits=(0.0, None), display_range=(0.05, 5.0), step=0.05,
         ),
         _style_attribute_spec("style.draw_atoms", "boolean", "Draw atoms"),
         _style_attribute_spec("style.draw_bonds", "boolean", "Draw bonds"),
@@ -353,8 +353,8 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
             "number",
             "Decay length",
             "decay_length",
-            limits=(0.0, None),
-            display_range=(0.01, 500.0),
+            limits=(0.001, None),
+            display_range=(0.1, 50.0),
             step=0.1,
         ),
         _depth_spec(
