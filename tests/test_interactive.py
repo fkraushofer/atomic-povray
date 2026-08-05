@@ -170,6 +170,22 @@ def test_finish_namespaces_expand_to_every_finish_property(namespace):
         "style.default_polyhedron_finish",
     ),
 )
+def test_phong_size_controls_use_focused_display_range(namespace):
+    spec = _get_control_spec(f"{namespace}.phong_size")
+
+    assert spec.limits == (0.0, None)
+    assert spec.display_range == (0.0, 20.0)
+    assert spec.step == pytest.approx(0.1)
+
+
+@pytest.mark.parametrize(
+    "namespace",
+    (
+        "style.default_atom_finish",
+        "style.default_bond_finish",
+        "style.default_polyhedron_finish",
+    ),
+)
 @pytest.mark.parametrize(
     ("property_name", "value"),
     (
@@ -640,6 +656,24 @@ def test_generic_widget_types_build_together():
     session._ensure_ui()
     assert session.ui is not None
     assert len(session._links) == 4
+
+
+def test_control_widgets_allocate_space_for_full_labels():
+    session, _, _ = _session(
+        controls=[
+            "style.default_polyhedron_finish.phong_size",
+            "camera.projection",
+            "scene.background.color",
+            "style.draw_polyhedra",
+        ]
+    )
+    session._ensure_ui()
+
+    for widget in session._control_widgets.values():
+        children = getattr(widget, "children", ())
+        slider_or_widget = children[0] if children else widget
+        assert slider_or_widget.layout.width == "560px"
+        assert slider_or_widget.style.description_width == "180px"
 
 
 def test_disabled_depth_shading_retains_but_disables_component_widgets():
