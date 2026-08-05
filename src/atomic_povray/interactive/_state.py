@@ -50,14 +50,11 @@ def apply_interactive_values(
 ) -> tuple[Scene, StyleConfig | None]:
     """Apply exported interactive overrides to fresh scene/style objects."""
 
-    from ._registry import _CONTROL_SPECS
+    from ._registry import _get_control_spec
 
     state = _initial_state(scene, style_config)
     for name, value in values.items():
-        try:
-            spec = _CONTROL_SPECS[name]
-        except KeyError:
-            raise ValueError(f"unknown interactive control {name!r}") from None
+        spec = _get_control_spec(name)
         if not spec.applicable(state):
             raise ValueError(f"control {name!r} is not applicable to this state")
         state = spec.setter(state, spec.coerce(value))
