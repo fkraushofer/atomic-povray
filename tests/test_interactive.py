@@ -255,6 +255,55 @@ def test_light_location_uses_twice_vector_length_display_range():
         assert slider.max == number.max == pytest.approx(expected)
 
 
+def test_indexed_light_controls_update_lights_independently():
+    lights = (
+        PointLight((1.0, 2.0, 3.0)),
+        PointLight((4.0, 5.0, 6.0)),
+    )
+    session, scene, styles = _session(
+        controls=[
+            "scene.lights[0].location",
+            "scene.lights[1].location",
+        ],
+        lights=lights,
+    )
+    session._ensure_ui()
+    assert set(session._control_widgets) == {
+        "scene.lights[0].location",
+        "scene.lights[1].location",
+    }
+
+    session.set_value(
+        "scene.lights[0].location", (10.0, 20.0, 30.0), render=False
+    )
+    session.set_value(
+        "scene.lights[1].location", (40.0, 50.0, 60.0), render=False
+    )
+
+    assert session.scene.lights[0].location == (10.0, 20.0, 30.0)
+    assert session.scene.lights[1].location == (40.0, 50.0, 60.0)
+    assert scene.lights == lights
+    assert session.values == {
+        "scene.lights[0].location": (10.0, 20.0, 30.0),
+        "scene.lights[1].location": (40.0, 50.0, 60.0),
+    }
+
+    reapplied_scene, _ = apply_interactive_values(
+        scene=scene,
+        style_config=styles,
+        values=session.values,
+    )
+    assert reapplied_scene.lights == session.scene.lights
+
+
+def test_indexed_light_control_rejects_missing_light():
+    with pytest.raises(ValueError, match="not applicable"):
+        _session(
+            controls=["scene.lights[1].location"],
+            lights=(PointLight((1.0, 2.0, 3.0)),),
+        )
+
+
 def test_symmetric_vector_length_range_has_minimum_extent_and_multiple():
     assert _symmetric_vector_length_range((0.0, 0.0, 0.0)) == (-2.0, 2.0)
     assert _symmetric_vector_length_range(
