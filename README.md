@@ -33,7 +33,7 @@ rendering.
   cells, arrows, isosurfaces, and custom triangle meshes
 - [Configurable scenes and rendering](#set-up-and-render-the-scene), including
   cameras, lighting, transparency, depth effects, fog, and radiosity
-- [Selected-variable interactive previews](#refine-selected-settings-interactively)
+- [Selected-variable interactive previews](#interactive-rendering-in-jupyter)
   with asynchronous, headless POV-Ray rendering in Jupyter
 - [Notebook, script, and batch workflows](#examples) with reusable project
   profiles and direct POV-Ray SDL/INI output
@@ -169,8 +169,8 @@ geometry = build_geometry(
         fractional_ranges=((0, 2), (0, 2), (0, 1)),
     ),
 )
-styles = StyleConfig()
-styled = apply_styles(geometry, styles)
+style_config = StyleConfig()
+styled = apply_styles(geometry, style_config)
 
 camera = Camera.orthographic(
     direction=(0, 100, 0),
@@ -185,88 +185,6 @@ scene = make_scene(
 )
 render_scene(scene, "structure.png", RenderConfig(quality=5))
 ```
-
-### Refine selected settings interactively
-
-Install the `notebook` extra to use `interactive_render`. It displays only the
-controls explicitly requested by the caller, renders low-quality previews in
-the background, and retains the newest pending state while POV-Ray is busy.
-Scene and camera controls can operate on an existing `Scene` directly:
-
-```python
-from atomic_povray import Control, interactive_render
-
-session = interactive_render(
-    scene,
-    "structure.png",
-    RenderConfig(quality=9, display=False),
-    controls=[
-        "camera.direction",
-        "camera.target",
-        Control("camera.width", min=10, max=40, step=0.1),
-        "scene.background.color",
-    ],
-)
-```
-
-Each numeric or vector component has a slider and an exact numeric field. The
-registry keeps actual validity limits separate from the default displayed
-range. Consequently, `Control(min=..., max=...)` changes only the widget range;
-it cannot relax a registered validity limit, and a current value outside the
-default display range expands the widget without changing that value. Vector
-components use shared symmetric bounds based on the current vector length; the
-light-location range uses twice that length to make moving the light farther
-away convenient.
-`Render full quality` button writes `structure.png` with the supplied
-`RenderConfig`; changing a setting afterwards returns the session to preview
-mode. Preview renders are always headless and default to at most 480 pixels
-wide, quality 3, no antialiasing, and no radiosity. Pass an explicit
-`preview_config` to change those render settings.
-
-Style controls need the pre-existing geometry and `StyleConfig`, because a
-finished `Scene` does not retain enough information to restyle its primitives:
-
-```python
-session = interactive_render(
-    scene,
-    "structure.png",
-    RenderConfig(quality=9, display=False),
-    geometry=geometry,
-    style_config=styles,
-    controls=[
-        "style.atom_size_scale",
-        "style.default_atom_finish.phong",
-        "style.depth_shading.origin",
-        "style.depth_shading.direction",
-        "style.depth_shading.decay_length",
-        "style.depth_shading.color",
-    ],
-)
-```
-
-This re-runs only `apply_styles()` against the already constructed geometry.
-If the original scene also contains custom primitives, pass the same objects as
-`extra_primitives` so they remain in the rebuilt scene.
-Requesting any depth-shading field automatically adds its enabled toggle.
-Disabling depth shading or fog disables its component widgets but retains their
-values, so switching the effect back on restores the previous settings.
-
-The visible control set can be replaced without losing earlier changes:
-
-```python
-session.set_controls([
-    "scene.light.location",
-    "scene.light.intensity",
-])
-```
-
-`session.values` contains every setting that differs from the state passed to
-`interactive_render`, including changes made under earlier control sets.
-`session.as_python()` returns a copyable `apply_interactive_values(...)` snippet
-for a profile-based notebook, standalone script, or batch renderer. This keeps
-the notebook or script as the reproducible source of truth; interactive values
-are not silently serialized as an incomplete replacement for the project
-profile. Use `available_controls()` to list the curated registry.
 
 The same code can be run interactively in a Jupyter notebook or saved as a
 standalone `.py` script. Notebooks are convenient for inspecting bond rules
@@ -682,7 +600,7 @@ covalent radii. Explicit element styles therefore only need to contain the
 properties that differ:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     elements={
         "Fe": AtomStyle(color=Color.from_hex("#A63B32")),
         "O": AtomStyle(radius=0.4),
@@ -709,7 +627,7 @@ atom and bond scales independently when needed. Both are applied after
 resolving default or explicit per-style radii:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     atom_size_scale=0.55,
     bond_size_scale=1.25,
 )
@@ -735,7 +653,7 @@ once per styling call and applies to every displayed image of each selected
 source atom:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     elements={"O": AtomStyle(0.34, oxygen_color)},
     selection_rules=(
         AtomSelectionRule(
@@ -755,7 +673,7 @@ therefore does not appear undercoordinated merely because one of its neighbors
 is outside the rendered region:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     ...,
     coordination_rules=(
         CoordinationStyleRule(
@@ -789,7 +707,7 @@ example, the automatically generated covalent and hydrogen O-H rules can be
 styled independently:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     ...,
     bonds={
         "default:covalent:O-H": BondStyle(radius=0.07),
@@ -819,7 +737,7 @@ two-color split based on their atom colors.
 Style polyhedra independently from the geometry that defines their vertices:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     preset_style="polyhedral",
     polyhedra={
         "Fe-O": PolyhedronStyle(
@@ -845,7 +763,7 @@ a polyhedron centered on a particular ASE source atom. Keys are zero-based ASE
 atom indices:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     polyhedron_source_overrides={
         # Make source atom 12's polyhedra more transparent in every replication.
         12: PolyhedronStyleOverride(transmit=0.7),
@@ -860,7 +778,7 @@ should change. `AtomKey(source_index, image_shift)` identifies the source atom
 and its lattice translation:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     polyhedron_instance_overrides={
         AtomKey(12, (1, 0, 0)): PolyhedronStyleOverride(visible=False),
     },
@@ -885,7 +803,7 @@ hide_below = {
     )
     if symbol == "Fe" and position[2] <= z_min
 }
-styles = StyleConfig(polyhedron_source_overrides=hide_below)
+style_config = StyleConfig(polyhedron_source_overrides=hide_below)
 ```
 
 Set `filter`, `transmit`, or `alpha` directly on `PolyhedronStyle` to
@@ -919,7 +837,7 @@ Phong `0.0`. Together with the automatic ASE colors/radii and the default bond
 radius of `0.08` Å, no appearance declaration is required:
 
 ```python
-styles = StyleConfig()
+style_config = StyleConfig()
 ```
 
 Override them independently with `default_atom_finish=` or
@@ -961,7 +879,7 @@ Directional depth shading is resolved into primitive colors during
 `apply_styles`:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     ...,
     depth_shading=DepthShading(
         origin=(0.0, 0.0, 24.0),
@@ -1164,7 +1082,7 @@ Pass the same profile only to the stages whose defaults it should supply:
 
 ```python
 bond_rules = get_default_bonds(structure, profile=MY_PROFILE)
-styles = StyleConfig(profile=MY_PROFILE)
+style_config = StyleConfig(profile=MY_PROFILE)
 camera = Camera.orthographic(
     direction=(0.0, 100.0, 0.0),
     target=(0.0, 0.0, 0.0),
@@ -1218,6 +1136,66 @@ PERSPECTIVE_PROFILE = replace(
 
 See `examples/hematite_profile.py` and `notebooks/hematite_profile.py` for
 matching project-owned profiles used by the two hematite workflows.
+
+## Interactive rendering in Jupyter
+
+Install the `notebook` extra to use `interactive_render`. A session displays
+only the requested controls and renders low-quality, headless previews in the
+background. If settings change while POV-Ray is busy, the newest pending state
+is rendered next rather than starting overlapping renders:
+
+```python
+from atomic_povray import Control, interactive_render
+
+session = interactive_render(
+    scene,
+    "structure.png",
+    RenderConfig(quality=9, display=False),
+    controls=[
+        "camera.direction",
+        "camera.target",
+        Control("camera.width", min=10, max=40, step=0.1),
+        "scene.light.location",
+    ],
+)
+```
+
+The **Render full quality** button writes the requested output with the supplied
+`RenderConfig`. Preview rendering defaults to at most 480 pixels wide, quality
+3, no antialiasing, and no radiosity; pass `preview_config=` to override these
+preview-only settings. Use `available_controls()` to inspect the supported
+control names.
+
+Style and depth-shading controls additionally require the original geometry and
+style configuration, because those values cannot be recovered from a finished
+scene:
+
+```python
+session = interactive_render(
+    scene,
+    "structure.png",
+    RenderConfig(quality=9, display=False),
+    geometry=geometry,
+    style_config=style_config,
+    controls=[
+        "style.atom_size_scale",
+        "style.depth_shading.origin",
+        "style.depth_shading.decay_length",
+    ],
+)
+```
+
+These controls re-run `apply_styles()` against the existing geometry without
+repeating bond discovery. Requesting any depth-shading field automatically
+includes its enable/disable control, and values are retained while depth
+shading or fog is disabled. Pass the original `extra_primitives=` when they
+must remain in a restyled scene.
+
+`session.set_controls(...)` can replace the visible controls without losing
+earlier changes. `session.values` contains all accumulated differences from the
+initial scene and style configuration, and `session.as_python()` returns a
+copyable `apply_interactive_values(...)` snippet using the variable names
+`scene` and `style_config`.
 
 ## Tests
 
