@@ -1168,17 +1168,20 @@ session = interactive_render(
 ```
 
 `scene.light.location`, `scene.light.color`, and `scene.light.intensity` control
-the first light. For scenes with several lights, address each one by its
-zero-based position in `scene.lights`:
+the first light. Area lights additionally support
+`scene.light.angular_diameter`. For scenes with several lights, address each
+one by its zero-based position in `scene.lights`:
 
 ```python
 controls=[
-    "scene.lights[0].location",
-    "scene.lights[1].location",
+    "scene.lights[0].angular_diameter",
+    "scene.lights[1].angular_diameter",
 ]
 ```
 
-The same indexed form supports `.color` and `.intensity`.
+The same indexed form supports `.location`, `.color`, and `.intensity`.
+`.angular_diameter` is available only when the selected light is an
+`AreaLight`.
 
 The **Render full quality** button writes the requested output with the supplied
 `RenderConfig`. Preview rendering defaults to at most 480 pixels wide, quality
