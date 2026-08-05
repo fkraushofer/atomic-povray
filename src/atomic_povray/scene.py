@@ -105,7 +105,7 @@ class AreaLight:
     angular_diameter: float = 35.0
     samples: tuple[int, int] = (9, 9)
     adaptive: int = 2
-    circular: bool = False
+    circular: bool = True
     orient: bool = True
     jitter: bool = False
 
