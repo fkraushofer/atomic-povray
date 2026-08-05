@@ -326,6 +326,7 @@ def interactive_render(
     style_config: StyleConfig | None = None,
     extra_primitives: tuple[Primitive, ...] = (),
     preview_config: RenderConfig | None = None,
+    quality: int | None = None,
     debounce_s: float = 0.12,
     max_wait_s: float = 0.30,
     display_width: int = 480,
@@ -335,7 +336,8 @@ def interactive_render(
 
     Scene and camera controls need only ``scene``. Style controls additionally
     require the original ``geometry`` and ``style_config`` so styling can be
-    reapplied without rebuilding geometry.
+    reapplied without rebuilding geometry. ``quality`` overrides the preview
+    quality without changing its other reduced settings.
     """
 
     render_config = render_config or RenderConfig()
@@ -348,13 +350,21 @@ def interactive_render(
             render_config,
             width=preview_width,
             height=preview_height,
-            quality=min(3, render_config.quality),
+            quality=(
+                min(3, render_config.quality) if quality is None else quality
+            ),
             antialias=False,
             display=False,
             radiosity=None,
         )
-    elif preview_config.display:
-        preview_config = replace(preview_config, display=False)
+    else:
+        preview_overrides = {}
+        if preview_config.display:
+            preview_overrides["display"] = False
+        if quality is not None:
+            preview_overrides["quality"] = quality
+        if preview_overrides:
+            preview_config = replace(preview_config, **preview_overrides)
     session = InteractiveRenderSession(
         scene,
         output,
