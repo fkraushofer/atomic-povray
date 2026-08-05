@@ -328,20 +328,28 @@ def _light_spec(
         lights[index] = replace(_light_at(state, index), **{field_name: value})
         return _with_scene(state, replace(state.scene, lights=tuple(lights)))
 
+    def applicable(state: _InteractiveState) -> bool:
+        if index >= len(state.scene.lights):
+            return False
+        return hasattr(state.scene.lights[index], field_name)
+
     return _ControlSpec(
         name, kind, label, group, getter, setter,
         limits, display_range, step,
-        applicable=lambda state: index < len(state.scene.lights),
+        applicable=applicable,
     )
 
 
 _INDEXED_LIGHT_CONTROL = re.compile(
     r"scene\.lights\[(?P<index>\d+)\]\."
-    r"(?P<field>location|color|intensity)\Z"
+    r"(?P<field>location|color|intensity|angular_diameter)\Z"
 )
 
 
-def _indexed_light_spec(name: str) -> _ControlSpec | None:
+def _indexed_light_spec(
+    name: str,
+    control_specs: dict[str, _ControlSpec],
+) -> _ControlSpec | None:
     """Build a control spec for ``scene.lights[index].field`` names."""
 
     match = _INDEXED_LIGHT_CONTROL.fullmatch(name)
@@ -349,28 +357,17 @@ def _indexed_light_spec(name: str) -> _ControlSpec | None:
         return None
     index = int(match.group("index"))
     field_name = match.group("field")
-    common = {
-        "name": name,
-        "label": field_name.capitalize(),
-        "field_name": field_name,
-        "index": index,
-        "group": f"Light {index + 1}",
-    }
-    if field_name == "location":
-        return _light_spec(
-            kind="vector",
-            display_range=_symmetric_vector_length_range,
-            step=0.1,
-            **common,
-        )
-    if field_name == "color":
-        return _light_spec(kind="color", **common)
+    template = control_specs[f"scene.light.{field_name}"]
     return _light_spec(
-        kind="number",
-        limits=(0.0, None),
-        display_range=(0.0, 10.0),
-        step=0.05,
-        **common,
+        name,
+        template.kind,
+        template.label,
+        field_name,
+        index=index,
+        group=f"Light {index + 1}",
+        limits=template.limits,
+        display_range=template.display_range,
+        step=template.step,
     )
 
 
@@ -410,6 +407,11 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
         _light_spec(
             "scene.light.intensity", "number", "Intensity", "intensity",
             limits=(0.0, None), display_range=(0.0, 10.0), step=0.05,
+        ),
+        _light_spec(
+            "scene.light.angular_diameter", "number", "Angular diameter",
+            "angular_diameter", limits=(0.0, 180.0),
+            display_range=(1.0, 90.0), step=0.5,
         ),
         _style_attribute_spec(
             "style.preset_style", "choice", "Preset",
@@ -599,7 +601,7 @@ def _get_control_spec(name: str) -> _ControlSpec:
 
     spec = _CONTROL_SPECS.get(name)
     if spec is None:
-        spec = _indexed_light_spec(name)
+        spec = _indexed_light_spec(name, _CONTROL_SPECS)
     if spec is None:
         raise ValueError(f"unknown interactive control {name!r}")
     return spec
