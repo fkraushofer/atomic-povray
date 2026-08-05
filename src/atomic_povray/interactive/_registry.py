@@ -6,10 +6,11 @@ display ranges, and steps for variables exposed by interactive rendering.
 
 from __future__ import annotations
 
+import numpy as np
+
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from functools import partial
-from math import sqrt
 from typing import Any
 
 from ..primitives import Color
@@ -34,7 +35,7 @@ def _symmetric_vector_length_range(
 
     if multiple <= 0.0:
         raise ValueError("vector display-range multiple must be positive")
-    length = sqrt(sum(float(component) ** 2 for component in vector))
+    length = float(np.linalg.norm(vector))
     extent = max(length, 1.0) * multiple
     return (-extent, extent)
 
