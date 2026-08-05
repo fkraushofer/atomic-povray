@@ -137,6 +137,37 @@ def test_depth_shading_values_survive_disable_and_reenable():
     assert session.style_config.depth_shading.decay_length == pytest.approx(8.5)
 
 
+def test_depth_shading_field_automatically_includes_enabled_toggle():
+    session, _, _ = _session(controls=["style.depth_shading.origin"])
+
+    assert tuple(control.name for control in session.controls) == (
+        "style.depth_shading.enabled",
+        "style.depth_shading.origin",
+    )
+    session._ensure_ui()
+    assert "style.depth_shading.enabled" in session._control_widgets
+    origin_box = session._control_widgets["style.depth_shading.origin"]
+    assert all(
+        child.disabled for row in origin_box.children for child in row.children
+    )
+
+    session.set_value("style.depth_shading.enabled", True, render=False)
+    assert all(
+        not child.disabled for row in origin_box.children for child in row.children
+    )
+
+
+def test_explicit_depth_shading_toggle_is_not_duplicated():
+    enabled = Control("style.depth_shading.enabled", label="Depth shading")
+    session, _, _ = _session(controls=["style.depth_shading.origin", enabled])
+
+    assert tuple(control.name for control in session.controls) == (
+        "style.depth_shading.origin",
+        "style.depth_shading.enabled",
+    )
+    assert session.controls[1] is enabled
+
+
 def test_exported_values_reapply_the_complete_session_state():
     session, scene, styles = _session(
         controls=["camera.target", "style.depth_shading.enabled"]
@@ -205,8 +236,8 @@ def test_vector_controls_share_symmetric_vector_length_display_range():
     vector_widget = session._control_widgets["camera.direction"]
 
     for slider, number in (row.children for row in vector_widget.children):
-        assert slider.min == number.min == pytest.approx(-100.0)
-        assert slider.max == number.max == pytest.approx(100.0)
+        assert slider.min == number.min == pytest.approx(-200.0)
+        assert slider.max == number.max == pytest.approx(200.0)
 
 
 def test_light_location_uses_twice_vector_length_display_range():
@@ -225,12 +256,12 @@ def test_light_location_uses_twice_vector_length_display_range():
 
 
 def test_symmetric_vector_length_range_has_minimum_extent_and_multiple():
-    assert _symmetric_vector_length_range((0.0, 0.0, 0.0)) == (-1.0, 1.0)
+    assert _symmetric_vector_length_range((0.0, 0.0, 0.0)) == (-2.0, 2.0)
     assert _symmetric_vector_length_range(
-        (0.0, 0.0, 0.0), multiple=2.0
-    ) == (-2.0, 2.0)
+        (0.0, 0.0, 0.0), multiple=1.0
+    ) == (-1.0, 1.0)
     assert _symmetric_vector_length_range(
-        (1.0, 2.0, 2.0), multiple=2.0
+        (1.0, 2.0, 2.0)
     ) == (-6.0, 6.0)
 
     with pytest.raises(ValueError, match="multiple must be positive"):

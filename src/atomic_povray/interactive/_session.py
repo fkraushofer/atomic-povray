@@ -20,6 +20,26 @@ from ._rendering import InteractiveRenderResult, _LatestRenderController
 from ._state import _initial_state, _values_equal
 from ._widgets import _WidgetMixin
 
+
+_DEPTH_SHADING_PREFIX = "style.depth_shading."
+_DEPTH_SHADING_ENABLED = f"{_DEPTH_SHADING_PREFIX}enabled"
+
+
+def _include_depth_shading_toggle(controls: list[Control]) -> list[Control]:
+    """Add the enabled toggle before the first depth-shading field."""
+
+    if any(control.name == _DEPTH_SHADING_ENABLED for control in controls):
+        return controls
+    for index, control in enumerate(controls):
+        if control.name.startswith(_DEPTH_SHADING_PREFIX):
+            return [
+                *controls[:index],
+                Control(_DEPTH_SHADING_ENABLED),
+                *controls[index:],
+            ]
+    return controls
+
+
 class InteractiveRenderSession(_WidgetMixin):
     """State and notebook UI for a curated set of scene/style controls."""
 
@@ -130,11 +150,15 @@ class InteractiveRenderSession(_WidgetMixin):
     ) -> None:
         """Replace visible controls without discarding accumulated changes."""
 
-        resolved: list[Control] = []
+        requested: list[Control] = []
         for value in controls:
             control = Control(value) if isinstance(value, str) else value
             if not isinstance(control, Control):
                 raise TypeError("controls must contain strings or Control objects")
+            requested.append(control)
+
+        resolved: list[Control] = []
+        for control in _include_depth_shading_toggle(requested):
             try:
                 spec = _CONTROL_SPECS[control.name]
             except KeyError:

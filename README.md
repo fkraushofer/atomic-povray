@@ -236,7 +236,6 @@ session = interactive_render(
     controls=[
         "style.atom_size_scale",
         "style.default_atom_finish.phong",
-        "style.depth_shading.enabled",
         "style.depth_shading.origin",
         "style.depth_shading.direction",
         "style.depth_shading.decay_length",
@@ -248,6 +247,7 @@ session = interactive_render(
 This re-runs only `apply_styles()` against the already constructed geometry.
 If the original scene also contains custom primitives, pass the same objects as
 `extra_primitives` so they remain in the rebuilt scene.
+Requesting any depth-shading field automatically adds its enabled toggle.
 Disabling depth shading or fog disables its component widgets but retains their
 values, so switching the effect back on restores the previous settings.
 
