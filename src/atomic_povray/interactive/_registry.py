@@ -6,12 +6,13 @@ display ranges, and steps for variables exposed by interactive rendering.
 
 from __future__ import annotations
 
-import numpy as np
-
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from functools import partial
+import re
 from typing import Any
+
+import numpy as np
 
 from ..primitives import Color
 from ..scene import AreaLight, Background, PointLight, Scene
@@ -297,10 +298,14 @@ def _depth_spec(
     )
 
 
-def _first_light(state: _InteractiveState) -> PointLight | AreaLight:
-    if not state.scene.lights:
-        raise ValueError("the scene has no light to control")
-    return state.scene.lights[0]
+def _light_at(
+    state: _InteractiveState,
+    index: int,
+) -> PointLight | AreaLight:
+    try:
+        return state.scene.lights[index]
+    except IndexError:
+        raise ValueError(f"the scene has no light at index {index}") from None
 
 
 def _light_spec(
@@ -309,22 +314,63 @@ def _light_spec(
     label: str,
     field_name: str,
     *,
+    index: int = 0,
+    group: str = "Lighting",
     limits: tuple[float | None, float | None] = (None, None),
     display_range: DisplayRange | None = None,
     step: float | None = None,
 ) -> _ControlSpec:
     def getter(state: _InteractiveState) -> Any:
-        return getattr(_first_light(state), field_name)
+        return getattr(_light_at(state, index), field_name)
 
     def setter(state: _InteractiveState, value: Any) -> _InteractiveState:
         lights = list(state.scene.lights)
-        lights[0] = replace(_first_light(state), **{field_name: value})
+        lights[index] = replace(_light_at(state, index), **{field_name: value})
         return _with_scene(state, replace(state.scene, lights=tuple(lights)))
 
     return _ControlSpec(
-        name, kind, label, "Lighting", getter, setter,
+        name, kind, label, group, getter, setter,
         limits, display_range, step,
-        applicable=lambda state: bool(state.scene.lights),
+        applicable=lambda state: index < len(state.scene.lights),
+    )
+
+
+_INDEXED_LIGHT_CONTROL = re.compile(
+    r"scene\.lights\[(?P<index>\d+)\]\."
+    r"(?P<field>location|color|intensity)\Z"
+)
+
+
+def _indexed_light_spec(name: str) -> _ControlSpec | None:
+    """Build a control spec for ``scene.lights[index].field`` names."""
+
+    match = _INDEXED_LIGHT_CONTROL.fullmatch(name)
+    if match is None:
+        return None
+    index = int(match.group("index"))
+    field_name = match.group("field")
+    common = {
+        "name": name,
+        "label": field_name.capitalize(),
+        "field_name": field_name,
+        "index": index,
+        "group": f"Light {index + 1}",
+    }
+    if field_name == "location":
+        return _light_spec(
+            kind="vector",
+            display_range=_symmetric_vector_length_range,
+            step=0.1,
+            **common,
+        )
+    if field_name == "color":
+        return _light_spec(kind="color", **common)
+    return _light_spec(
+        kind="number",
+        limits=(0.0, None),
+        display_range=(0.0, 10.0),
+        step=0.05,
+        **common,
     )
 
 
@@ -548,7 +594,21 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
 _CONTROL_SPECS = _make_control_specs()
 
 
+def _get_control_spec(name: str) -> _ControlSpec:
+    """Resolve a registered name or an indexed light-control name."""
+
+    spec = _CONTROL_SPECS.get(name)
+    if spec is None:
+        spec = _indexed_light_spec(name)
+    if spec is None:
+        raise ValueError(f"unknown interactive control {name!r}")
+    return spec
+
+
 def available_controls() -> tuple[str, ...]:
-    """Return the stable names accepted by :func:`interactive_render`."""
+    """Return the static names accepted by :func:`interactive_render`.
+
+    Lights may additionally use dynamic ``scene.lights[index].field`` names.
+    """
 
     return tuple(_CONTROL_SPECS)

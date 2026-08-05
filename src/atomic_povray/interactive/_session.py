@@ -15,7 +15,7 @@ from ..primitives import Primitive
 from ..scene import Scene
 from ..styling import StyleConfig, apply_styles
 from ._control import Control
-from ._registry import _CONTROL_SPECS
+from ._registry import _ControlSpec, _get_control_spec
 from ._rendering import InteractiveRenderResult, _LatestRenderController
 from ._state import _initial_state, _values_equal
 from ._widgets import _WidgetMixin
@@ -84,6 +84,7 @@ class InteractiveRenderSession(_WidgetMixin):
         self._base_state = _initial_state(scene, style_config)
         self._state = self._base_state
         self._controls: tuple[Control, ...] = ()
+        self._value_specs: dict[str, _ControlSpec] = {}
         self.last_preview_result: InteractiveRenderResult | None = None
         self.last_full_result: InteractiveRenderResult | None = None
         self.last_error: str | None = None
@@ -121,7 +122,7 @@ class InteractiveRenderSession(_WidgetMixin):
     @property
     def values(self) -> dict[str, Any]:
         values: dict[str, Any] = {}
-        for name, spec in _CONTROL_SPECS.items():
+        for name, spec in self._value_specs.items():
             if not spec.applicable(self._base_state):
                 continue
             base = spec.getter(self._base_state)
@@ -147,15 +148,13 @@ class InteractiveRenderSession(_WidgetMixin):
     def set_value(self, name: str, value: Any, *, render: bool = True) -> None:
         """Set one registered value; useful for programmatic refinement/tests."""
 
-        try:
-            spec = _CONTROL_SPECS[name]
-        except KeyError:
-            raise ValueError(f"unknown interactive control {name!r}") from None
+        spec = _get_control_spec(name)
         if not spec.applicable(self._state):
             raise ValueError(f"control {name!r} is not applicable to this session")
         if name.startswith("style.") and self.geometry is None:
             raise ValueError("style controls require geometry")
         self._state = spec.setter(self._state, spec.coerce(value))
+        self._value_specs[name] = spec
         if self.ui is not None:
             self._refresh_conditional_controls()
         if render and self.ui is not None:
@@ -182,8 +181,8 @@ class InteractiveRenderSession(_WidgetMixin):
         )
         for control in controls_with_toggles:
             try:
-                spec = _CONTROL_SPECS[control.name]
-            except KeyError:
+                spec = _get_control_spec(control.name)
+            except ValueError:
                 raise ValueError(
                     f"unknown interactive control {control.name!r}; "
                     "use available_controls() to inspect supported names"
