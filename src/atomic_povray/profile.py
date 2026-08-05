@@ -75,7 +75,7 @@ class StyleDefaults:
 class SceneDefaults:
     camera_direction: Vec3 | None = None
     camera_up: Vec3 = _defaults.DEFAULT_CAMERA_UP
-    camera_angle: float = _defaults.DEFAULT_CAMERA_ANGLE
+    camera_angle: float | None = None
     camera_width: float = _defaults.DEFAULT_CAMERA_WIDTH
     light_intensity: float = _defaults.DEFAULT_LIGHT_INTENSITY
     light_angular_diameter: float = _defaults.DEFAULT_LIGHT_ANGULAR_DIAMETER

@@ -33,6 +33,8 @@ rendering.
   cells, arrows, isosurfaces, and custom triangle meshes
 - [Configurable scenes and rendering](#set-up-and-render-the-scene), including
   cameras, lighting, transparency, depth effects, fog, and radiosity
+- [Selected-variable interactive previews](#interactive-rendering-in-jupyter)
+  with asynchronous, headless POV-Ray rendering in Jupyter
 - [Notebook, script, and batch workflows](#examples) with reusable project
   profiles and direct POV-Ray SDL/INI output
 
@@ -167,7 +169,8 @@ geometry = build_geometry(
         fractional_ranges=((0, 2), (0, 2), (0, 1)),
     ),
 )
-styled = apply_styles(geometry, StyleConfig())
+style_config = StyleConfig()
+styled = apply_styles(geometry, style_config)
 
 camera = Camera.orthographic(
     direction=(0, 100, 0),
@@ -597,7 +600,7 @@ covalent radii. Explicit element styles therefore only need to contain the
 properties that differ:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     elements={
         "Fe": AtomStyle(color=Color.from_hex("#A63B32")),
         "O": AtomStyle(radius=0.4),
@@ -624,7 +627,7 @@ atom and bond scales independently when needed. Both are applied after
 resolving default or explicit per-style radii:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     atom_size_scale=0.55,
     bond_size_scale=1.25,
 )
@@ -650,7 +653,7 @@ once per styling call and applies to every displayed image of each selected
 source atom:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     elements={"O": AtomStyle(0.34, oxygen_color)},
     selection_rules=(
         AtomSelectionRule(
@@ -670,7 +673,7 @@ therefore does not appear undercoordinated merely because one of its neighbors
 is outside the rendered region:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     ...,
     coordination_rules=(
         CoordinationStyleRule(
@@ -704,7 +707,7 @@ example, the automatically generated covalent and hydrogen O-H rules can be
 styled independently:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     ...,
     bonds={
         "default:covalent:O-H": BondStyle(radius=0.07),
@@ -724,17 +727,18 @@ the requested number of spheres along that span, with one dot radius of
 clearance from each atom surface. For both styles, `segments` is the number of
 visible pieces and `radius` is the cylinder or sphere radius.
 
-Dashed and dotted bonds must be single-color. Supply an explicit `color` or
-full `material`, or set `split_by_atom_color=False` to use the final resolved
-color of the bond rule's first endpoint. Solid bonds retain the default
-two-color split based on their atom colors.
+Dashed and dotted bonds are always rendered in a single color. They use their
+explicit `color` or full `material`, then `default_bond.color`, and finally the
+resolved color of the bond rule's first endpoint. Solid bonds retain the
+default two-color split based on their atom colors unless a color or material
+override applies.
 
 #### Polyhedron styles and visibility
 
 Style polyhedra independently from the geometry that defines their vertices:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     preset_style="polyhedral",
     polyhedra={
         "Fe-O": PolyhedronStyle(
@@ -760,7 +764,7 @@ a polyhedron centered on a particular ASE source atom. Keys are zero-based ASE
 atom indices:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     polyhedron_source_overrides={
         # Make source atom 12's polyhedra more transparent in every replication.
         12: PolyhedronStyleOverride(transmit=0.7),
@@ -775,7 +779,7 @@ should change. `AtomKey(source_index, image_shift)` identifies the source atom
 and its lattice translation:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     polyhedron_instance_overrides={
         AtomKey(12, (1, 0, 0)): PolyhedronStyleOverride(visible=False),
     },
@@ -800,7 +804,7 @@ hide_below = {
     )
     if symbol == "Fe" and position[2] <= z_min
 }
-styles = StyleConfig(polyhedron_source_overrides=hide_below)
+style_config = StyleConfig(polyhedron_source_overrides=hide_below)
 ```
 
 Set `filter`, `transmit`, or `alpha` directly on `PolyhedronStyle` to
@@ -834,7 +838,7 @@ Phong `0.0`. Together with the automatic ASE colors/radii and the default bond
 radius of `0.08` Å, no appearance declaration is required:
 
 ```python
-styles = StyleConfig()
+style_config = StyleConfig()
 ```
 
 Override them independently with `default_atom_finish=` or
@@ -876,7 +880,7 @@ Directional depth shading is resolved into primitive colors during
 `apply_styles`:
 
 ```python
-styles = StyleConfig(
+style_config = StyleConfig(
     ...,
     depth_shading=DepthShading(
         origin=(0.0, 0.0, 24.0),
@@ -1079,7 +1083,7 @@ Pass the same profile only to the stages whose defaults it should supply:
 
 ```python
 bond_rules = get_default_bonds(structure, profile=MY_PROFILE)
-styles = StyleConfig(profile=MY_PROFILE)
+style_config = StyleConfig(profile=MY_PROFILE)
 camera = Camera.orthographic(
     direction=(0.0, 100.0, 0.0),
     target=(0.0, 0.0, 0.0),
@@ -1131,8 +1135,138 @@ PERSPECTIVE_PROFILE = replace(
 )
 ```
 
+`camera_width` sets the horizontal framing width for both orthographic and
+perspective cameras. For perspective cameras, atomic-povray derives the field
+of view from that width and the camera-to-target distance, so switching
+projection preserves the framing in the plane through the target. Pass
+`angle=` to `Camera.perspective()` (or set `camera_angle` in a profile) only
+when you want an explicit field-of-view override.
+
 See `examples/hematite_profile.py` and `notebooks/hematite_profile.py` for
 matching project-owned profiles used by the two hematite workflows.
+
+## Interactive rendering in Jupyter
+
+Install the `notebook` extra to use `interactive_render`. A session displays
+only the requested controls and renders low-quality, headless previews in the
+background. If settings change while POV-Ray is busy, the newest pending state
+is rendered next rather than starting overlapping renders:
+
+```python
+from atomic_povray import Control, interactive_render
+
+session = interactive_render(
+    scene,
+    "structure.png",
+    RenderConfig(quality=9, display=False),
+    controls=[
+        "camera.direction",
+        "camera.target",
+        Control("camera.width", min=10, max=40, step=0.1),
+        "scene.light.location",
+    ],
+)
+```
+
+`scene.light.location`, `scene.light.color`, and `scene.light.intensity` control
+the first light. Area lights additionally support
+`scene.light.angular_diameter`. Request the namespace `"scene.light"` to show
+all controls applicable to that light. For scenes with several lights, address
+each one by its zero-based position in `scene.lights`:
+
+```python
+controls=[
+    "scene.lights[0]",
+    "scene.lights[1]",
+]
+```
+
+Each indexed namespace expands to `.location`, `.color`, `.intensity`, and,
+for an `AreaLight`, `.angular_diameter`. Inapplicable namespace children are
+omitted automatically; requesting an inapplicable leaf directly still raises
+an error.
+
+Ambient illumination has separate color and scalar intensity controls. The
+intensity scales all RGB channels, supports overbright values above 1, and has
+a default displayed range from 0 to 10:
+
+```python
+controls=["scene.ambient_light"]
+```
+
+This expands to `scene.ambient_light.color` and
+`scene.ambient_light.intensity`.
+
+The **Render full quality** button writes the requested output with the supplied
+`RenderConfig`. Preview rendering defaults to at most 480 pixels wide, quality
+3, no antialiasing, and no radiosity. Pass `quality=` to override only the
+preview quality while retaining all other reduced preview defaults:
+
+```python
+render_config = RenderConfig(quality=9, display=True)
+
+session = interactive_render(
+    scene,
+    "structure.png",
+    render_config,
+    quality=9,
+    controls=["camera.direction", "camera.width"],
+)
+```
+
+`preview_config` remains available when other preview settings also need to be
+customized. It is used as-is except that `display` is always forced to `False`,
+keeping preview renders headless. If both are supplied, `quality=` overrides the
+quality in `preview_config`. Use `available_controls()` to inspect the supported
+leaf-control names in alphabetical order.
+
+The interactive `camera.width` control applies to either projection. Request
+`"camera"` to expose all camera controls while retaining width-based framing.
+That namespace omits `camera.angle` and its **Override angle** checkbox unless
+the camera already has an explicit angle. Request `camera.angle` directly when
+an explicit field-of-view override is wanted; the checkbox is then added
+automatically. While it is cleared, the displayed angle follows width and
+camera distance automatically.
+
+Style and depth-shading controls additionally require the original geometry and
+style configuration, because those values cannot be recovered from a finished
+scene:
+
+```python
+session = interactive_render(
+    scene,
+    "structure.png",
+    RenderConfig(quality=9, display=False),
+    geometry=geometry,
+    style_config=style_config,
+    controls=[
+        "style.atom_size_scale",
+        "style.depth_shading.origin",
+        "style.depth_shading.decay_length",
+    ],
+)
+```
+
+These controls re-run `apply_styles()` against the existing geometry without
+repeating bond discovery. Requesting any depth-shading field automatically
+includes its enable/disable control, and values are retained while depth
+shading or fog is disabled. Pass the original `extra_primitives=` when they
+must remain in a restyled scene.
+
+Namespace strings can expose every applicable registered child, for example
+`"style.default_atom_finish"`, `"style.default_bond_finish"`,
+`"style.default_polyhedron_finish"`, `"style.depth_shading"`, or
+`"scene.fog"`. Finish namespaces include `ambient`, `diffuse`, `emission`,
+`phong`, `phong_size`, and `specular`. Duplicate leaves are removed while
+preserving their first occurrence. A custom `Control(...)` remains leaf-only,
+because one range override cannot be applied meaningfully to heterogeneous
+children.
+
+`session.set_controls(...)` can replace the visible controls without losing
+earlier changes. `session.values` contains all accumulated differences from the
+initial scene and style configuration, and `session.as_python()` returns a
+copyable `apply_interactive_values(...)` snippet using the variable names
+`scene` and `style_config`.
 
 ## Tests
 

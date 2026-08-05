@@ -25,6 +25,7 @@ from atomic_povray import (
     make_scene,
     scene_to_sdl,
 )
+from atomic_povray.defaults import DEFAULT_HYDROGEN_BOND_RULE_ID
 
 
 def simple_geometry():
@@ -161,13 +162,52 @@ def test_dotted_bond_becomes_requested_single_color_spheres():
 
 
 @pytest.mark.parametrize(
+    ("line_style", "primitive_type"),
+    (("dashed", CylinderPrimitive), ("dotted", SpherePrimitive)),
+)
+def test_patterned_bonds_inherit_default_bond_color(
+    line_style, primitive_type
+):
+    color = Color(0.2, 0.4, 0.6)
+    styled = apply_styles(
+        simple_geometry(),
+        StyleConfig(
+            default_bond=BondStyle(color=color),
+            bonds={"Fe-O": BondStyle(style=line_style, segments=3)},
+        ),
+    )
+    patterned = [
+        primitive
+        for primitive in styled.primitives
+        if isinstance(primitive, primitive_type)
+    ]
+    if primitive_type is SpherePrimitive:
+        patterned = [
+            primitive
+            for primitive in patterned
+            if primitive.material.color == color
+        ]
+
+    assert len(patterned) == 3
+    assert all(primitive.material.color == color for primitive in patterned)
+
+
+def test_default_hydrogen_bond_inherits_default_bond_color():
+    color = Color(0.2, 0.4, 0.6)
+    style = StyleConfig(default_bond=BondStyle(color=color)).bond_style(
+        DEFAULT_HYDROGEN_BOND_RULE_ID
+    )
+
+    assert style.style == "dashed"
+    assert style.color == color
+
+
+@pytest.mark.parametrize(
     ("kwargs", "exception", "message"),
     (
         ({"style": "custom"}, ValueError, "style"),
         ({"segments": 0}, ValueError, "segments"),
         ({"segments": 2.5}, TypeError, "segments"),
-        ({"style": "dashed"}, ValueError, "single-color"),
-        ({"style": "dotted"}, ValueError, "single-color"),
     ),
 )
 def test_bond_style_validates_segment_configuration(kwargs, exception, message):
