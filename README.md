@@ -213,7 +213,10 @@ Each numeric or vector component has a slider and an exact numeric field. The
 registry keeps actual validity limits separate from the default displayed
 range. Consequently, `Control(min=..., max=...)` changes only the widget range;
 it cannot relax a registered validity limit, and a current value outside the
-default display range expands the widget without changing that value.
+default display range expands the widget without changing that value. Vector
+components use shared symmetric bounds based on the current vector length; the
+light-location range uses twice that length to make moving the light farther
+away convenient.
 `Render full quality` button writes `structure.png` with the supplied
 `RenderConfig`; changing a setting afterwards returns the session to preview
 mode. Preview renders are always headless and default to at most 480 pixels

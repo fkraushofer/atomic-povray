@@ -9,6 +9,7 @@ from atomic_povray import (
     Color,
     Control,
     DepthShading,
+    PointLight,
     RenderConfig,
     StructureModel,
     StyleConfig,
@@ -20,9 +21,12 @@ from atomic_povray import (
     make_scene,
 )
 from atomic_povray.interactive import _LatestRenderController, _RenderJob
+from atomic_povray.interactive._registry import (
+    _symmetric_vector_length_range,
+)
 
 
-def _session(*, controls, depth_shading=None, geometry=True):
+def _session(*, controls, depth_shading=None, geometry=True, lights=()):
     model = build_geometry(
         StructureModel(
             Atoms(
@@ -45,6 +49,7 @@ def _session(*, controls, depth_shading=None, geometry=True):
     scene = make_scene(
         styled.primitives,
         camera=camera,
+        lights=lights,
         background=Background(Color(1.0, 1.0, 1.0)),
     )
     session = interactive_render(
@@ -192,6 +197,44 @@ def test_existing_value_expands_default_display_range_without_coercion():
     slider, number = session._control_widgets["camera.width"].children
     assert slider.max == number.max == pytest.approx(750.0)
     assert slider.value == number.value == pytest.approx(750.0)
+
+
+def test_vector_controls_share_symmetric_vector_length_display_range():
+    session, _, _ = _session(controls=["camera.direction"])
+    session._ensure_ui()
+    vector_widget = session._control_widgets["camera.direction"]
+
+    for slider, number in (row.children for row in vector_widget.children):
+        assert slider.min == number.min == pytest.approx(-100.0)
+        assert slider.max == number.max == pytest.approx(100.0)
+
+
+def test_light_location_uses_twice_vector_length_display_range():
+    session, _, _ = _session(
+        controls=["scene.light.location"],
+        lights=(PointLight((1.0, 2.0, 2.0)),),
+    )
+    session._ensure_ui()
+    location = session.scene.lights[0].location
+    expected = 2.0 * sum(component ** 2 for component in location) ** 0.5
+    vector_widget = session._control_widgets["scene.light.location"]
+
+    for slider, number in (row.children for row in vector_widget.children):
+        assert slider.min == number.min == pytest.approx(-expected)
+        assert slider.max == number.max == pytest.approx(expected)
+
+
+def test_symmetric_vector_length_range_has_minimum_extent_and_multiple():
+    assert _symmetric_vector_length_range((0.0, 0.0, 0.0)) == (-1.0, 1.0)
+    assert _symmetric_vector_length_range(
+        (0.0, 0.0, 0.0), multiple=2.0
+    ) == (-2.0, 2.0)
+    assert _symmetric_vector_length_range(
+        (1.0, 2.0, 2.0), multiple=2.0
+    ) == (-6.0, 6.0)
+
+    with pytest.raises(ValueError, match="multiple must be positive"):
+        _symmetric_vector_length_range((1.0, 0.0, 0.0), multiple=0.0)
 
 
 def test_generic_widget_types_build_together():

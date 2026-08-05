@@ -106,12 +106,13 @@ class _WidgetMixin:
         control: Control,
         spec: _ControlSpec,
         current: float,
+        display_range: tuple[float, float] | None = None,
     ) -> tuple[float, float, float]:
         step = control.step if control.step is not None else spec.step or 0.1
         default_span = max(10.0 * step, abs(current) * 2.0, 1.0)
         display_minimum, display_maximum = (
-            spec.display_range
-            if spec.display_range is not None
+            display_range
+            if display_range is not None
             else (current - default_span, current + default_span)
         )
         minimum = (
@@ -168,9 +169,14 @@ class _WidgetMixin:
             return widget
         if spec.kind == "vector":
             rows = []
+            display_range = (
+                spec.display_range(value)
+                if callable(spec.display_range)
+                else spec.display_range
+            )
             for index, (component, axis) in enumerate(zip(value, "xyz")):
                 minimum, maximum, step = self._bounds(
-                    control, spec, float(component)
+                    control, spec, float(component), display_range
                 )
                 slider = widgets.FloatSlider(
                     description=f"{label} {axis}",
@@ -199,7 +205,14 @@ class _WidgetMixin:
                 )
                 rows.append(widgets.HBox([slider, number]))
             return widgets.VBox(rows)
-        minimum, maximum, step = self._bounds(control, spec, float(value))
+        display_range = (
+            spec.display_range(value)
+            if callable(spec.display_range)
+            else spec.display_range
+        )
+        minimum, maximum, step = self._bounds(
+            control, spec, float(value), display_range
+        )
         slider = widgets.FloatSlider(
             description=label,
             min=minimum,

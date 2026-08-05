@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from functools import partial
+from math import sqrt
 from typing import Any
 
 from ..primitives import Color
@@ -20,6 +22,21 @@ from ._state import _InteractiveState
 Getter = Callable[[_InteractiveState], Any]
 Setter = Callable[[_InteractiveState, Any], _InteractiveState]
 Applicability = Callable[[_InteractiveState], bool]
+DisplayRange = tuple[float, float] | Callable[[Any], tuple[float, float]]
+
+
+def _symmetric_vector_length_range(
+    vector: Any,
+    *,
+    multiple: float = 1.0,
+) -> tuple[float, float]:
+    """Return shared symmetric component bounds based on a vector's length."""
+
+    if multiple <= 0.0:
+        raise ValueError("vector display-range multiple must be positive")
+    length = sqrt(sum(float(component) ** 2 for component in vector))
+    extent = max(length, 1.0) * multiple
+    return (-extent, extent)
 
 
 @dataclass(frozen=True)
@@ -31,7 +48,7 @@ class _ControlSpec:
     getter: Getter
     setter: Setter
     limits: tuple[float | None, float | None] = (None, None)
-    display_range: tuple[float, float] | None = None
+    display_range: DisplayRange | None = None
     step: float | None = None
     choices: tuple[Any, ...] = ()
     applicable: Applicability = lambda state: True
@@ -87,7 +104,7 @@ def _camera_spec(
     label: str,
     *,
     limits: tuple[float | None, float | None] = (None, None),
-    display_range: tuple[float, float] | None = None,
+    display_range: DisplayRange | None = None,
     step: float | None = None,
     choices: tuple[Any, ...] = (),
 ) -> _ControlSpec:
@@ -113,7 +130,7 @@ def _scene_attribute_spec(
     group: str,
     *,
     limits: tuple[float | None, float | None] = (None, None),
-    display_range: tuple[float, float] | None = None,
+    display_range: DisplayRange | None = None,
     step: float | None = None,
 ) -> _ControlSpec:
     field_name = name.rsplit(".", 1)[1]
@@ -136,7 +153,7 @@ def _style_attribute_spec(
     label: str,
     *,
     limits: tuple[float | None, float | None] = (None, None),
-    display_range: tuple[float, float] | None = None,
+    display_range: DisplayRange | None = None,
     step: float | None = None,
     choices: tuple[Any, ...] = (),
 ) -> _ControlSpec:
@@ -221,7 +238,7 @@ def _depth_spec(
     field_name: str,
     *,
     limits: tuple[float | None, float | None] = (None, None),
-    display_range: tuple[float, float] | None = None,
+    display_range: DisplayRange | None = None,
     step: float | None = None,
 ) -> _ControlSpec:
     def getter(state: _InteractiveState) -> Any:
@@ -255,7 +272,7 @@ def _light_spec(
     field_name: str,
     *,
     limits: tuple[float | None, float | None] = (None, None),
-    display_range: tuple[float, float] | None = None,
+    display_range: DisplayRange | None = None,
     step: float | None = None,
 ) -> _ControlSpec:
     def getter(state: _InteractiveState) -> Any:
@@ -275,9 +292,18 @@ def _light_spec(
 
 def _make_control_specs() -> dict[str, _ControlSpec]:
     specs = [
-        _camera_spec("camera.direction", "vector", "Direction", step=0.1),
-        _camera_spec("camera.target", "vector", "Target", step=0.1),
-        _camera_spec("camera.up", "vector", "Up", step=0.1),
+        _camera_spec(
+            "camera.direction", "vector", "Direction",
+            display_range=_symmetric_vector_length_range, step=0.1,
+        ),
+        _camera_spec(
+            "camera.target", "vector", "Target",
+            display_range=_symmetric_vector_length_range, step=0.1,
+        ),
+        _camera_spec(
+            "camera.up", "vector", "Up",
+            display_range=_symmetric_vector_length_range, step=0.1,
+        ),
         _camera_spec(
             "camera.projection", "choice", "Projection",
             choices=("orthographic", "perspective"),
@@ -293,7 +319,14 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
         _scene_attribute_spec(
             "scene.ambient_light", "color", "Ambient light", "Scene"
         ),
-        _light_spec("scene.light.location", "vector", "Location", "location", step=0.1),
+        _light_spec(
+            "scene.light.location", "vector", "Location", "location",
+            display_range=partial(
+                _symmetric_vector_length_range,
+                multiple=2.0,
+            ),
+            step=0.1,
+        ),
         _light_spec("scene.light.color", "color", "Color", "color"),
         _light_spec(
             "scene.light.intensity", "number", "Intensity", "intensity",
@@ -339,13 +372,15 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
             "default_polyhedron_finish",
         ),
         _depth_spec(
-            "style.depth_shading.origin", "vector", "Origin", "origin", step=0.1
+            "style.depth_shading.origin", "vector", "Origin", "origin",
+            display_range=_symmetric_vector_length_range, step=0.1,
         ),
         _depth_spec(
             "style.depth_shading.direction",
             "vector",
             "Direction",
             "direction",
+            display_range=_symmetric_vector_length_range,
             step=0.1,
         ),
         _depth_spec(
