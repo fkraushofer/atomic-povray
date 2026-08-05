@@ -1162,9 +1162,29 @@ session = interactive_render(
 
 The **Render full quality** button writes the requested output with the supplied
 `RenderConfig`. Preview rendering defaults to at most 480 pixels wide, quality
-3, no antialiasing, and no radiosity; pass `preview_config=` to override these
-preview-only settings. Use `available_controls()` to inspect the supported
-control names.
+3, no antialiasing, and no radiosity. `preview_config` is a complete
+`RenderConfig`; use `dataclasses.replace()` to inherit the full-render settings
+and override only the preview settings you want to change:
+
+```python
+from dataclasses import replace
+
+render_config = RenderConfig(quality=9, display=True)
+preview_config = replace(render_config, quality=1)
+
+session = interactive_render(
+    scene,
+    "structure.png",
+    render_config,
+    preview_config=preview_config,
+    controls=["camera.direction", "camera.width"],
+)
+```
+
+Set `quality=5` instead for a higher-quality preview. An explicitly supplied
+preview configuration is used as-is except that `display` is always forced to
+`False`, keeping preview renders headless. Use `available_controls()` to inspect
+the supported control names.
 
 Style and depth-shading controls additionally require the original geometry and
 style configuration, because those values cannot be recovered from a finished

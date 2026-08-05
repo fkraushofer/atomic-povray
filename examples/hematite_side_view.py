@@ -80,7 +80,7 @@ def main(
     )
     geometry_seconds = perf_counter() - start
 
-    styles = StyleConfig(
+    style_config = StyleConfig(
         depth_shading=DepthShading(
             origin=(0.0, 0.0, 24.0),
             direction=(0.0, 0.0, -1.0),
@@ -88,7 +88,7 @@ def main(
             target=Color(1.0, 1.0, 1.0),
         ),
     )
-    styled = apply_styles(geometry, styles)
+    styled = apply_styles(geometry, style_config)
     camera = Camera.orthographic(
         direction=(0.0, 100.0, 0.0),
         target=(0.0, 0.0, 21.0),
