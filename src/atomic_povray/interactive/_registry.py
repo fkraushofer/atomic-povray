@@ -29,7 +29,7 @@ DisplayRange = tuple[float, float] | Callable[[Any], tuple[float, float]]
 def _symmetric_vector_length_range(
     vector: Any,
     *,
-    multiple: float = 1.0,
+    multiple: float = 2.0,
 ) -> tuple[float, float]:
     """Return shared symmetric component bounds based on a vector's length."""
 
@@ -322,11 +322,7 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
         ),
         _light_spec(
             "scene.light.location", "vector", "Location", "location",
-            display_range=partial(
-                _symmetric_vector_length_range,
-                multiple=2.0,
-            ),
-            step=0.1,
+            display_range=_symmetric_vector_length_range, step=0.1,
         ),
         _light_spec("scene.light.color", "color", "Color", "color"),
         _light_spec(
