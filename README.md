@@ -440,8 +440,37 @@ editable workflow, but no VESTA data files are redistributed.
 #### Construct coordination polyhedra
 
 Polyhedra reuse the complete periodic environments produced by the bond rules,
-then calculate the ligand hull with SciPy. Define them during geometry
-construction:
+then calculate the ligand hull with SciPy. To obtain useful defaults for the
+`polyhedral` style preset, infer metal centers from the finalized directional
+bond rules:
+
+```python
+bond_rules = get_default_bonds(structure)
+# Apply any bond-rule additions, edits, or removals first.
+polyhedron_rules = get_default_polyhedra(bond_rules)
+
+geometry = build_geometry(
+    structure,
+    bond_rules=bond_rules,
+    polyhedron_rules=polyhedron_rules,
+)
+styled = apply_styles(geometry, StyleConfig(preset_style="polyhedral"))
+```
+
+The generator selects metals that occur on the originating side of an
+asymmetric metal-to-nonmetal rule. It does not generate O-, C-, or H-centered
+polyhedra. Each generated center uses all bonds found around it rather than
+only the rule that caused its selection, so an Fe polyhedron can include O as
+well as another bonded ligand such as C from an adsorbed CO. Generated rules
+use complete boundary environments and silently skip centers with too few
+ligands to form a polyhedron.
+
+Use `include_centers={"Si"}` for centers excluded from the conservative metal
+policy, or `exclude_centers={"Na"}` to remove an inferred center. The returned
+`PolyhedronRuleSet` is editable with `add`, `update`, `remove`, and `clear`, in
+the same way as `BondRuleSet`.
+
+For exact control, define rules manually during geometry construction:
 
 ```python
 polyhedron_rules = (

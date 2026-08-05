@@ -1,4 +1,4 @@
-"""ASE-backed element defaults and editable default bond rules."""
+"""ASE-backed element defaults and editable geometry rules."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import Any
 from ase.data import atomic_numbers, covalent_radii
 from ase.data.colors import jmol_colors
 
-from .config import BondRule
+from .config import BondRule, CoordinationPolyhedronRule
 from .model import StructureModel
 from .primitives import Color
 from .profile import DEFAULT_PROFILE, AtomicPovrayProfile
@@ -169,6 +169,110 @@ class BondRuleSet:
         print(self.format_table())
 
 
+class PolyhedronRuleSet:
+    """An ordered, editable collection of uniquely named polyhedron rules."""
+
+    def __init__(
+        self, rules: Iterable[CoordinationPolyhedronRule] = ()
+    ) -> None:
+        self._rules: dict[str, CoordinationPolyhedronRule] = {}
+        for rule in rules:
+            self.add(rule)
+
+    def __iter__(self) -> Iterator[CoordinationPolyhedronRule]:
+        return iter(self._rules.values())
+
+    def __len__(self) -> int:
+        return len(self._rules)
+
+    def __getitem__(
+        self, key: int | slice | str
+    ) -> CoordinationPolyhedronRule | tuple[CoordinationPolyhedronRule, ...]:
+        if isinstance(key, str):
+            return self._rules[key]
+        return tuple(self._rules.values())[key]
+
+    def __contains__(self, rule_id: object) -> bool:
+        return rule_id in self._rules
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({list(self._rules.values())!r})"
+
+    def add(self, rule: CoordinationPolyhedronRule) -> None:
+        """Append a rule, rejecting duplicate rule IDs."""
+
+        if not isinstance(rule, CoordinationPolyhedronRule):
+            raise TypeError("rule must be a CoordinationPolyhedronRule")
+        if rule.rule_id in self._rules:
+            raise ValueError(f"Duplicate polyhedron rule ID: {rule.rule_id!r}")
+        self._rules[rule.rule_id] = rule
+
+    def remove(self, rule_id: str) -> CoordinationPolyhedronRule:
+        """Remove and return one rule by ID."""
+
+        try:
+            return self._rules.pop(rule_id)
+        except KeyError:
+            raise KeyError(f"Unknown polyhedron rule ID: {rule_id!r}") from None
+
+    def update(
+        self, rule_id: str, **changes: Any
+    ) -> CoordinationPolyhedronRule:
+        """Replace fields of one rule while preserving collection order."""
+
+        try:
+            updated = replace(self._rules[rule_id], **changes)
+        except KeyError:
+            raise KeyError(f"Unknown polyhedron rule ID: {rule_id!r}") from None
+        if updated.rule_id != rule_id and updated.rule_id in self._rules:
+            raise ValueError(f"Duplicate polyhedron rule ID: {updated.rule_id!r}")
+
+        self._rules = {
+            (updated.rule_id if key == rule_id else key): (
+                updated if key == rule_id else rule
+            )
+            for key, rule in self._rules.items()
+        }
+        return updated
+
+    def clear(self) -> None:
+        self._rules.clear()
+
+    def format_table(self) -> str:
+        """Return a plain-text summary of the current polyhedron rules."""
+
+        headers = ("Rule", "Center", "Ligands", "Bond rules", "Boundary")
+        rows = [
+            (
+                rule.rule_id,
+                rule.center_element,
+                _format_filter(rule.ligand_elements),
+                _format_filter(rule.bond_rules),
+                rule.boundary_mode,
+            )
+            for rule in self._rules.values()
+        ]
+        widths = [
+            max([len(header), *(len(row[index]) for row in rows)])
+            for index, header in enumerate(headers)
+        ]
+
+        def format_row(row: tuple[str, ...]) -> str:
+            return " | ".join(
+                value.ljust(width) for value, width in zip(row, widths)
+            )
+
+        separator = "-+-".join("-" * width for width in widths)
+        return "\n".join(
+            (format_row(headers), separator, *(format_row(row) for row in rows))
+        )
+
+    def print_table(self) -> None:
+        """Print a plain-text summary of the current polyhedron rules."""
+
+        print(self.format_table())
+
+
 def get_default_bonds(
     structure: StructureModel | Any,
     *,
@@ -260,6 +364,47 @@ def get_default_bonds(
     return rules
 
 
+def get_default_polyhedra(
+    bond_rules: Iterable[BondRule],
+    *,
+    include_centers: Iterable[str] = (),
+    exclude_centers: Iterable[str] = (),
+    print_table: bool = True,
+) -> PolyhedronRuleSet:
+    """Infer editable metal-centered polyhedron rules from finalized bonds.
+
+    A center is inferred when it is the first endpoint of an asymmetric
+    metal-to-nonmetal bond rule. Each generated polyhedron uses every bond
+    around that center, so additional ligand types are included automatically.
+    Metalloids and nonmetals can be requested explicitly with
+    ``include_centers``.
+    """
+
+    included = _normalize_elements(include_centers)
+    excluded = _normalize_elements(exclude_centers)
+    inferred = {
+        rule.element_a
+        for rule in bond_rules
+        if rule.extension_mode == "asymmetric"
+        and rule.element_a not in _NONMETAL_LIKE
+        and rule.element_a not in _NOBLE_GASES
+        and rule.element_b in _NONMETAL_LIKE
+    }
+    centers = (inferred | included) - excluded
+    rules = PolyhedronRuleSet(
+        CoordinationPolyhedronRule(
+            center_element=center,
+            name=f"default:{center}-polyhedron",
+            boundary_mode="complete",
+            on_degenerate="ignore",
+        )
+        for center in sorted(centers, key=_atomic_number)
+    )
+    if print_table:
+        rules.print_table()
+    return rules
+
+
 def _extension_description(rule: BondRule) -> str:
     if rule.extension_mode == "none":
         return "none"
@@ -287,6 +432,17 @@ def _normalize_pairs(
         _atomic_number(element_b)
         normalized.add(frozenset(pair))
     return frozenset(normalized)
+
+
+def _normalize_elements(elements: Iterable[str]) -> frozenset[str]:
+    normalized = frozenset(elements)
+    for element in normalized:
+        _atomic_number(element)
+    return normalized
+
+
+def _format_filter(values: frozenset[str] | None) -> str:
+    return "all" if values is None else ", ".join(sorted(values))
 
 
 def _is_default_candidate(pair: frozenset[str]) -> bool:
