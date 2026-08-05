@@ -494,10 +494,6 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
             display_range=(1.0, 90.0), step=0.5,
         ),
         _style_attribute_spec(
-            "style.preset_style", "choice", "Preset",
-            choices=("ball_and_stick", "space_filling", "polyhedral"),
-        ),
-        _style_attribute_spec(
             "style.atom_size_scale", "number", "Atom size scale",
             limits=(0.0, None), display_range=(0.05, 2.0), step=0.05,
         ),
