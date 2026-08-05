@@ -221,6 +221,36 @@ def test_control_overrides_change_display_range_without_changing_limits():
         session.set_value("camera.angle", -1.0, render=False)
 
 
+def test_angle_control_includes_override_and_starts_disabled():
+    session, _, _ = _session(controls=["camera.angle"])
+
+    assert tuple(control.name for control in session.controls) == (
+        "camera.angle_override",
+        "camera.angle",
+    )
+    session._ensure_ui()
+    angle = session._control_widgets["camera.angle"]
+    assert all(child.disabled for child in angle.children)
+
+    session.set_value("camera.angle_override", True, render=False)
+    assert all(not child.disabled for child in angle.children)
+    assert session.scene.camera.angle == pytest.approx(
+        session.scene.camera.effective_angle
+    )
+
+
+def test_width_changes_automatic_perspective_angle_without_exporting_override():
+    session, scene, _ = _session(controls=["camera.projection", "camera.width"])
+    session.set_value("camera.projection", "perspective", render=False)
+    session.set_value("camera.width", 30.0, render=False)
+
+    assert session.scene.camera.angle is None
+    assert session.scene.camera.effective_angle != pytest.approx(
+        scene.camera.effective_angle
+    )
+    assert "camera.angle" not in session.values
+
+
 def test_existing_value_expands_default_display_range_without_coercion():
     session, _, _ = _session(controls=["camera.width"])
     session.set_value("camera.width", 750.0, render=False)

@@ -23,6 +23,8 @@ from ._widgets import _WidgetMixin
 
 _DEPTH_SHADING_PREFIX = "style.depth_shading."
 _DEPTH_SHADING_ENABLED = f"{_DEPTH_SHADING_PREFIX}enabled"
+_CAMERA_ANGLE = "camera.angle"
+_CAMERA_ANGLE_OVERRIDE = "camera.angle_override"
 
 
 def _include_depth_shading_toggle(controls: list[Control]) -> list[Control]:
@@ -35,6 +37,21 @@ def _include_depth_shading_toggle(controls: list[Control]) -> list[Control]:
             return [
                 *controls[:index],
                 Control(_DEPTH_SHADING_ENABLED),
+                *controls[index:],
+            ]
+    return controls
+
+
+def _include_angle_override(controls: list[Control]) -> list[Control]:
+    """Add the explicit-angle toggle before the numeric angle control."""
+
+    if any(control.name == _CAMERA_ANGLE_OVERRIDE for control in controls):
+        return controls
+    for index, control in enumerate(controls):
+        if control.name == _CAMERA_ANGLE:
+            return [
+                *controls[:index],
+                Control(_CAMERA_ANGLE_OVERRIDE),
                 *controls[index:],
             ]
     return controls
@@ -109,6 +126,8 @@ class InteractiveRenderSession(_WidgetMixin):
                 continue
             base = spec.getter(self._base_state)
             current = spec.getter(self._state)
+            if name == _CAMERA_ANGLE and self._state.scene.camera.angle is None:
+                continue
             if not _values_equal(base, current):
                 values[name] = current
         return values
@@ -158,7 +177,10 @@ class InteractiveRenderSession(_WidgetMixin):
             requested.append(control)
 
         resolved: list[Control] = []
-        for control in _include_depth_shading_toggle(requested):
+        controls_with_toggles = _include_angle_override(
+            _include_depth_shading_toggle(requested)
+        )
+        for control in controls_with_toggles:
             try:
                 spec = _CONTROL_SPECS[control.name]
             except KeyError:

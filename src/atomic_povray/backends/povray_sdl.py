@@ -154,7 +154,7 @@ def _camera_to_sdl(camera: Camera, aspect_ratio: float) -> str:
         lines.append(f"  right {_vector(right_vector)}")
         lines.append(f"  up {_vector(up_vector)}")
     else:
-        lines.append(f"  angle {_number(camera.angle)}")
+        lines.append(f"  angle {_number(camera.effective_angle)}")
         right_vector = tuple(float(value) for value in right * aspect_ratio)
         up_vector = tuple(float(value) for value in true_up)
         lines.append(f"  right {_vector(right_vector)}")

@@ -1134,6 +1134,13 @@ PERSPECTIVE_PROFILE = replace(
 )
 ```
 
+`camera_width` sets the horizontal framing width for both orthographic and
+perspective cameras. For perspective cameras, atomic-povray derives the field
+of view from that width and the camera-to-target distance, so switching
+projection preserves the framing in the plane through the target. Pass
+`angle=` to `Camera.perspective()` (or set `camera_angle` in a profile) only
+when you want an explicit field-of-view override.
+
 See `examples/hematite_profile.py` and `notebooks/hematite_profile.py` for
 matching project-owned profiles used by the two hematite workflows.
 
@@ -1185,6 +1192,11 @@ Set `quality=5` instead for a higher-quality preview. An explicitly supplied
 preview configuration is used as-is except that `display` is always forced to
 `False`, keeping preview renders headless. Use `available_controls()` to inspect
 the supported control names.
+
+The interactive `camera.width` control applies to either projection. If you
+also request `camera.angle`, the UI automatically adds an **Override angle**
+checkbox; while it is cleared, the displayed angle follows width and camera
+distance automatically.
 
 Style and depth-shading controls additionally require the original geometry and
 style configuration, because those values cannot be recovered from a finished

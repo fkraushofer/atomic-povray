@@ -12,7 +12,6 @@ from typing import Literal
 from ._defaults import (
     DEFAULT_AMBIENT_LIGHT,
     DEFAULT_BACKGROUND_COLOR,
-    DEFAULT_CAMERA_ANGLE,
     DEFAULT_CAMERA_UP,
     DEFAULT_CAMERA_WIDTH,
 )
@@ -27,7 +26,7 @@ class Camera:
     target: Vec3
     up: Vec3 = DEFAULT_CAMERA_UP
     projection: Literal["perspective", "orthographic"] = "perspective"
-    angle: float = DEFAULT_CAMERA_ANGLE
+    angle: float | None = None
     width: float = DEFAULT_CAMERA_WIDTH
 
     @property
@@ -39,6 +38,15 @@ class Camera:
             for target, direction in zip(self.target, self.direction)
         )
 
+    @property
+    def effective_angle(self) -> float:
+        """Return the explicit or width-derived horizontal field of view."""
+
+        if self.angle is not None:
+            return self.angle
+        distance = float(np.linalg.norm(self.direction))
+        return float(np.degrees(2.0 * np.arctan(self.width / (2.0 * distance))))
+
     @classmethod
     def perspective(
         cls,
@@ -46,6 +54,7 @@ class Camera:
         direction: Vec3 | None = None,
         target: Vec3,
         up: Vec3 | None = None,
+        width: float | None = None,
         angle: float | None = None,
         profile: AtomicPovrayProfile = DEFAULT_PROFILE,
     ) -> "Camera":
@@ -60,6 +69,7 @@ class Camera:
             defaults.camera_up if up is None else up,
             "perspective",
             angle=defaults.camera_angle if angle is None else angle,
+            width=defaults.camera_width if width is None else width,
         )
 
     @classmethod

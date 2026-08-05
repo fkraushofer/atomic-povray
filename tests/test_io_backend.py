@@ -52,7 +52,7 @@ def test_write_empty_scene(tmp_path: Path):
     output = write_scene(scene, tmp_path / "scene.pov", width=1600, height=900)
     text = output.read_text(encoding="utf-8")
     assert output.exists()
-    assert "angle 35" in text
+    assert "angle 90" in text
     assert "camera {" in text
     assert "location <0, -10, 0>" in text
     assert "look_at <0, 0, 0>" in text
@@ -71,6 +71,32 @@ def test_camera_location_follows_target_with_fixed_direction():
         target=(8.0, 9.0, 10.0),
     )
     assert moved.location == pytest.approx((8.0, -11.0, 5.0))
+
+
+def test_perspective_width_matches_orthographic_framing_at_target():
+    camera = Camera.perspective(
+        direction=(0.0, 10.0, 0.0),
+        target=(0.0, 0.0, 0.0),
+        up=(0.0, 0.0, 1.0),
+        width=10.0,
+    )
+
+    assert camera.angle is None
+    assert camera.effective_angle == pytest.approx(53.1301023542)
+    assert "angle 53.1301" in scene_to_sdl(make_scene((), camera=camera))
+
+
+def test_explicit_perspective_angle_overrides_width():
+    camera = Camera.perspective(
+        direction=(0.0, 10.0, 0.0),
+        target=(0.0, 0.0, 0.0),
+        up=(0.0, 0.0, 1.0),
+        width=10.0,
+        angle=35.0,
+    )
+
+    assert camera.effective_angle == pytest.approx(35.0)
+    assert "angle 35" in scene_to_sdl(make_scene((), camera=camera))
 
 
 @pytest.mark.parametrize("quality", (-1, 12))
