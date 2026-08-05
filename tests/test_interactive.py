@@ -23,6 +23,7 @@ from atomic_povray import (
 )
 from atomic_povray.interactive import _LatestRenderController, _RenderJob
 from atomic_povray.interactive._registry import (
+    _get_control_spec,
     _symmetric_vector_length_range,
 )
 
@@ -82,6 +83,20 @@ def test_registry_contains_initial_camera_scene_style_and_depth_controls():
         "style.depth_shading.decay_length",
         "style.depth_shading.color",
     } <= names
+
+
+@pytest.mark.parametrize(
+    "field_name", ("location", "color", "intensity", "angular_diameter")
+)
+def test_indexed_light_controls_reuse_first_light_defaults(field_name):
+    first = _get_control_spec(f"scene.light.{field_name}")
+    indexed = _get_control_spec(f"scene.lights[2].{field_name}")
+
+    assert indexed.kind == first.kind
+    assert indexed.label == first.label
+    assert indexed.limits == first.limits
+    assert indexed.display_range == first.display_range
+    assert indexed.step == first.step
 
 
 def test_controls_accumulate_when_the_visible_set_changes():
