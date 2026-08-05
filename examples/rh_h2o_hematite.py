@@ -90,7 +90,7 @@ def main(
             fractional_ranges=((0.0, 1.0), (0.0, 1.0), (0.5, 0.8))
         ),
     )
-    styles = StyleConfig(
+    style_config = StyleConfig(
         profile=HEMATITE_SIDE_VIEW,
         selection_rules=(
             AtomSelectionRule(
@@ -99,7 +99,7 @@ def main(
             ),
         ),
     )
-    styled = apply_styles(geometry, styles)
+    styled = apply_styles(geometry, style_config)
 
     camera = Camera.orthographic(
         direction=(0.0, 100.0, -25.0),

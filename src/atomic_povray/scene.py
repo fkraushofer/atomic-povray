@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 from dataclasses import dataclass
-from math import isfinite, sqrt
+from math import isfinite
 from numbers import Real
 from typing import Literal
 
@@ -134,7 +136,7 @@ def get_default_light(
     """
 
     defaults = profile.scene
-    distance = sqrt(sum(component * component for component in camera.direction))
+    distance = float(np.linalg.norm(camera.direction))
     if not isfinite(distance) or distance <= 0:
         raise ValueError("camera direction must be non-zero and finite")
 
@@ -144,7 +146,7 @@ def get_default_light(
         view[2] * camera.up[0] - view[0] * camera.up[2],
         view[0] * camera.up[1] - view[1] * camera.up[0],
     )
-    right_length = sqrt(sum(component * component for component in right_raw))
+    right_length = float(np.linalg.norm(right_raw))
     if not isfinite(right_length) or right_length <= 0:
         raise ValueError("camera up must be finite and not parallel to direction")
     right = tuple(component / right_length for component in right_raw)
