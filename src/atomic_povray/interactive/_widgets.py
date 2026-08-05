@@ -9,6 +9,11 @@ from ..primitives import Color
 from ._control import Control
 from ._registry import _ControlSpec, _get_control_spec
 
+
+_CONTROL_WIDTH = "560px"
+_DESCRIPTION_WIDTH = "180px"
+
+
 class _WidgetMixin:
     def _ensure_ui(self) -> None:
         if self.ui is not None:
@@ -144,7 +149,12 @@ class _WidgetMixin:
         value = spec.getter(self._state)
         label = control.label or spec.label
         if spec.kind == "boolean":
-            widget = widgets.Checkbox(description=label, value=value)
+            widget = widgets.Checkbox(
+                description=label,
+                value=value,
+                layout=widgets.Layout(width=_CONTROL_WIDTH),
+                style={"description_width": _DESCRIPTION_WIDTH},
+            )
             widget.observe(
                 lambda change, name=spec.name: self.set_value(name, change["new"]),
                 names="value",
@@ -152,7 +162,11 @@ class _WidgetMixin:
             return widget
         if spec.kind == "choice":
             widget = widgets.Dropdown(
-                description=label, options=spec.choices, value=value
+                description=label,
+                options=spec.choices,
+                value=value,
+                layout=widgets.Layout(width=_CONTROL_WIDTH),
+                style={"description_width": _DESCRIPTION_WIDTH},
             )
             widget.observe(
                 lambda change, name=spec.name: self.set_value(name, change["new"]),
@@ -164,6 +178,8 @@ class _WidgetMixin:
                 description=label,
                 value=_color_to_hex(value),
                 concise=False,
+                layout=widgets.Layout(width=_CONTROL_WIDTH),
+                style={"description_width": _DESCRIPTION_WIDTH},
             )
             widget.observe(
                 lambda change, name=spec.name: self._set_color(name, change["new"]),
@@ -188,7 +204,8 @@ class _WidgetMixin:
                     step=step,
                     value=component,
                     continuous_update=True,
-                    layout=widgets.Layout(width="430px"),
+                    layout=widgets.Layout(width=_CONTROL_WIDTH),
+                    style={"description_width": _DESCRIPTION_WIDTH},
                 )
                 number = widgets.BoundedFloatText(
                     min=minimum,
@@ -223,7 +240,8 @@ class _WidgetMixin:
             step=step,
             value=value,
             continuous_update=True,
-            layout=widgets.Layout(width="430px"),
+            layout=widgets.Layout(width=_CONTROL_WIDTH),
+            style={"description_width": _DESCRIPTION_WIDTH},
         )
         number = widgets.BoundedFloatText(
             min=minimum,
