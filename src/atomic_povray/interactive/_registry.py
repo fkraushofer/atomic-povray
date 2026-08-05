@@ -319,6 +319,7 @@ def _light_spec(
     limits: tuple[float | None, float | None] = (None, None),
     display_range: DisplayRange | None = None,
     step: float | None = None,
+    area_light_only: bool = False,
 ) -> _ControlSpec:
     def getter(state: _InteractiveState) -> Any:
         return getattr(_light_at(state, index), field_name)
@@ -328,16 +329,23 @@ def _light_spec(
         lights[index] = replace(_light_at(state, index), **{field_name: value})
         return _with_scene(state, replace(state.scene, lights=tuple(lights)))
 
+    def applicable(state: _InteractiveState) -> bool:
+        if index >= len(state.scene.lights):
+            return False
+        return not area_light_only or isinstance(
+            state.scene.lights[index], AreaLight
+        )
+
     return _ControlSpec(
         name, kind, label, group, getter, setter,
         limits, display_range, step,
-        applicable=lambda state: index < len(state.scene.lights),
+        applicable=applicable,
     )
 
 
 _INDEXED_LIGHT_CONTROL = re.compile(
     r"scene\.lights\[(?P<index>\d+)\]\."
-    r"(?P<field>location|color|intensity)\Z"
+    r"(?P<field>location|color|intensity|angular_diameter)\Z"
 )
 
 
@@ -351,7 +359,7 @@ def _indexed_light_spec(name: str) -> _ControlSpec | None:
     field_name = match.group("field")
     common = {
         "name": name,
-        "label": field_name.capitalize(),
+        "label": field_name.replace("_", " ").capitalize(),
         "field_name": field_name,
         "index": index,
         "group": f"Light {index + 1}",
@@ -365,6 +373,15 @@ def _indexed_light_spec(name: str) -> _ControlSpec | None:
         )
     if field_name == "color":
         return _light_spec(kind="color", **common)
+    if field_name == "angular_diameter":
+        return _light_spec(
+            kind="number",
+            limits=(0.0, 180.0),
+            display_range=(1.0, 90.0),
+            step=0.5,
+            area_light_only=True,
+            **common,
+        )
     return _light_spec(
         kind="number",
         limits=(0.0, None),
@@ -410,6 +427,11 @@ def _make_control_specs() -> dict[str, _ControlSpec]:
         _light_spec(
             "scene.light.intensity", "number", "Intensity", "intensity",
             limits=(0.0, None), display_range=(0.0, 10.0), step=0.05,
+        ),
+        _light_spec(
+            "scene.light.angular_diameter", "number", "Angular diameter",
+            "angular_diameter", limits=(0.0, 180.0),
+            display_range=(1.0, 90.0), step=0.5, area_light_only=True,
         ),
         _style_attribute_spec(
             "style.preset_style", "choice", "Preset",
