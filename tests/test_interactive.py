@@ -4,6 +4,7 @@ from ase import Atoms
 import pytest
 
 from atomic_povray import (
+    AreaLight,
     Background,
     Camera,
     Color,
@@ -72,6 +73,7 @@ def test_registry_contains_initial_camera_scene_style_and_depth_controls():
         "camera.up",
         "scene.background.color",
         "scene.light.intensity",
+        "scene.light.angular_diameter",
         "style.atom_size_scale",
         "style.default_atom_finish.phong",
         "style.depth_shading.enabled",
@@ -324,6 +326,49 @@ def test_indexed_light_controls_update_lights_independently():
         values=session.values,
     )
     assert reapplied_scene.lights == session.scene.lights
+
+
+def test_angular_diameter_controls_update_area_lights_independently():
+    lights = (
+        AreaLight((1.0, 2.0, 3.0), angular_diameter=5.0),
+        AreaLight((4.0, 5.0, 6.0), angular_diameter=35.0),
+    )
+    session, scene, styles = _session(
+        controls=[
+            "scene.light.angular_diameter",
+            "scene.lights[1].angular_diameter",
+        ],
+        lights=lights,
+    )
+
+    session.set_value(
+        "scene.light.angular_diameter", 10.0, render=False
+    )
+    session.set_value(
+        "scene.lights[1].angular_diameter", 45.0, render=False
+    )
+
+    assert session.scene.lights[0].angular_diameter == pytest.approx(10.0)
+    assert session.scene.lights[1].angular_diameter == pytest.approx(45.0)
+    assert session.values == {
+        "scene.light.angular_diameter": 10.0,
+        "scene.lights[1].angular_diameter": 45.0,
+    }
+
+    reapplied_scene, _ = apply_interactive_values(
+        scene=scene,
+        style_config=styles,
+        values=session.values,
+    )
+    assert reapplied_scene.lights == session.scene.lights
+
+
+def test_angular_diameter_control_requires_area_light():
+    with pytest.raises(ValueError, match="not applicable"):
+        _session(
+            controls=["scene.light.angular_diameter"],
+            lights=(PointLight((1.0, 2.0, 3.0)),),
+        )
 
 
 def test_indexed_light_control_rejects_missing_light():
