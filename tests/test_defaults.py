@@ -13,11 +13,13 @@ from atomic_povray import (
     Color,
     Finish,
     Material,
+    PolyhedronRuleSet,
     StructureModel,
     StyleConfig,
     apply_styles,
     build_geometry,
     get_default_bonds,
+    get_default_polyhedra,
 )
 from atomic_povray.primitives import CylinderPrimitive, SpherePrimitive
 
@@ -279,6 +281,48 @@ def test_materialized_default_rules_can_be_edited_and_deleted():
     assert rules["long:Fe-O"].min_distance == pytest.approx(2.5)
     rules.remove("long:Fe-O")
     assert "long:Fe-O" not in rules
+
+
+def test_default_polyhedra_infer_only_metal_centers_and_use_all_bonds():
+    bond_rules = get_default_bonds(Atoms("FeOCH"), print_table=False)
+    rules = get_default_polyhedra(bond_rules, print_table=False)
+
+    assert isinstance(rules, PolyhedronRuleSet)
+    assert [rule.center_element for rule in rules] == ["Fe"]
+    rule = rules["default:Fe-polyhedron"]
+    assert rule.ligand_elements is None
+    assert rule.bond_rules is None
+    assert rule.boundary_mode == "complete"
+    assert rule.on_degenerate == "ignore"
+
+
+def test_default_polyhedra_follow_finalized_bond_rules():
+    bond_rules = get_default_bonds(Atoms("FeO"), print_table=False)
+    bond_rules.remove("default:Fe-O")
+
+    assert len(get_default_polyhedra(bond_rules, print_table=False)) == 0
+
+
+def test_default_polyhedra_include_exclude_and_editing_controls(capsys):
+    bond_rules = get_default_bonds(Atoms("FeSiO"), print_table=False)
+    rules = get_default_polyhedra(
+        bond_rules,
+        include_centers={"Si"},
+        exclude_centers={"Fe"},
+    )
+    output = capsys.readouterr().out
+
+    assert [rule.center_element for rule in rules] == ["Si"]
+    assert "default:Si-polyhedron" in output
+    assert "all" in output
+    updated = rules.update("default:Si-polyhedron", expansion=0.1)
+    assert updated.expansion == pytest.approx(0.1)
+    assert rules.remove("default:Si-polyhedron") == updated
+
+
+def test_default_polyhedra_include_centers_validate_elements():
+    with pytest.raises(ValueError, match="Unknown chemical element"):
+        get_default_polyhedra((), include_centers={"Xx"})
 
 
 def test_include_and_exclude_pairs_override_candidate_policy():

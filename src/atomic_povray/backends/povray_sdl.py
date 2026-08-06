@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from math import radians, tan
 from pathlib import Path
 import subprocess
+import sys
 import warnings
 
 import numpy as np
@@ -153,7 +154,7 @@ def _camera_to_sdl(camera: Camera, aspect_ratio: float) -> str:
         lines.append(f"  right {_vector(right_vector)}")
         lines.append(f"  up {_vector(up_vector)}")
     else:
-        lines.append(f"  angle {_number(camera.angle)}")
+        lines.append(f"  angle {_number(camera.effective_angle)}")
         right_vector = tuple(float(value) for value in right * aspect_ratio)
         up_vector = tuple(float(value) for value in true_up)
         lines.append(f"  right {_vector(right_vector)}")
@@ -524,12 +525,14 @@ def render_scene(
         command = (config.executable, "/RENDER", ini_path.name, "/EXIT")
     else:
         command = (config.executable, ini_path.name)
+    process_kwargs = _hidden_windows_process_kwargs() if not config.display else {}
     completed = subprocess.run(
         command,
         check=True,
         capture_output=True,
         text=True,
         cwd=image_path.parent.resolve(),
+        **process_kwargs,
     )
     result = RenderResult(
         image_path,
@@ -543,3 +546,17 @@ def render_scene(
         scene_path.unlink()
         ini_path.unlink()
     return result
+
+
+def _hidden_windows_process_kwargs() -> dict[str, object]:
+    """Return subprocess options that hide the POV-Ray application on Windows."""
+    if sys.platform != "win32":
+        return {}
+
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = subprocess.SW_HIDE
+    return {
+        "startupinfo": startupinfo,
+        "creationflags": subprocess.CREATE_NO_WINDOW,
+    }

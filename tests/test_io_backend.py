@@ -23,6 +23,17 @@ from atomic_povray import (
 )
 
 
+def _empty_scene():
+    return make_scene(
+        (),
+        camera=Camera.perspective(
+            direction=(0.0, 10.0, 0.0),
+            target=(0.0, 0.0, 0.0),
+            up=(0.0, 0.0, 1.0),
+        ),
+    )
+
+
 def test_legacy_povin_is_explicitly_rejected():
     with pytest.raises(ValueError, match=r"\.povin"):
         load_structure("legacy.povin")
@@ -41,7 +52,7 @@ def test_write_empty_scene(tmp_path: Path):
     output = write_scene(scene, tmp_path / "scene.pov", width=1600, height=900)
     text = output.read_text(encoding="utf-8")
     assert output.exists()
-    assert "angle 35" in text
+    assert "angle 90" in text
     assert "camera {" in text
     assert "location <0, -10, 0>" in text
     assert "look_at <0, 0, 0>" in text
@@ -60,6 +71,32 @@ def test_camera_location_follows_target_with_fixed_direction():
         target=(8.0, 9.0, 10.0),
     )
     assert moved.location == pytest.approx((8.0, -11.0, 5.0))
+
+
+def test_perspective_width_matches_orthographic_framing_at_target():
+    camera = Camera.perspective(
+        direction=(0.0, 10.0, 0.0),
+        target=(0.0, 0.0, 0.0),
+        up=(0.0, 0.0, 1.0),
+        width=10.0,
+    )
+
+    assert camera.angle is None
+    assert camera.effective_angle == pytest.approx(53.1301023542)
+    assert "angle 53.1301" in scene_to_sdl(make_scene((), camera=camera))
+
+
+def test_explicit_perspective_angle_overrides_width():
+    camera = Camera.perspective(
+        direction=(0.0, 10.0, 0.0),
+        target=(0.0, 0.0, 0.0),
+        up=(0.0, 0.0, 1.0),
+        width=10.0,
+        angle=35.0,
+    )
+
+    assert camera.effective_angle == pytest.approx(35.0)
+    assert "angle 35" in scene_to_sdl(make_scene((), camera=camera))
 
 
 @pytest.mark.parametrize("quality", (-1, 12))
@@ -278,6 +315,97 @@ def test_render_runs_in_output_directory_and_can_clean_up(
     assert result.image_path == output
     assert not result.scene_path.exists()
     assert not result.ini_path.exists()
+
+
+def test_render_hides_windows_process_when_display_is_off(tmp_path: Path, monkeypatch):
+    scene = _empty_scene()
+    calls = []
+
+    class FakeStartupInfo:
+        dwFlags = 0
+        wShowWindow = None
+
+    monkeypatch.setattr("atomic_povray.backends.povray_sdl.sys.platform", "win32")
+    monkeypatch.setattr(
+        "atomic_povray.backends.povray_sdl.subprocess.STARTUPINFO", FakeStartupInfo,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "atomic_povray.backends.povray_sdl.subprocess.STARTF_USESHOWWINDOW", 1,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "atomic_povray.backends.povray_sdl.subprocess.SW_HIDE", 0,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "atomic_povray.backends.povray_sdl.subprocess.CREATE_NO_WINDOW", 8,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "atomic_povray.backends.povray_sdl.subprocess.run",
+        lambda command, **kwargs: (
+            calls.append((command, kwargs))
+            or SimpleNamespace(stdout="", stderr="")
+        ),
+    )
+
+    render_scene(
+        scene,
+        tmp_path / "scene.png",
+        RenderConfig(executable="pvengine64.exe", display=False),
+    )
+
+    _, kwargs = calls[0]
+    assert kwargs["creationflags"] == 8
+    assert kwargs["startupinfo"].dwFlags == 1
+    assert kwargs["startupinfo"].wShowWindow == 0
+
+
+def test_render_keeps_windows_process_visible_when_display_is_on(
+    tmp_path: Path, monkeypatch
+):
+    scene = _empty_scene()
+    calls = []
+    monkeypatch.setattr("atomic_povray.backends.povray_sdl.sys.platform", "win32")
+    monkeypatch.setattr(
+        "atomic_povray.backends.povray_sdl.subprocess.run",
+        lambda command, **kwargs: (
+            calls.append((command, kwargs))
+            or SimpleNamespace(stdout="", stderr="")
+        ),
+    )
+
+    render_scene(
+        scene,
+        tmp_path / "scene.png",
+        RenderConfig(executable="pvengine64.exe", display=True),
+    )
+
+    _, kwargs = calls[0]
+    assert "startupinfo" not in kwargs
+    assert "creationflags" not in kwargs
+
+
+def test_render_display_off_has_no_process_flags_outside_windows(
+    tmp_path: Path, monkeypatch
+):
+    scene = _empty_scene()
+    calls = []
+    monkeypatch.setattr("atomic_povray.backends.povray_sdl.sys.platform", "linux")
+    monkeypatch.setattr(
+        "atomic_povray.backends.povray_sdl.subprocess.run",
+        lambda command, **kwargs: (
+            calls.append((command, kwargs))
+            or SimpleNamespace(stdout="", stderr="")
+        ),
+    )
+
+    render_scene(scene, tmp_path / "scene.png", RenderConfig(display=False))
+
+    _, kwargs = calls[0]
+    assert "startupinfo" not in kwargs
+    assert "creationflags" not in kwargs
 
 
 def test_render_keeps_intermediate_files_after_failure(tmp_path: Path, monkeypatch):

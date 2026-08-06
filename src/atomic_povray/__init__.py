@@ -15,9 +15,23 @@ from .config import (
     CutoffPlane,
     DisplayBounds,
 )
-from .defaults import BondRuleSet, get_default_bonds
+from .defaults import (
+    BondRuleSet,
+    PolyhedronRuleSet,
+    get_default_bonds,
+    get_default_polyhedra,
+)
 from .geometry import build_geometry
 from .io import load_structure
+from .interactive import (
+    Control,
+    InteractiveRenderResult,
+    InteractiveRenderSession,
+    RenderTimings,
+    apply_interactive_values,
+    available_controls,
+    interactive_render,
+)
 from .labels import element_labels, label_atoms
 from .model import (
     AtomInstance,
@@ -92,6 +106,7 @@ __all__ = [
     "CoordinationStyleRule",
     "CoordinationPolyhedron",
     "CoordinationPolyhedronRule",
+    "Control",
     "CutoffPlane",
     "CylinderPrimitive",
     "DepthShading",
@@ -103,9 +118,12 @@ __all__ = [
     "GeometryModel",
     "GeometryDefaults",
     "LabelDefaults",
+    "InteractiveRenderResult",
+    "InteractiveRenderSession",
     "Material",
     "PointLight",
     "PolyhedronEdgeStyle",
+    "PolyhedronRuleSet",
     "PolyhedronStyle",
     "PolyhedronStyleOverride",
     "Primitive",
@@ -113,6 +131,7 @@ __all__ = [
     "RenderConfig",
     "RenderDefaults",
     "RenderResult",
+    "RenderTimings",
     "Scene",
     "SceneDefaults",
     "SpherePrimitive",
@@ -123,13 +142,17 @@ __all__ = [
     "TextPrimitive",
     "TriangleMeshPrimitive",
     "apply_styles",
+    "apply_interactive_values",
+    "available_controls",
     "build_geometry",
     "element_labels",
     "get_default_bonds",
+    "get_default_polyhedra",
     "get_default_light",
     "label_atoms",
     "load_structure",
     "make_scene",
+    "interactive_render",
     "primitive_images",
     "render_scene",
     "resolve_atom_styles",
@@ -137,5 +160,3 @@ __all__ = [
     "write_ini",
     "write_scene",
 ]
-
-

@@ -239,16 +239,6 @@ class BondStyle:
             raise TypeError("segments must be an integer")
         if self.segments < 1:
             raise ValueError("segments must be at least 1")
-        if (
-            self.style != "solid"
-            and self.split_by_atom_color
-            and self.color is None
-            and self.material is None
-        ):
-            raise ValueError(
-                "dashed and dotted bonds must be single-color; set color or "
-                "material, or set split_by_atom_color=False"
-            )
 
     def material_for(
         self,
@@ -378,7 +368,7 @@ class StyleConfig:
     bond_size_scale: float | None = None
     draw_atoms: bool = True
     draw_bonds: bool | None = None
-    draw_polyhedra: bool = True
+    draw_polyhedra: bool | None = None
     elements: dict[str, AtomStyle] = field(default_factory=dict)
     bonds: dict[str, BondStyle] = field(default_factory=dict)
     polyhedra: dict[str, PolyhedronStyle] = field(default_factory=dict)
@@ -460,6 +450,12 @@ class StyleConfig:
                 "draw_bonds",
                 preset_style in ("ball_and_stick", "polyhedral"),
             )
+        if self.draw_polyhedra is None:
+            object.__setattr__(
+                self,
+                "draw_polyhedra",
+                preset_style == "polyhedral",
+            )
 
     @staticmethod
     def _validate_size_scale(name: str, scale: float) -> None:
@@ -524,12 +520,23 @@ class StyleConfig:
 
     def bond_style(self, rule_id: str) -> BondStyle:
         if rule_id in self.bonds:
-            return self.bonds[rule_id]
+            style = self.bonds[rule_id]
+            default_bond = self.default_bond
+            assert default_bond is not None
+            if (
+                style.color is None
+                and style.material is None
+                and default_bond.color is not None
+            ):
+                style = replace(style, color=default_bond.color)
+            return style
         if rule_id == DEFAULT_HYDROGEN_BOND_RULE_ID:
             defaults = self.profile.style
+            default_bond = self.default_bond
+            assert default_bond is not None
             return BondStyle(
                 radius=defaults.hydrogen_bond_radius,
-                color=defaults.hydrogen_bond_color,
+                color=default_bond.color or defaults.hydrogen_bond_color,
                 style=defaults.hydrogen_bond_line_style,
                 segments=defaults.hydrogen_bond_segments,
             )
