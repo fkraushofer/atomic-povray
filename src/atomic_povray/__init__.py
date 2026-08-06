@@ -15,7 +15,12 @@ from .config import (
     CutoffPlane,
     DisplayBounds,
 )
-from .defaults import BondRuleSet, get_default_bonds
+from .defaults import (
+    BondRuleSet,
+    PolyhedronRuleSet,
+    get_default_bonds,
+    get_default_polyhedra,
+)
 from .geometry import build_geometry
 from .io import load_structure
 from .interactive import (
@@ -118,6 +123,7 @@ __all__ = [
     "Material",
     "PointLight",
     "PolyhedronEdgeStyle",
+    "PolyhedronRuleSet",
     "PolyhedronStyle",
     "PolyhedronStyleOverride",
     "Primitive",
@@ -141,6 +147,7 @@ __all__ = [
     "build_geometry",
     "element_labels",
     "get_default_bonds",
+    "get_default_polyhedra",
     "get_default_light",
     "label_atoms",
     "load_structure",
@@ -153,4 +160,3 @@ __all__ = [
     "write_ini",
     "write_scene",
 ]
-
