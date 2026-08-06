@@ -368,7 +368,7 @@ class StyleConfig:
     bond_size_scale: float | None = None
     draw_atoms: bool = True
     draw_bonds: bool | None = None
-    draw_polyhedra: bool = True
+    draw_polyhedra: bool | None = None
     elements: dict[str, AtomStyle] = field(default_factory=dict)
     bonds: dict[str, BondStyle] = field(default_factory=dict)
     polyhedra: dict[str, PolyhedronStyle] = field(default_factory=dict)
@@ -449,6 +449,12 @@ class StyleConfig:
                 self,
                 "draw_bonds",
                 preset_style in ("ball_and_stick", "polyhedral"),
+            )
+        if self.draw_polyhedra is None:
+            object.__setattr__(
+                self,
+                "draw_polyhedra",
+                preset_style == "polyhedral",
             )
 
     @staticmethod

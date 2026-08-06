@@ -638,22 +638,26 @@ style_config = StyleConfig(
 ```
 
 The default preset is a ball-and-stick representation: all resolved atom radii
-are multiplied by `0.4`, bonds are drawn, and the default ordinary bond radius
-is `0.08` Å. The atom scale is global and is applied after element,
-coordination, selection, and individual-atom radius overrides.
+are multiplied by `0.4`, bonds are drawn, polyhedra are not drawn, and the
+default ordinary bond radius is `0.08` Å. The atom scale is global and is
+applied after element, coordination, selection, and individual-atom radius
+overrides.
 
 Use the built-in presets directly when switching representations:
 
 ```python
-ball_and_stick = StyleConfig(preset_style="ball_and_stick")
-space_filling = StyleConfig(preset_style="space_filling")
+style_config = StyleConfig(preset_style="ball_and_stick")
+style_config = StyleConfig(preset_style="space_filling")
+style_config = StyleConfig(preset_style="polyhedral")
 ```
 
 `space_filling` uses an atom scale of `1.0` and omits bond primitives. Bond
 geometry is retained, so coordination-dependent styles remain available and
-switching presets does not require rebuilding geometry. Override the global
-atom and bond scales independently when needed. Both are applied after
-resolving default or explicit per-style radii:
+switching presets does not require rebuilding geometry. `polyhedral` is
+similar to `ball_and_stick`, but also sets `draw_polyhedra` to `True`.
+
+Override the global atom and bond scales independently when needed. Both are
+applied after resolving default or explicit per-style radii:
 
 ```python
 style_config = StyleConfig(
@@ -786,7 +790,9 @@ style_config = StyleConfig(
 
 `draw_atoms`, `draw_bonds`, and `draw_polyhedra` are independent
 `StyleConfig` controls. Face colors inherit the resolved central-atom color
-unless the polyhedron style supplies a color or material.
+unless the polyhedron style supplies a color or material. Note that if
+`draw_polyhedra` is `False`, no polyhedra will be drawn, regardless of
+their individual visibility rules.
 
 Use `polyhedron_source_overrides` to change every displayed periodic image of
 a polyhedron centered on a particular ASE source atom. Keys are zero-based ASE
