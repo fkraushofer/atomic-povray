@@ -14,6 +14,10 @@ from ._defaults import (
     DEFAULT_BACKGROUND_COLOR,
     DEFAULT_CAMERA_UP,
     DEFAULT_CAMERA_WIDTH,
+    DEFAULT_LIGHT_INTENSITY,
+    DEFAULT_LIGHT_ANGULAR_DIAMETER,
+    DEFAULT_LIGHT_SAMPLES,
+    DEFAULT_LIGHT_ADAPTIVE,
 )
 from .model import Vec3
 from .primitives import Color, Primitive
@@ -100,7 +104,7 @@ class Camera:
 class PointLight:
     location: Vec3
     color: Color = Color(1.0, 1.0, 1.0)
-    intensity: float = 1.0
+    intensity: float = DEFAULT_LIGHT_INTENSITY
     shadowless: bool = False
 
 
@@ -111,10 +115,10 @@ class AreaLight:
     location: Vec3
     target: Vec3 = (0.0, 0.0, 0.0)
     color: Color = Color(1.0, 1.0, 1.0)
-    intensity: float = 1.0
-    angular_diameter: float = 35.0
-    samples: tuple[int, int] = (9, 9)
-    adaptive: int = 2
+    intensity: float = DEFAULT_LIGHT_INTENSITY
+    angular_diameter: float = DEFAULT_LIGHT_ANGULAR_DIAMETER
+    samples: tuple[int, int] = DEFAULT_LIGHT_SAMPLES
+    adaptive: int = DEFAULT_LIGHT_ADAPTIVE
     circular: bool = True
     orient: bool = True
     jitter: bool = False
