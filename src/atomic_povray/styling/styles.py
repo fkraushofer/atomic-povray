@@ -877,6 +877,7 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
                     faces=polyhedron.faces,
                     material=material,
                     reference_position=center.position,
+                    two_sided_lighting=polyhedron.dimension == 2,
                 )
             )
             edge_style = polyhedron_style.edges

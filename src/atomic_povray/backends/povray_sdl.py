@@ -128,6 +128,8 @@ def _primitive_to_sdl(primitive: Primitive) -> str:
             )
             lines.append("  }")
         lines.append(f"  {_material(primitive.material)}")
+        if primitive.two_sided_lighting:
+            lines.append("  double_illuminate")
         lines.append("}")
         return "\n".join(lines)
     raise TypeError(f"Unsupported primitive type: {type(primitive).__name__}")

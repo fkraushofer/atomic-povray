@@ -145,6 +145,7 @@ class TriangleMeshPrimitive:
     material: Material
     normals: tuple[Vec3, ...] | None = None
     reference_position: Vec3 | None = None
+    two_sided_lighting: bool = False
 
     def __post_init__(self) -> None:
         if self.normals is not None and len(self.normals) != len(self.vertices):
