@@ -154,6 +154,7 @@ def test_polyhedron_style_creates_mesh_and_only_true_edge_cylinders():
     edges = [p for p in styled.primitives if isinstance(p, CylinderPrimitive)]
     assert len(meshes) == 1
     assert meshes[0].reference_position == (5.0, 5.0, 5.0)
+    assert meshes[0].two_sided_lighting is True
     assert len(edges) == 4
     assert meshes[0].material.color.transmit == pytest.approx(0.4)
     assert meshes[0].material.color.filter == pytest.approx(0.2)
