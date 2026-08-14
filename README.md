@@ -651,10 +651,11 @@ style_config = StyleConfig(preset_style="space_filling")
 style_config = StyleConfig(preset_style="polyhedral")
 ```
 
-`space_filling` uses an atom scale of `1.0` and omits bond primitives. Bond
-geometry is retained, so coordination-dependent styles remain available and
-switching presets does not require rebuilding geometry. `polyhedral` is
-similar to `ball_and_stick`, but also sets `draw_polyhedra` to `True`.
+Without a custom profile, `space_filling` uses an atom scale of `1.0` and omits
+bond primitives. Bond geometry is retained, so coordination-dependent styles
+remain available and switching presets does not require rebuilding geometry.
+`polyhedral` is similar to `ball_and_stick`, but also sets `draw_polyhedra` to
+`True`.
 
 Override the global atom and bond scales independently when needed. Both are
 applied after resolving default or explicit per-style radii:
@@ -1134,8 +1135,10 @@ scene = make_scene(
 config = RenderConfig(profile=MY_PROFILE)
 ```
 
-Explicit arguments always override the selected profile. Atom appearance is
-resolved with this precedence:
+Explicit arguments override the corresponding profile fields. Selecting a
+`preset_style` changes the representation but does not replace a profile's
+independent `atom_size_scale`. Atom appearance is resolved with this
+precedence:
 
 | Priority | Source |
 | --- | --- |
@@ -1147,7 +1150,10 @@ resolved with this precedence:
 
 Element overrides are partial: changing only Fe's color still uses ASE's Fe
 radius. A per-scene `elements={"Fe": AtomStyle(radius=...)}` likewise retains
-the profile color.
+the profile color. The profile's `atom_size_scale` is independent of these
+resolved radii and is applied to them afterward. It remains in effect when a
+different `preset_style` is selected; pass `atom_size_scale=` directly to
+`StyleConfig` to override it for one scene.
 
 Named view variants can share a base profile while changing only scene
 defaults. Camera direction, orientation, framing, and lighting can all live in
