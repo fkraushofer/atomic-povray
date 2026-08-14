@@ -140,6 +140,7 @@ def test_polyhedron_style_creates_mesh_and_only_true_edge_cylinders():
         StyleConfig(
             draw_atoms=False,
             draw_bonds=False,
+            draw_polyhedra=True,
             polyhedra={
                 "Fe-polyhedron": PolyhedronStyle(
                     color=Color(0.8, 0.2, 0.1, alpha=0.6, filter=0.2),
@@ -182,6 +183,7 @@ def test_default_polyhedron_inherits_rgb_with_transparency():
         StyleConfig(
             draw_atoms=False,
             draw_bonds=False,
+            draw_polyhedra=True,
             elements={"Fe": AtomStyle(color=Color(0.7, 0.2, 0.1))},
         ),
     )
@@ -200,6 +202,7 @@ def test_polyhedron_transparency_overrides_inherited_center_color():
         StyleConfig(
             draw_atoms=False,
             draw_bonds=False,
+            draw_polyhedra=True,
             elements={"Fe": AtomStyle(color=Color(0.7, 0.2, 0.1, filter=0.1))},
             default_polyhedron=PolyhedronStyle(filter=0.3, alpha=0.6),
         ),
@@ -225,6 +228,7 @@ def test_depth_shading_uses_polyhedron_center_reference():
         StyleConfig(
             draw_atoms=False,
             draw_bonds=False,
+            draw_polyhedra=True,
             default_polyhedron=PolyhedronStyle(color=Color(1, 0, 0)),
             depth_shading=DepthShading(
                 origin=(0, 0, 0),
