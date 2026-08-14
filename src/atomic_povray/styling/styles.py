@@ -394,10 +394,15 @@ class StyleConfig:
     default_polyhedron_finish: Finish | None = None
     default_finish: Finish | None = None
     depth_shading: DepthShading | None = None
-    profile: AtomicPovrayProfile = DEFAULT_PROFILE
+    profile: AtomicPovrayProfile | None = None
 
     def __post_init__(self) -> None:
-        profile_defaults = self.profile.style
+        profile = self.profile
+        profile_was_supplied = profile is not None
+        if profile is None:
+            profile = DEFAULT_PROFILE
+            object.__setattr__(self, "profile", profile)
+        profile_defaults = profile.style
         preset_style = self.preset_style or profile_defaults.preset_style
         try:
             preset_scale = profile_defaults.preset_atom_size_scales[preset_style]
@@ -415,9 +420,9 @@ class StyleConfig:
         atom_scale = self.atom_size_scale
         if atom_scale is None:
             atom_scale = (
-                preset_scale
-                if self.preset_style is not None
-                else profile_defaults.atom_size_scale
+                profile_defaults.atom_size_scale
+                if profile_was_supplied
+                else preset_scale
             )
         self._validate_size_scale("atom_size_scale", atom_scale)
         self._validate_size_scale("bond_size_scale", bond_scale)
@@ -877,6 +882,7 @@ def apply_styles(geometry: GeometryModel, styles: StyleConfig) -> StyledGeometry
                     faces=polyhedron.faces,
                     material=material,
                     reference_position=center.position,
+                    two_sided_lighting=polyhedron.dimension == 2,
                 )
             )
             edge_style = polyhedron_style.edges

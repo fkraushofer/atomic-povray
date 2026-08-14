@@ -74,3 +74,17 @@ def test_povray_mesh2_without_normals_is_unchanged():
 
     assert "normal_vectors" not in sdl
     assert "normal_indices" not in sdl
+    assert "double_illuminate" not in sdl
+
+
+def test_povray_mesh2_writes_two_sided_lighting_modifier():
+    sdl = _mesh_sdl(
+        TriangleMeshPrimitive(
+            vertices=VERTICES,
+            faces=FACES,
+            material=MATERIAL,
+            two_sided_lighting=True,
+        )
+    )
+
+    assert "  double_illuminate\n}" in sdl

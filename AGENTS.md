@@ -6,6 +6,20 @@
 
 Read `README.md` for the current API and user-facing workflow before making changes.
 
+## Start every task by orienting yourself
+
+- Read `README.md`, `pyproject.toml`, and the relevant source and tests before
+  proposing or making changes.
+- Run `git status --short --branch` and preserve all pre-existing user changes.
+- Inspect the configured remotes and current branch rather than assuming that
+  the checkout is on `main` or that `main` is the correct base.
+- When a task depends on current GitHub state, use `gh repo view`, `gh pr list`,
+  and `gh pr view` to verify branches, pull requests, review comments, and base
+  branches. Historical handover notes are context, not an authoritative record
+  of current state.
+- Work in the existing local clone and its configured Python environment. Do
+  not create a replacement checkout unless isolation is actually needed.
+
 ## Architectural boundaries
 
 Keep the staged pipeline explicit:
@@ -55,9 +69,38 @@ Use a resolver rather than embedding appearance in structural objects. The inten
 
 Bond style belongs to the bond rule or its resolved style and should support a general style property, not a hydrogen-bond-specific special case. Solid, dashed, or future styles should produce ordinary primitives.
 
-A shared default finish applies to atoms and bonds unless a more specific finish or full material overrides it. Preserve the documented finish/material precedence.
+A shared default finish applies to atoms, bonds, and polyhedra unless a more
+specific finish or full material overrides it. Preserve the documented
+finish/material precedence.
 
-Depth shading is deferred styling work. Implement it in the style-resolution stage, not in geometry or as an undocumented light-intensity adjustment.
+Depth shading belongs in the style-resolution stage. Keep it out of geometry
+and do not replace it with an undocumented light-intensity adjustment.
+
+## Current design constraints
+
+- Preserve style-scale precedence: an explicit `StyleConfig.atom_size_scale`
+  overrides everything; an explicitly supplied profile's `atom_size_scale`
+  survives preset selection; and a preset scale applies when no profile or
+  explicit scale is supplied. Apply the effective scale only after resolving
+  element, coordination, selection, and individual-atom radii.
+- Interactive controls should expose useful individual overrides without
+  requiring users to reconstruct a complete render configuration. Use the
+  existing `_make_control_specs` mechanism as the single place that collects
+  control defaults and metadata.
+- Orthographic and perspective cameras should switch smoothly in apparent
+  scale. A perspective camera may derive its angle from width and camera
+  distance, while an explicit angle remains authoritative.
+- Multiple lights and per-light controls are valid. Area-light
+  `angular_diameter` is a meaningful independent parameter, including for
+  colocated lights with different apparent source sizes.
+- Polyhedra may be generated during geometry construction while remaining
+  globally hidden by default. A global `draw_polyhedra` style switch gates all
+  polyhedron drawing; when enabled, individual `PolyhedronStyle` rules may
+  still hide selected polyhedra.
+- Square-planar polyhedra are effectively planes. Dimension-two polyhedron
+  meshes require `two_sided_lighting`, serialized as POV-Ray
+  `double_illuminate`. Preserve that regression behavior, and inspect the
+  emitted `.pov` syntax and effective transparency values before changing it.
 
 ## POV-Ray behavior
 
@@ -82,38 +125,26 @@ Run the complete test suite before publishing a change:
 python -m pytest
 ```
 
-GitHub publication and local validation are separate capabilities. The connected
-GitHub app can publish a branch without providing a local checkout or Python
-environment. Conversely, tests can run in a disposable local tree even when
-`git clone`, `gh`, or authenticated Git transport is unavailable.
+First inspect `pyproject.toml` and the repository documentation for the
+canonical test, lint, formatting, and documentation commands. Install declared
+development/test dependencies into the active project environment if they are
+missing. Do not claim that tests passed unless the tested files match the
+committed content.
 
-When no checkout is present:
+At present, the repository configures pytest but has no canonical lint,
+formatting, type-checking, generated-documentation, or CI command. Do not
+invent or claim such checks. Re-inspect the repository because this may change.
 
-1. Reconstruct the relevant branch in a temporary workspace from files fetched
-   through the connected GitHub app. Include the package source, `tests/`,
-   `pyproject.toml`, and all fixtures/data required by the suite.
-2. Mirror the proposed edits into that local tree before validating them.
-3. Inspect `pyproject.toml`, then install the project and its test extra in the
-   transient environment when package installation is permitted:
+If a dependency, external binary, or test fixture is genuinely unavailable,
+run the strongest narrower checks and state the exact limitation in the final
+report and PR description. POV-Ray itself is only required for tests that
+actually invoke rendering; SDL/INI generation tests should remain runnable
+without it.
 
-   ```bash
-   python -m pip install -e '.[test]'
-   python -m pytest
-   ```
-
-4. Publish the already-validated content through the connected GitHub app.
-
-Do not treat a missing checkout, ASE, SciPy, pytest, or `gh` as sufficient reason
-to skip tests. First try local reconstruction and installation of declared test
-dependencies. Do not claim that tests passed unless the tested local files exactly
-match the content published to the branch.
-
-If reconstruction or dependency installation is genuinely blocked (for example,
-package downloads are disallowed, required external binaries are unavailable, or
-the complete test data cannot be fetched), run the strongest available narrower
-checks and state the exact limitation in the PR description. POV-Ray itself is
-only required for tests that actually invoke rendering; SDL/INI generation tests
-should remain runnable without it.
+For rendering changes, verify serialized POV-Ray output and, where feasible,
+perform a small actual render or exercise an existing notebook/example
+workflow. Do not assume that a surprising visual result is a serializer bug:
+inspect the emitted `.pov` file and effective style values first.
 
 Update the notebook, examples, and README when a public API or documented workflow changes.
 
@@ -121,13 +152,33 @@ Update the notebook, examples, and README when a public API or documented workfl
 
 Keep feature requests in focused branches and pull requests. Use branch names beginning with `agent/` for agent-authored work and open draft PRs unless the user asks otherwise.
 
-When no suitable local checkout or authenticated `gh` CLI is available, use
-the connected GitHub app directly for repository reads, branch creation,
-file commits, and draft PR creation when those operations are exposed. Do not
-treat a missing local `gh` installation as a blocker when the connector fully
-covers the requested workflow; reserve `gh` for operations the connector
-cannot perform, such as detailed Actions log inspection.
+- Never discard, overwrite, stash, or fold unrelated uncommitted work into a
+  task. If user changes overlap the requested edit, stop and clarify before
+  risking them.
+- Before creating a feature branch, fetch and verify the requested base branch
+  and its relationship to the current checkout. This project has sometimes
+  used version or feature branches instead of `main`.
+- Preserve backward compatibility unless the task explicitly authorizes a
+  breaking change.
+- Prefer existing dataclasses, helpers, naming patterns, and control-generation
+  machinery over parallel implementations.
+- Before the first GitHub write in a session, verify the authenticated account
+  and repository with `gh auth status` and `gh repo view`.
+- When asked to publish, commit only the task-relevant changes, push the feature
+  branch, and open a **draft** pull request with `gh`. Include a concise summary
+  and the exact validation performed.
+- Do not merge a pull request unless explicitly asked. Do not force-push,
+  rewrite published history, or delete branches without explicit approval.
 
 Keep diffs scoped. Do not modify unrelated files or overwrite user changes. Explain deliberate behavioral changes in the PR description.
 
 Avoid speculative framework work. Implement the smallest complete layer needed for the current milestone while preserving the staged architecture and extension points above.
+
+## Definition of done
+
+- Relevant tests pass, or exact test limitations are documented.
+- Public behavior, README text, examples, and notebooks remain consistent.
+- The diff contains only task-relevant changes.
+- Current GitHub state and the PR base were verified rather than assumed.
+- The final report names changed files, validation performed, and any remaining
+  uncertainty.

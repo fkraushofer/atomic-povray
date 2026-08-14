@@ -146,6 +146,7 @@ def test_source_override_reaches_replicas_but_instance_override_is_specific():
         bounds=DisplayBounds(
             fractional_ranges=((0.0, 2.0), (0.0, 1.0), (0.0, 1.0))
         ),
+        bond_rules=(),
     )
     common = Color(0.2, 0.3, 0.4)
     special = Color(0.8, 0.7, 0.6)
@@ -280,7 +281,8 @@ def test_invalid_selection_results_raise_clear_errors(selector, exception, messa
                 cell=(10.0, 10.0, 10.0),
                 pbc=False,
             )
-        )
+        ),
+        bond_rules=(),
     )
     with pytest.raises(exception, match=message):
         resolve_atom_styles(
