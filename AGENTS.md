@@ -78,12 +78,11 @@ and do not replace it with an undocumented light-intensity adjustment.
 
 ## Current design constraints
 
-- Preserve the current style-scale precedence unless a deliberate API change is
-  requested: an explicit `atom_size_scale` overrides everything; an explicit
-  `preset_style` otherwise selects that preset's atom scale; and an omitted
-  preset uses the profile's `atom_size_scale`. The broader question of whether
-  explicitly selecting a preset should preserve profile scaling remains open
-  and requires focused tests and documentation before changing behavior.
+- Preserve style-scale precedence: an explicit `StyleConfig.atom_size_scale`
+  overrides everything; an explicitly supplied profile's `atom_size_scale`
+  survives preset selection; and a preset scale applies when no profile or
+  explicit scale is supplied. Apply the effective scale only after resolving
+  element, coordination, selection, and individual-atom radii.
 - Interactive controls should expose useful individual overrides without
   requiring users to reconstruct a complete render configuration. Use the
   existing `_make_control_specs` mechanism as the single place that collects

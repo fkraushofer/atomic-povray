@@ -14,12 +14,16 @@ from atomic_povray import (
     ElementOverride,
     Radiosity,
     RenderConfig,
+    StructureModel,
     StyleConfig,
+    apply_styles,
+    build_geometry,
     get_default_bonds,
     get_default_light,
     make_scene,
 )
 from atomic_povray.defaults import default_atom_color, default_atom_radius
+from atomic_povray.primitives import SpherePrimitive
 
 
 def test_profiles_are_immutable_and_replacement_is_independent():
@@ -109,6 +113,7 @@ def test_style_profile_controls_presets_finishes_and_hydrogen_bonds():
 
     explicit = StyleConfig(
         profile=profile,
+        preset_style="space_filling",
         atom_size_scale=0.3,
         default_bond=replace(styles.default_bond, radius=0.2),
     )
@@ -125,7 +130,38 @@ def test_style_profile_has_independent_default_atom_size_scale():
     assert StyleConfig(profile=profile).atom_size_scale == pytest.approx(0.7)
     assert StyleConfig(
         profile=profile, preset_style="space_filling"
-    ).atom_size_scale == pytest.approx(1.0)
+    ).atom_size_scale == pytest.approx(0.7)
+    assert StyleConfig(preset_style="space_filling").atom_size_scale == pytest.approx(
+        1.0
+    )
+
+
+def test_profile_atom_scale_multiplies_resolved_element_override_radius():
+    profile = replace(
+        DEFAULT_PROFILE,
+        style=replace(
+            DEFAULT_PROFILE.style,
+            atom_size_scale=0.4,
+            element_overrides={"O": ElementOverride(radius=0.35)},
+        ),
+    )
+    styles = StyleConfig(profile=profile, preset_style="space_filling")
+    styled = apply_styles(
+        build_geometry(
+            StructureModel(Atoms("O", positions=((0.0, 0.0, 0.0),))),
+            bond_rules=(),
+        ),
+        styles,
+    )
+    sphere = next(
+        primitive
+        for primitive in styled.primitives
+        if isinstance(primitive, SpherePrimitive)
+    )
+
+    assert styles.atom_style("O").radius == pytest.approx(0.35)
+    assert styles.atom_size_scale == pytest.approx(0.4)
+    assert sphere.radius == pytest.approx(0.14)
 
 
 def test_scene_and_render_profile_defaults_with_explicit_precedence():
