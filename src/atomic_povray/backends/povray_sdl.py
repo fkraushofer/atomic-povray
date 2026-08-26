@@ -153,22 +153,23 @@ def _camera_to_sdl(camera: Camera, aspect_ratio: float) -> str:
         up_vector = tuple(
             float(value) for value in true_up * camera.width / aspect_ratio
         )
-        lines.append(f"  right {_vector(right_vector)}")
-        lines.append(f"  up {_vector(up_vector)}")
     else:
-        lines.append(f"  angle {_number(camera.effective_angle)}")
         right_vector = tuple(float(value) for value in right * aspect_ratio)
         up_vector = tuple(float(value) for value in true_up)
-        lines.append(f"  right {_vector(right_vector)}")
-        lines.append(f"  up {_vector(up_vector)}")
+    # Emit the completed world-space basis directly. A following look_at would
+    # rotate right and up again, making the result depend on POV-Ray's default
+    # camera orientation rather than solely on Camera.direction and Camera.up.
     lines.extend(
         (
             f"  location {_vector(camera.location)}",
-            f"  look_at {_vector(camera.target)}",
-            f"  sky {_vector(camera.up)}",
-            "}",
+            f"  direction {_vector(tuple(float(value) for value in view))}",
+            f"  right {_vector(right_vector)}",
+            f"  up {_vector(up_vector)}",
         )
     )
+    if camera.projection == "perspective":
+        lines.append(f"  angle {_number(camera.effective_angle)}")
+    lines.append("}")
     return "\n".join(lines)
 
 

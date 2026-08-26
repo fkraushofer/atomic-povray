@@ -34,6 +34,13 @@ def _empty_scene():
     )
 
 
+def _sdl_vector(text: str, name: str) -> tuple[float, float, float]:
+    prefix = f"  {name} <"
+    line = next(line for line in text.splitlines() if line.startswith(prefix))
+    values = line.removeprefix(prefix).removesuffix(">").split(", ")
+    return tuple(float(value) for value in values)
+
+
 def test_legacy_povin_is_explicitly_rejected():
     with pytest.raises(ValueError, match=r"\.povin"):
         load_structure("legacy.povin")
@@ -55,7 +62,47 @@ def test_write_empty_scene(tmp_path: Path):
     assert "angle 90" in text
     assert "camera {" in text
     assert "location <0, -10, 0>" in text
-    assert "look_at <0, 0, 0>" in text
+    assert "direction <0, 1, 0>" in text
+    assert "look_at" not in text
+    assert "sky" not in text
+
+
+@pytest.mark.parametrize(
+    ("direction", "up", "expected_direction", "expected_right", "expected_up"),
+    (
+        (
+            (0.0, 0.0, -100.0),
+            (0.0, 1.0, 0.0),
+            (0.0, 0.0, -1.0),
+            (25.0, 0.0, 0.0),
+            (0.0, 18.75, 0.0),
+        ),
+        (
+            (0.0, 100.0, 0.0),
+            (0.0, 0.0, 1.0),
+            (0.0, 1.0, 0.0),
+            (25.0, 0.0, 0.0),
+            (0.0, 0.0, 18.75),
+        ),
+    ),
+)
+def test_orthographic_camera_preserves_world_space_up_direction(
+    direction, up, expected_direction, expected_right, expected_up
+):
+    camera = Camera.orthographic(
+        direction=direction,
+        target=(5.0, 0.0, 25.5),
+        up=up,
+        width=25.0,
+    )
+
+    text = scene_to_sdl(make_scene((), camera=camera), aspect_ratio=4 / 3)
+
+    assert _sdl_vector(text, "direction") == pytest.approx(expected_direction)
+    assert _sdl_vector(text, "right") == pytest.approx(expected_right)
+    assert _sdl_vector(text, "up") == pytest.approx(expected_up)
+    assert "look_at" not in text
+    assert "sky" not in text
 
 
 def test_camera_location_follows_target_with_fixed_direction():
@@ -83,7 +130,10 @@ def test_perspective_width_matches_orthographic_framing_at_target():
 
     assert camera.angle is None
     assert camera.effective_angle == pytest.approx(53.1301023542)
-    assert "angle 53.1301" in scene_to_sdl(make_scene((), camera=camera))
+    text = scene_to_sdl(make_scene((), camera=camera))
+    assert "angle 53.1301" in text
+    assert text.index("direction <0, 1, 0>") < text.index("angle 53.1301")
+    assert text.index("right <1.33333333, 0, 0>") < text.index("angle 53.1301")
 
 
 def test_explicit_perspective_angle_overrides_width():

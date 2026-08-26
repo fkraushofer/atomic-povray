@@ -956,6 +956,12 @@ The camera `direction` points from the camera toward `target`; its magnitude
 sets the camera distance. The emitted camera position is therefore
 `target - direction`. Keeping `direction` fixed while changing `target`
 translates the view without changing its orientation or perspective.
+The camera `up` vector is a world-space hint for the top of the image. Its
+component parallel to `direction` is ignored, while its perpendicular component
+points toward the rendered image's top edge. For example, a view along
+`direction=(0, 0, -100)` with `up=(0, 1, 0)` places positive Cartesian y toward
+the top of the image; reversing the view direction does not implicitly reverse
+the requested up direction.
 
 `get_default_light(camera)` creates a soft area light that tracks the camera,
 offset half a camera distance upward and half a camera distance to screen-right.
